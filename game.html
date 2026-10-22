@@ -2998,6 +2998,28 @@ GAMES.party=(function(){
 })();
 
 var YST={resume:null,node:'start',gsz:0,elapsed:0,pen:0};
+var WV={},WVMY={},wvSubbed=false;
+function wvOf(uid){var e=uid&&WV[uid];return e&&typeof e.w==='number'?e.w:1;}
+function wvList(){return Object.keys(WVMY).map(function(u){return {uid:u,name:WVMY[u].name,w:WVMY[u].w};});}
+/* vote weights: each giver keeps a list in weights/<their uid>; the owner's own entries win over others */
+function wvSync(){
+  if(wvSubbed||!SOC.db)return;wvSubbed=true;
+  SOC.db.collection('weights').onSnapshot(function(s){
+    var m={},mine={};
+    s.docs.forEach(function(d){
+      var data=d.data()||{},list=(data&&typeof data.list==='object')?data.list:{},own=d.id===SOC.uid;
+      Object.keys(list).slice(0,300).forEach(function(u){
+        var e=list[u];if(!e||typeof e.w!=='number')return;
+        var r={w:clampN(e.w,0,10),name:safeName(e.name)};
+        if(own)mine[u]=r;
+        if(!m[u]||own)m[u]=r;
+      });
+    });
+    WV=m;WVMY=mine;
+    if(!cmdEl.hidden)cmdRender();
+  },function(){});
+}
+
 /* ===== Yard Escape: a short story in a 3D yard. Walk onto a yellow square to pick a group size (1-5 players).
    The game waits until the whole group has joined, then bigger groups meet more, faster ghosts.
    Find the 3 lanterns and light the gate. Each group size keeps its own top 10 fastest times on this device. ===== */
@@ -3027,7 +3049,7 @@ GAMES.yard=(function(){
     'Ghost blocks drift between the crates. Touch one and you lose 3 seconds and go back to the start.',
     'Find all three lanterns, then light the gate at the back of the yard. Go!'];
   var jy=0,vyy=0,st='lobby',prev='lobby',gsz=0,t=0,clock=0,pen=0,flash=0,msg='',msgT=0,face=0,step=0,x=0,z=0,
-      node='start',cnt=3,inv=0,got={},myFin=false,ghosts=[],rects=[],tab=1,winT=0,winSecs=0,winNames='',
+      node='start',myVote=null,vt=0,cnt=3,inv=0,got={},myFin=false,ghosts=[],rects=[],tab=1,winT=0,winSecs=0,winNames='',
       cam={x:0,y:6.2,z:-9};
   function fmt(s){var m=Math.floor(s/60),r=s-m*60;return m+':'+(r<10?'0':'')+r.toFixed(1);}
   function wrapLines(s,n){
@@ -3137,11 +3159,14 @@ GAMES.yard=(function(){
     }
     if(st==='wait'&&waitingCount()>=gsz){st='count';cnt=3;}
     if(st==='count'){cnt-=dt;if(cnt<=0)beginStory();}
-    if(st==='story'){/* waits for taps */}
+    if(voting()){
+      vt+=dt;
+      if(votesIn()>=memberKeys().length||vt>=15)choose(voteWinner());
+    }
     if(st==='play')playUpdate(dt);
     camUpdate(dt);
     netSend({x:Math.round(x*100)/100,y:0,z:Math.round(z*100)/100,f:Math.round(face*100)/100,
-      st:st,gsz:gsz,jy:Math.round(jy*100)/100,got:Object.keys(got).map(Number),fin:myFin?1:0});
+      st:st,gsz:gsz,nd:node,v:(myVote===null?null:{n:node,i:myVote}),jy:Math.round(jy*100)/100,got:Object.keys(got).map(Number),fin:myFin?1:0});
     netFlush();
   };
   function panel(y,h){
@@ -3190,14 +3215,45 @@ GAMES.yard=(function(){
     var bh=Math.min(30,Math.max(18,(V.h-y-lines.length*16-60)/Math.max(1,n.c.length)));
     panel(y,40+lines.length*16+n.c.length*(bh+6)+8);
     lines.forEach(function(l,j){txt(l,V.w/2,y+22+j*16,13,'#fff');});
+    if(voting())txt('Group vote: '+votesIn()+' of '+memberKeys().length+' in, '+Math.max(0,Math.ceil(15-vt))+'s left',V.w/2,y+lines.length*16+30,11,P.sun);
     var cy=y+30+lines.length*16;
     n.c.forEach(function(c,j){
-      button(c[0],V.w/2,cy+j*(bh+6),Math.min(V.w-60,340),bh,{a:'choice',i:j},c[2]&&c[2].game?'#ffd23f':'#fff');
+      var lab=c[0]+(voting()?'  ['+voteCounts()[j]+']':'');
+      button(lab,V.w/2,cy+j*(bh+6),Math.min(V.w-60,340),bh,{a:'choice',i:j},myVote===j?'#b8f5cc':(c[2]&&c[2].game?'#ffd23f':'#fff'));
     });
   }
+  /* group votes: in a group, everyone votes on a choice; votes count with their weight; a tie is broken by a shared, seeded pick */
+  function voting(){return gsz>1&&!!NODES[node]&&NODES[node].c.length>1&&st==='story';}
+  function vhash(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+  function memberKeys(){
+    var ks=[SOC.uid||'me'];
+    mates().forEach(function(p){if(p.presence.st==='story'&&p.presence.nd===node)ks.push(p.by||p.peer||'');});
+    return ks;
+  }
+  function votesIn(){
+    var k=myVote!==null?1:0;
+    mates().forEach(function(p){var v=p.presence.v;if(v&&v.n===node)k++;});
+    return k;
+  }
+  function voteCounts(){
+    var n=NODES[node].c.length,cnt=[],i;for(i=0;i<n;i++)cnt.push(0);
+    if(myVote!==null)cnt[myVote]+=wvOf(SOC.uid||'');
+    mates().forEach(function(p){var v=p.presence.v;if(v&&v.n===node&&typeof v.i==='number'&&v.i>=0&&v.i<n)cnt[v.i]+=wvOf(p.by||'');});
+    return cnt;
+  }
+  function voteWinner(){
+    var cnt=voteCounts(),n=cnt.length,mx=Math.max.apply(null,cnt),tied=[],i;
+    if(mx<=0){for(i=0;i<n;i++)tied.push(i);}
+    else for(i=0;i<n;i++)if(cnt[i]===mx)tied.push(i);
+    if(tied.length===1)return tied[0];
+    var seed=node+'|'+memberKeys().slice().sort().join(',');
+    return tied[vhash(seed)%tied.length];
+  }
+  function vote(k){myVote=k;beep(600,0.05,'square',0.03,1.2);}
   /* a choice either moves the story on, or opens a minigame; closing that minigame brings you back here */
   function choose(k){
     var c=NODES[node].c[k];if(!c)return;
+    myVote=null;vt=0;
     var o=c[2]||{};
     if(o.game){
       YST.resume=c[1];YST.gsz=gsz;YST.elapsed=clock;YST.pen=pen;
@@ -3259,7 +3315,7 @@ GAMES.yard=(function(){
       else{st='lobby';x=LOBBY.x;z=LOBBY.z;}
     }
     else if(a.a==='leave'){netLeave();toLobby();}
-    else if(a.a==='choice')choose(a.i);
+    else if(a.a==='choice'){if(voting())vote(a.i);else choose(a.i);}
   }
   g.draw=function(){
     rects=[];
@@ -3317,10 +3373,11 @@ GAMES.yard=(function(){
     PAD.key(code,down);
   };
   g.start=function(){
-    PAD.reset();CAM3.snap=true;
+    PAD.reset();CAM3.snap=true;wvSync();
     if(YST.resume){
       var nx=YST.resume;YST.resume=null;
-      gsz=YST.gsz;clock=YST.elapsed;pen=YST.pen;node=nx;st='story';
+      gsz=YST.gsz;clock=YST.elapsed;pen=YST.pen;node=nx;st='story';myVote=null;vt=0;
+      if(gsz>1)netJoin('w3-yard-'+gsz);
       if(NODES[nx]&&NODES[nx].end)finish();
     }else toLobby();
     cam.x=x*0.6;cam.y=6.2;cam.z=z-8.8;
@@ -10079,10 +10136,10 @@ if(window.visualViewport){
 }
 /* ===== Owner command panel (only the page owner sees the button) ===== */
 var ADM={},ROLES={},GR={},ANN=[],GSUB={};
-var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['tools','Test tools'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles']];
-var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:true,verify:true,events:true,assign:true};
-var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:false,verify:false,events:false,assign:false};
-var CMD={owner:false,admin:false,perms:{},busy:false,msg:null,evPick:'',evNote:'',vu:'',ann:'',gu:'',ga:'50',adm:'',rn:'',pick:'',sureRole:'',players:null,sure:false,startWave:1,tdCash:false};
+var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['tools','Test tools'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights']];
+var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:true,verify:true,events:true,assign:true,votes:true};
+var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:false,verify:false,events:false,assign:false,votes:false};
+var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evPick:'',evNote:'',vu:'',ann:'',gu:'',ga:'50',adm:'',rn:'',pick:'',sureRole:'',players:null,sure:false,startWave:1,tdCash:false};
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
 function cleanPerms(p){var o={};PERMS.forEach(function(x){o[x[0]]=!!(p&&typeof p==='object'&&p[x[0]]===true);});return o;}
 function cleanRoleName(n){return (typeof n==='string'&&/^[A-Za-z0-9 _-]{1,20}$/.test(n))?n:'Role';}
@@ -10196,6 +10253,7 @@ function givenHtml(dis){
   return h;
 }
 function cmdRender(){
+  wvSync();
   if(!CMD.admin){cmdBody.innerHTML='<div class="sheet"><p>You do not have access to the admin panel.</p></div>';return;}
   var ae=document.activeElement,fid=(ae&&ae.id&&cmdBody.contains(ae))?ae.id:null;
   var dis=CMD.busy?' disabled':'',own=CMD.owner,asg=!own&&can('assign');
@@ -10217,6 +10275,17 @@ function cmdRender(){
     if(!vl.length)h+='<p class="note">No one has a blue check yet.</p>';
     vl.forEach(function(x){
       h+='<div class="row"><span class="who">@'+esc(x.name)+VSVG+'<small>given by @'+esc(x.byName)+'</small></span>'+((own||x.by===SOC.uid)?'<button class="mini" type="button" data-cmd="vrm" data-u="'+esc(x.uid)+'" data-g="'+esc(x.by)+'"'+dis+'>Remove</button>':'')+'</div>';
+    });
+  }
+  if(own||can('votes')){
+    any=true;
+    h+='<p class="lbl">Vote weights</p><p class="note">How much a player\'s vote counts when their group makes a story choice. 1 is normal, 2 counts double, 0 means the vote does not count.</p>';
+    h+='<div class="sendrow"><input class="field" id="cmd-vwn" maxlength="17" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Player username" value="'+esc(CMD.vwn)+'"><input class="field" id="cmd-vww" type="number" min="0" max="10" step="0.5" value="'+esc(CMD.vww)+'" style="max-width:90px"></div>';
+    h+='<div class="sendrow"><button class="mini ok" type="button" data-cmd="vwset"'+dis+'>Set weight</button></div>';
+    var wl=wvList();
+    if(!wl.length)h+='<p class="note">No vote weights set. Everyone counts as 1.</p>';
+    wl.forEach(function(x){
+      h+='<div class="row"><span class="who">@'+esc(x.name)+'<small>counts '+x.w+'x</small></span><button class="mini" type="button" data-cmd="vwrm" data-u="'+esc(x.uid)+'"'+dis+'>Remove</button></div>';
     });
   }
   if(can('banner')){
@@ -10317,6 +10386,29 @@ function cmdVGive(){
       VC[SOC.uid]={list:list};CMD.vu='';cmdMsg('good','@'+d.name+' now has a blue check.');vRefresh(true);return null;
     });
   }).then(function(err){if(err)cmdMsg('err',err);},cmdFail).then(cmdDone);
+}
+function cmdVWSet(){
+  if(!can('votes')||!SOC.db)return;
+  var nm=(CMD.vwn||'').trim(),w=parseFloat(CMD.vww);
+  if(!nm){cmdMsg('err','Type a player username first.');cmdRender();return;}
+  if(!isFinite(w)||w<0||w>10){cmdMsg('err','Pick a weight from 0 to 10.');cmdRender();return;}
+  CMD.busy=true;cmdRender();
+  cmdLookup(nm).then(function(d){
+    if(typeof d==='string')return d;
+    var list={};Object.keys(WVMY).forEach(function(k){list[k]=WVMY[k];});
+    list[d.uid]={name:d.name,w:Math.round(w*2)/2};
+    return SOC.db.doc('weights/'+SOC.uid).set({list:list,at:Date.now()}).then(function(){
+      WVMY=list;CMD.vwn='';cmdMsg('good','@'+d.name+' now counts '+list[d.uid].w+'x in group votes.');return null;
+    });
+  }).then(function(err){if(err)cmdMsg('err',err);},cmdFail).then(cmdDone);
+}
+function cmdVWRm(uid){
+  if(!can('votes')||!SOC.db||!uid)return;
+  var list={};Object.keys(WVMY).forEach(function(k){if(k!==uid)list[k]=WVMY[k];});
+  CMD.busy=true;cmdRender();
+  SOC.db.doc('weights/'+SOC.uid).set({list:list,at:Date.now()}).then(function(){
+    WVMY=list;cmdMsg('good','Vote weight removed.');
+  },cmdFail).then(cmdDone);
 }
 function cmdVRemove(uid,g){
   if(!uid||!g||!(CMD.owner||(g===SOC.uid&&can('verify'))))return;
@@ -10433,12 +10525,14 @@ cmdBody.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;
   if(!b||b.disabled||!CMD.admin)return;
   var a=b.getAttribute('data-cmd');
-  var OWN={newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'tools',wup:'tools',cash:'tools',self:'tools',grant:'assign',pickrole:'assign'};
+  var OWN={newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'tools',wup:'tools',cash:'tools',self:'tools',grant:'assign',pickrole:'assign'};
   if(OWN[a]&&!CMD.owner)return;
   if(NEED[a]&&!can(NEED[a]))return;
   if(a!=='chats')CMD.sure=false;
   if(a!=='delrole')CMD.sureRole='';
-  if(a==='post')cmdPost();
+  if(a==='vwset')cmdVWSet();
+  else if(a==='vwrm')cmdVWRm(b.getAttribute('data-u'));
+  else if(a==='post')cmdPost();
   else if(a==='clearann')cmdClearAnn();
   else if(a==='gift')cmdGift();
   else if(a==='players')cmdPlayers();
@@ -10463,6 +10557,8 @@ cmdBody.addEventListener('click',function(e){
   else if(a==='self'){W.coins+=100;touch();flushW();cmdMsg('good','You now have '+W.coins+' bricks.');cmdRender();}
 });
 cmdBody.addEventListener('input',function(e){
+  if(e.target.id==='cmd-vwn')CMD.vwn=e.target.value;
+  if(e.target.id==='cmd-vww')CMD.vww=e.target.value;
   if(e.target.id==='cmd-ann')CMD.ann=e.target.value;
   else if(e.target.id==='cmd-gu')CMD.gu=e.target.value;
   else if(e.target.id==='cmd-adm')CMD.adm=e.target.value;
