@@ -1,5 +1,7 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#15152b"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Blockyard"><title>Blockyard Arcade</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2313121f'/%3E%3Crect x='8' y='3' width='16' height='26' fill='%23e3262e'/%3E%3Crect x='10' y='6' width='12' height='9' fill='%230c1a40'/%3E%3Cpath d='M14 8v5l4-2.5z' fill='%23fff'/%3E%3Crect x='11' y='18' width='2' height='2' fill='%23ffd23f'/%3E%3Crect x='15' y='18' width='2' height='2' fill='%233f7dff'/%3E%3C/svg%3E"><style>[hidden]{display:none!important}html{color-scheme:light;height:100%}body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}</style></head><body>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#15152b"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Blockyard"><title>Blockyard Arcade</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2313121f'/%3E%3Crect x='8' y='3' width='16' height='26' fill='%23e3262e'/%3E%3Crect x='10' y='6' width='12' height='9' fill='%230c1a40'/%3E%3Cpath d='M14 8v5l4-2.5z' fill='%23fff'/%3E%3Crect x='11' y='18' width='2' height='2' fill='%23ffd23f'/%3E%3Crect x='15' y='18' width='2' height='2' fill='%233f7dff'/%3E%3C/svg%3E"><style>[hidden]{display:none!important}html{color-scheme:light;height:100%}body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}@media (hover:hover){.tile:hover{transform:translateY(-3px);box-shadow:0 7px 0 var(--ink,#14213d)}}
+.tile{transition:transform .12s ease}
+</style></head><body>
 <title>Blockyard Arcade</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3134,20 +3136,25 @@ GAMES.yard=(function(){
     var x0=cx-w/2;
     ctx.save();ctx.fillStyle=fill||'#fff';ctx.strokeStyle=P.ink;ctx.lineWidth=3;
     ctx.beginPath();ctx.rect(x0,y,w,h);ctx.fill();ctx.stroke();ctx.restore();
-    txt(label,cx,y+h/2+5,15,P.ink);
+    var fs=Math.min(15,h*0.58);
+    txt(label,cx,y+h/2,fs,P.ink);
     rects.push({x:x0,y:y,w:w,h:h,a:a});
   }
   function menuView(){
-    var y=Math.max(62,V.h*0.03),s=Math.min(48,(V.h-y-64)/7),bh=Math.max(22,s-8),bw=Math.min(300,V.w-70),i;
-    panel(y,64+7*s);
-    txt('Pick your group size',V.w/2,y+22,Math.min(22,V.h/16),P.sun);
-    txt('The game starts when your whole group has joined.',V.w/2,y+42,12,'#fff');
+    var y=Math.max(56,V.h*0.03),rh=Math.min(50,(V.h-y-60)/4),bh=Math.max(16,rh-6),half=Math.min(170,(V.w-50)/2),
+        cL=V.w/2-half/2-6,cR=V.w/2+half/2+6,r0=y+46,ph=46+4*rh+10,i;
+    panel(y-4,ph);
+    txt('Pick your group size',V.w/2,y+16,Math.min(18,V.h/13),P.sun);
+    txt('The game starts when your whole group has joined.',V.w/2,y+34,Math.min(11,V.w/36),'#fff');
+    var fs=Math.min(13,bh*0.6);
     for(i=1;i<=5;i++){
-      button(i===1?'1 player · easiest':(i===5?'5 players · hardest':i+' players'),V.w/2,y+56+(i-1)*s,bw,bh,{a:'pick',n:i},
+      var rr=Math.floor((i-1)/2),cx=((i-1)%2===0)?cL:cR;
+      if(i===5){rr=2;cx=cL;}
+      button(i===1?'1 player · easiest':(i===5?'5 players · hardest':i+' players'),cx,r0+rr*rh,half,bh,{a:'pick',n:i},
         i===1?'#b8f5cc':(i===5?'#ffb3a8':'#fff'));
     }
-    button('Top 10 boards',V.w/2,y+56+5*s,bw,bh,{a:'board'},'#ffd23f');
-    button('Back to the yard',V.w/2,y+56+6*s,bw,bh,{a:'back'},'#dfe6ff');
+    button('Top 10 boards',cR,r0+2*rh,half,bh,{a:'board'},'#ffd23f');
+    button('Back to the yard',V.w/2,r0+3*rh,half*2+12,bh,{a:'back'},'#dfe6ff');
   }
   function boardView(){
     var y=Math.max(62,V.h*0.03),rs=Math.max(15,Math.min(26,(V.h-y-140)/10)),h=Math.min(V.h-y-6,140+10*rs),i;
@@ -4972,7 +4979,7 @@ GAMES.golf=(function(){
   g.key=function(c,d){
     if(!d)return;
     if(c==='ArrowLeft')aim-=0.12;else if(c==='ArrowRight')aim+=0.12;
-    else if(c==='Space'&&!moving()){vx=Math.sin(aim)*11;vz=Math.cos(aim)*11;shots++;}
+    else if((c==='Space'||c==='KeyF')&&!moving()){vx=Math.sin(aim)*11;vz=Math.cos(aim)*11;shots++;}
     else if(c==='KeyV')CAM3.cycle(aim);
   };
   function inRect(x,z,r){return Math.abs(x-r[0])<r[2]/2&&Math.abs(z-r[1])<r[3]/2;}
@@ -6845,7 +6852,7 @@ GAMES.rocks=(function(){
     if(c==='ArrowLeft'||c==='KeyA')tl=d;
     else if(c==='ArrowRight'||c==='KeyD')tr=d;
     else if(c==='ArrowUp'||c==='KeyW')th=d;
-    else if(c==='Space'&&d)fire();
+    else if((c==='Space'||c==='KeyF')&&d)fire();
   };
   function hit(){
     lives--;inv=2;beep(150,0.4,'sawtooth',0.06,0.4);
@@ -7072,7 +7079,7 @@ GAMES.bubble=(function(){
     if(st==='over'){if(t>0.7)reset();return;}
     if(c==='ArrowLeft')ang=clampN(ang-0.12,-2.88,-0.26);
     else if(c==='ArrowRight')ang=clampN(ang+0.12,-2.88,-0.26);
-    else if(c==='Space')g.up();
+    else if(c==='Space'||c==='KeyF')g.up();
   };
   function neighbours(r,c){
     var odd=r%2,out=[[r,c-1],[r,c+1],[r-1,c-(odd?0:1)],[r-1,c+(odd?1:0)],[r+1,c-(odd?0:1)],[r+1,c+(odd?1:0)]];
@@ -10618,12 +10625,59 @@ function endPtr(e){if(cur&&cur.up){var p=pt(e);cur.up(p[0],p[1],e.pointerId);}}
 stage.addEventListener('pointerup',endPtr);
 stage.addEventListener('pointercancel',endPtr);
 stage.addEventListener('contextmenu',function(e){e.preventDefault();});
+/* ===== Controls: every game reads the same canonical keys. The player's own keys (Settings > Controls)
+   are translated here, so each game keeps working with any remapping. ===== */
+var BIND_ACT=[['forward','Forward'],['back','Back'],['left','Left'],['right','Right'],['jump','Jump'],['shoot','Shoot']];
+var BIND_DEF={forward:'KeyW',back:'KeyS',left:'KeyD',right:'KeyA',jump:'Space',shoot:'KeyE'};
+var BIND_CANON={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',shoot:'KeyF'};
+var BIND=(function(){
+  var o=lsGet('controls',null),r={};
+  BIND_ACT.forEach(function(a){var v=o&&o[a[0]];r[a[0]]=(typeof v==='string'&&v&&v.length<24)?v:BIND_DEF[a[0]];});
+  return r;
+})();
+var BIND_WAIT=null,BIND_JUST=0;
+function bindMap(raw){
+  var a;
+  for(a in BIND)if(BIND[a]===raw)return BIND_CANON[a];
+  for(a in BIND_DEF)if(BIND_DEF[a]===raw)return null;   /* a default key that the player moved away */
+  return raw;
+}
+function bindSet(act,code){
+  var old=BIND[act];
+  for(var a in BIND)if(a!==act&&BIND[a]===code)BIND[a]=old;   /* swap with the key that had it */
+  BIND[act]=code;lsSet('controls',BIND);
+}
+function bindReset(){
+  BIND_ACT.forEach(function(a){BIND[a[0]]=BIND_DEF[a[0]];});
+  lsSet('controls',BIND);BIND_WAIT=null;
+}
+function keyLabel(c){
+  var m={Space:'Space',ArrowUp:'Up arrow',ArrowDown:'Down arrow',ArrowLeft:'Left arrow',ArrowRight:'Right arrow',
+    Enter:'Enter',Escape:'Esc',ShiftLeft:'Left Shift',ShiftRight:'Right Shift',ControlLeft:'Left Ctrl',ControlRight:'Right Ctrl',
+    AltLeft:'Left Alt',AltRight:'Right Alt',Backspace:'Backspace',Tab:'Tab'};
+  if(m[c])return m[c];
+  return String(c||'').replace(/^Key/,'').replace(/^Digit/,'');
+}
 window.addEventListener('keydown',function(e){
+  if(BIND_WAIT){
+    e.preventDefault();
+    if(e.code!=='Escape')bindSet(BIND_WAIT,e.code);
+    BIND_WAIT=null;BIND_JUST=Date.now();
+    if(!$('settings').hidden)setRender();
+    return;
+  }
+  if(e.code==='Escape'&&cur){closeGame();return;}
   if(!cur||!cur.key)return;
+  var c=bindMap(e.code);
+  if(c===null)return;
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.code)>=0)e.preventDefault();
-  initAudio(); cur.key(e.code,true);
+  initAudio(); cur.key(c,true);
 });
-window.addEventListener('keyup',function(e){if(cur&&cur.key)cur.key(e.code,false);});
+window.addEventListener('keyup',function(e){
+  if(BIND_WAIT||!cur||!cur.key)return;
+  var c=bindMap(e.code);
+  if(c!==null)cur.key(c,false);
+});
 
 /* hub: friend circles, search, side menu, charts */
 var AVC=['#3cc8f0','#ffd23f','#ff6b5b','#5ed88a','#b48cff','#ff9a3c'];
@@ -10778,6 +10832,11 @@ function setRender(){
     h+='<button class="modebtn'+(m===o[0]?' on':'')+'" type="button" data-mode="'+o[0]+'" aria-pressed="'+(m===o[0])+'"><span class="modepic" style="background:'+o[2]+'"><i style="background:'+o[3]+'"></i><i style="background:#ffd23f"></i><i style="background:#3cc8f0"></i></span>'+o[1]+'</button>';
   });
   h+='</div><p class="lbl">Sound</p><div class="row"><span class="who">Game sounds</span><button class="mini'+(soundOn?' ok':'')+'" type="button" data-snd="1" aria-pressed="'+soundOn+'">'+(soundOn?'On':'Off')+'</button></div>';
+  h+='<p class="lbl">Controls</p><div class="sheet"><p>Keys for moving, jumping and shooting in every game. Tap a key, then press the new one. Press Esc to cancel.</p></div>';
+  BIND_ACT.forEach(function(a){
+    h+='<div class="row"><span class="who">'+a[1]+'</span>'+(BIND_WAIT===a[0]?'<button class="mini bad" type="button" data-bind="'+a[0]+'">Press a key\u2026</button>':'<button class="mini" type="button" data-bind="'+a[0]+'">'+esc(keyLabel(BIND[a[0]]))+'</button>')+'</div>';
+  });
+  h+='<button class="choice alt" type="button" data-bind-reset="1">Reset controls to defaults</button>';
   h+=setAccountHtml();
   h+='<p class="lbl">'+(SOLO?'Account code':'Save code')+'</p><p class="note">'+(SOC.account?'Your account saves your progress online. You can still keep a backup code.':(SOLO?'Your account code IS your account. Copy it somewhere safe \u2014 paste it on any other device and sign in with your password to pick up exactly where you left off.':'A save code keeps your progress safe and moves it to another device.'))+'</p>';
   if(SV.msg)h+='<p class="note '+SV.msg.t+'" role="status">'+esc(SV.msg.s)+'</p>';
@@ -10835,6 +10894,11 @@ $('set-body').addEventListener('click',function(e){
   }
   else if(b.getAttribute('data-mode')){setMode(b.getAttribute('data-mode'));beep(520,0.08,'square',0.04,1.5);}
   else if(b.getAttribute('data-snd')){soundOn=!soundOn;lsSet('sound',soundOn);syncSnd();initAudio();}
+  else if(b.getAttribute('data-bind')){
+    if(Date.now()-BIND_JUST<400)return;
+    BIND_WAIT=b.getAttribute('data-bind');
+  }
+  else if(b.hasAttribute('data-bind-reset')){bindReset();}
   setRender();
 });
 setMode(lsGet('mode','dark'));
