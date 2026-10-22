@@ -3012,7 +3012,7 @@ GAMES.yard=(function(){
     'The yard lanterns went out last night. Nobody on Blockyard Street can find the gate in the dark.',
     'Ghost blocks drift between the crates. Touch one and you lose 3 seconds and go back to the start.',
     'Find all three lanterns, then light the gate at the back of the yard. Go!'];
-  var st='lobby',prev='lobby',gsz=0,t=0,clock=0,pen=0,flash=0,msg='',msgT=0,face=0,step=0,x=0,z=0,
+  var jy=0,vyy=0,st='lobby',prev='lobby',gsz=0,t=0,clock=0,pen=0,flash=0,msg='',msgT=0,face=0,step=0,x=0,z=0,
       cardI=0,cnt=3,inv=0,got={},myFin=false,ghosts=[],rects=[],tab=1,winT=0,winSecs=0,winNames='',
       cam={x:0,y:6.2,z:-9};
   function fmt(s){var m=Math.floor(s/60),r=s-m*60;return m+':'+(r<10?'0':'')+r.toFixed(1);}
@@ -3088,7 +3088,7 @@ GAMES.yard=(function(){
       var b=null,bd=1e9;
       tg.forEach(function(q){var d=Math.hypot(q.x-gh.x,q.z-gh.z);if(d<bd){bd=d;b=q;}});
       if(b&&bd>0.05){var k=Math.min(bd,gh.sp*dt)/bd;gh.x+=(b.x-gh.x)*k;gh.z+=(b.z-gh.z)*k;}
-      if(inv<=0&&Math.hypot(gh.x-x,gh.z-z)<1.0)hurt();
+      if(inv<=0&&jy<0.9&&Math.hypot(gh.x-x,gh.z-z)<1.0)hurt();
     });
     pickup();
     if(lanternCount()>=3&&Math.hypot(x-GATE.x,z-GATE.z)<1.8&&!myFin){
@@ -3111,8 +3111,10 @@ GAMES.yard=(function(){
     t+=dt;if(flash>0)flash-=dt;if(msgT>0)msgT-=dt;if(st==='win')winT+=dt;
     CAM3.tick(dt);
     var moving=PAD.axes(),mv=CAM3.dir(PAD.ax,PAD.ay);
-    PAD.take();
+    var jp=PAD.take();
     if(st==='lobby'||st==='wait'||st==='count'||st==='play'){
+      if(jp&&jy<=0.001){vyy=8;beep(520,0.1,'square',0.04,1.8);}
+      vyy-=24*dt;jy+=vyy*dt;if(jy<=0){jy=0;vyy=0;}
       if(moving){x+=mv[0]*SPD*dt;z+=mv[1]*SPD*dt;face=Math.atan2(mv[0],mv[1]);step+=dt*9;}
       solid();
     }
@@ -3125,7 +3127,7 @@ GAMES.yard=(function(){
     if(st==='play')playUpdate(dt);
     camUpdate(dt);
     netSend({x:Math.round(x*100)/100,y:0,z:Math.round(z*100)/100,f:Math.round(face*100)/100,
-      st:st,gsz:gsz,got:Object.keys(got).map(Number),fin:myFin?1:0});
+      st:st,gsz:gsz,jy:Math.round(jy*100)/100,got:Object.keys(got).map(Number),fin:myFin?1:0});
     netFlush();
   };
   function panel(y,h){
@@ -3254,7 +3256,7 @@ GAMES.yard=(function(){
     });
     var tags=netDraw(1/60);
     var col=hex2rgb(avPart('body',avOf(W&&W.av).body).c);
-    if(CAM3.mode!==2)blockPerson(x,0,z,face,col,step,inv>0&&flash>0,myAv3());
+    if(CAM3.mode!==2)blockPerson(x,jy,z,face,col,step,inv>0&&flash>0,myAv3());
     R3.shadow(x,0.02,z,0.45);
     R3.flush();
     netTags(tags);
