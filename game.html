@@ -1008,6 +1008,7 @@ function closeGame(){
   cur=null; play.hidden=true; $('tdpanel').hidden=true; if(typeof mkUiHide==='function')mkUiHide(); hub.hidden=false; refreshHub();
   if(wasMaker){if(MK.fromHub){MK.fromHub=false;}else openCreate();}
   else if(wasTd)openLobby();
+  if(typeof YST!=='undefined'&&YST.resume&&!wasTd&&!wasMaker)openGame('yard');
 }
 function refreshHub(){
   var bst={'best-bust':'by.bust','best-snake':'by.snake','best-stack':'by.stack','best-merge':'by.merge','best-dive':'by.dive','best-hoops':'by.hoops','best-memo':'by.memo','best-whack':'by.whack','best-tower':'by.tower','best-frog':'by.frog','best-flap':'by.flap','best-drop':'by.drop','best-maze':'by.maze','best-echo':'by.echo','best-lights':'by.lights','best-catch':'by.catch','best-rocks':'by.rocks','best-bubble':'by.bubble','best-dig':'by.dig','best-sort':'by.sort','best-cave':'by.cave','best-range':'by.range','best-road':'by.road','best-beat':'by.beat'};
@@ -2996,6 +2997,7 @@ GAMES.party=(function(){
   return g;
 })();
 
+var YST={resume:null,node:'start',gsz:0,elapsed:0,pen:0};
 /* ===== Yard Escape: a short story in a 3D yard. Walk onto a yellow square to pick a group size (1-5 players).
    The game waits until the whole group has joined, then bigger groups meet more, faster ghosts.
    Find the 3 lanterns and light the gate. Each group size keeps its own top 10 fastest times on this device. ===== */
@@ -3008,12 +3010,24 @@ GAMES.yard=(function(){
   var GATE={x:0,z:-12.6};
   var LOBBY={x:0,z:4},START={x:0,z:11};
   var GSP=[[-12,-12],[12,12],[-12,12],[12,-12],[0,-13.5],[-13,0]];
+  var NODES={
+    start:{t:"The yard lanterns went out last night and fog rolls over Blockyard Street. Mayor Pip hands you a rusty key. “The Gloom Tower holds the last lantern. Bring it back.”",c:[["Head for the tower","gate"],["Ask the baker for a snack first","snack"]]},
+    snack:{t:"The baker tosses you a warm loaf. “For the road!” You feel a little braver.",c:[["Head out","gate"]]},
+    gate:{t:"The yard gate creaks open. Zombie blocks shuffle across the courtyard between you and the tower.",c:[["Fight through the zombies (Block Blitz)","courtyard",{game:'arena'}],["Sneak along the wall","sneak"]]},
+    courtyard:{t:"You clear the courtyard. The tower door is in sight.",c:[["Go to the tower door","door"]]},
+    sneak:{t:"You slip along the wall. The zombies never look up, but the tower door is locked tight.",c:[["Use the rusty key","door"],["Climb the vines","vines"]]},
+    vines:{t:"The vines are slimy. You scrape in through a window and land on the stairs.",c:[["Go up the stairs","stairs"]]},
+    door:{t:"The door creaks open. Ghost blocks wait on the stairs inside.",c:[["Fight the stair ghosts (Block Blitz)","stairs",{game:'arena'}],["Ask the keeper for a hint","hint"]]},
+    hint:{t:"The old keeper smiles. “The Fog King loves a game of four in a row. Beat him and the lantern is yours.”",c:[["Go up the stairs","stairs"]]},
+    stairs:{t:"At the top, the Fog King waits beside the last lantern. “Play me for it!”",c:[["Play Four in a Row for the lantern","win",{game:'four'}]]},
+    win:{t:"You carry the lantern back to the gate. The whole yard glows again!",end:true}
+  };
   var STORY=[
     'The yard lanterns went out last night. Nobody on Blockyard Street can find the gate in the dark.',
     'Ghost blocks drift between the crates. Touch one and you lose 3 seconds and go back to the start.',
     'Find all three lanterns, then light the gate at the back of the yard. Go!'];
   var jy=0,vyy=0,st='lobby',prev='lobby',gsz=0,t=0,clock=0,pen=0,flash=0,msg='',msgT=0,face=0,step=0,x=0,z=0,
-      cardI=0,cnt=3,inv=0,got={},myFin=false,ghosts=[],rects=[],tab=1,winT=0,winSecs=0,winNames='',
+      node='start',cnt=3,inv=0,got={},myFin=false,ghosts=[],rects=[],tab=1,winT=0,winSecs=0,winNames='',
       cam={x:0,y:6.2,z:-9};
   function fmt(s){var m=Math.floor(s/60),r=s-m*60;return m+':'+(r<10?'0':'')+r.toFixed(1);}
   function wrapLines(s,n){
@@ -3059,7 +3073,7 @@ GAMES.yard=(function(){
     for(var i=0;i<gsz+1;i++){var s=GSP[i];ghosts.push({x:s[0],z:s[1],sp:1.9+0.5*(gsz-1)});}
   }
   function toLobby(){st='lobby';gsz=0;netJoin('w3-yard-lobby');x=LOBBY.x;z=LOBBY.z;}
-  function beginStory(){st='story';cardI=0;resetRun();x=START.x;z=START.z;}
+  function beginStory(){st='story';node='start';YST.resume=null;resetRun();x=START.x;z=START.z;}
   function beginPlay(){st='play';clock=0;}
   function chooseSize(n){
     gsz=n;PAD.reset();
@@ -3172,16 +3186,34 @@ GAMES.yard=(function(){
     button('Back',V.w/2,y+h-38,120,28,{a:'back'},'#dfe6ff');
   }
   function storyView(){
-    var y=V.h*0.22,lines=wrapLines(STORY[cardI],Math.max(22,Math.floor((V.w-60)/8.5)));
-    panel(y-14,lines.length*22+96);
-    txt('Chapter '+(cardI+1)+' of '+STORY.length,V.w/2,y+12,14,P.sun);
-    lines.forEach(function(l,k){txt(l,V.w/2,y+42+k*22,16,'#fff');});
-    txt('Tap to continue',V.w/2,y+lines.length*22+72,14,'#dfe6ff');
+    var n=NODES[node],w=Math.max(22,Math.floor((V.w-60)/7)),lines=wrapLines(n.t,w),y=Math.max(56,V.h*0.04),k;
+    var bh=Math.min(30,Math.max(18,(V.h-y-lines.length*16-60)/Math.max(1,n.c.length)));
+    panel(y,40+lines.length*16+n.c.length*(bh+6)+8);
+    lines.forEach(function(l,j){txt(l,V.w/2,y+22+j*16,13,'#fff');});
+    var cy=y+30+lines.length*16;
+    n.c.forEach(function(c,j){
+      button(c[0],V.w/2,cy+j*(bh+6),Math.min(V.w-60,340),bh,{a:'choice',i:j},c[2]&&c[2].game?'#ffd23f':'#fff');
+    });
+  }
+  /* a choice either moves the story on, or opens a minigame; closing that minigame brings you back here */
+  function choose(k){
+    var c=NODES[node].c[k];if(!c)return;
+    var o=c[2]||{};
+    if(o.game){
+      YST.resume=c[1];YST.gsz=gsz;YST.elapsed=clock;YST.pen=pen;
+      g.stop();openGame(o.game);return;
+    }
+    node=c[1];
+    if(NODES[node].end)finish();
+  }
+  function finish(){
+    st='win';winT=0;winSecs=clock+pen;winNames=nameList();
+    saveTime(gsz,winSecs,winNames);beep(660,0.5,'square',0.06,2);
   }
   function winView(){
     var y=V.h*0.25;
     panel(y-14,170);
-    txt('Gate lit!',V.w/2,y+22,30,P.sun);
+    txt('The yard glows again!',V.w/2,y+22,Math.min(22,V.w/16),P.sun);
     txt('Group time '+fmt(winSecs),V.w/2,y+60,22,'#fff');
     txt(String(winNames).slice(0,60),V.w/2,y+90,14,'#dfe6ff');
     if(winT>0.6)txt('Tap to return to the yard',V.w/2,y+130,15,'#dfe6ff');
@@ -3227,6 +3259,7 @@ GAMES.yard=(function(){
       else{st='lobby';x=LOBBY.x;z=LOBBY.z;}
     }
     else if(a.a==='leave'){netLeave();toLobby();}
+    else if(a.a==='choice')choose(a.i);
   }
   g.draw=function(){
     rects=[];
@@ -3270,7 +3303,7 @@ GAMES.yard=(function(){
       var r=rects[i];
       if(px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h){act(r.a);return;}
     }
-    if(st==='story'){cardI++;if(cardI>=STORY.length)beginPlay();return;}
+    if(st==='story')return;
     if(st==='win'){if(winT>0.6)toLobby();return;}
     if(st==='menu'||st==='board'||st==='wait')return;
     PAD.down(px,py,id);
@@ -3278,14 +3311,18 @@ GAMES.yard=(function(){
   g.move=function(px,py,id){PAD.move(px,py,id);};
   g.up=function(px,py,id){PAD.up(px,py,id);};
   g.key=function(code,down){
-    if(down&&st==='story'&&(code==='Space'||code==='Enter')){cardI++;if(cardI>=STORY.length)beginPlay();return;}
+    if(down&&st==='story'&&(code==='Space'||code==='Enter')){var kn=NODES[node];if(kn.c.length&&!(kn.c[0][2]&&kn.c[0][2].game))choose(0);return;}
     if(down&&st==='win'&&winT>0.6&&(code==='Enter'||code==='Space')){toLobby();return;}
     if(st==='menu'||st==='board'||st==='wait')return;
     PAD.key(code,down);
   };
   g.start=function(){
     PAD.reset();CAM3.snap=true;
-    toLobby();
+    if(YST.resume){
+      var nx=YST.resume;YST.resume=null;
+      gsz=YST.gsz;clock=YST.elapsed;pen=YST.pen;node=nx;st='story';
+      if(NODES[nx]&&NODES[nx].end)finish();
+    }else toLobby();
     cam.x=x*0.6;cam.y=6.2;cam.z=z-8.8;
   };
   g.stop=function(){PAD.reset();netLeave();};
