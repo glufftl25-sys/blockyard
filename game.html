@@ -6328,7 +6328,7 @@ GAMES.tictac=(function(){
 GAMES.four=(function(){
   var g={kind:'canvas',title:'Four in a Row',lw:400};
   var CW=7,CH=6,b,turn,st,t,S,ox,oy,bot,wins,msg,line,dropA;
-  function metrics(){S=Math.floor(Math.min((V.w-30)/CW,(V.h-220)/CH));ox=(V.w-S*CW)/2;oy=116;}
+  function metrics(){S=Math.max(14,Math.floor(Math.min((V.w-30)/CW,(V.h-220)/CH))||14);ox=(V.w-S*CW)/2;oy=116;}
   function at(x,y){return (x<0||y<0||x>=CW||y>=CH)?-1:b[y*CW+x];}
   function findWin(){
     var dirs=[[1,0],[0,1],[1,1],[1,-1]];
@@ -6405,7 +6405,7 @@ GAMES.four=(function(){
     txt('Tap here to switch',V.w/2,100,12,'#9fb0d8');
     box(ox-6,oy-6,S*CW+12,S*CH+12,'#2d4a96');
     for(var y=0;y<CH;y++)for(var x=0;x<CW;x++){
-      var v=at(x,y),cxp=ox+x*S+S/2,cyp=oy+y*S+S/2,r=S*0.38;
+      var v=at(x,y),cxp=ox+x*S+S/2,cyp=oy+y*S+S/2,r=Math.max(2,(S||14)*0.38);
       ctx.beginPath();ctx.arc(cxp,cyp,r,0,6.2832);
       ctx.fillStyle=v===1?P.sun:(v===2?P.brick:'#16224a');ctx.fill();
       ctx.lineWidth=3;ctx.strokeStyle=P.ink;ctx.stroke();
