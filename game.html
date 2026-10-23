@@ -1502,10 +1502,10 @@ GAMES.arena=(function(){
         if(d2<bd){bd=d2;tgt=foes[i];}
       }
       if(tgt&&bd<260*260){
-        var a=Math.atan2(tgt.y-pl.y,tgt.x-pl.x),n=power>=6?3:(power>=3?2:1);
+        var a=Math.atan2(tgt.y-pl.y,tgt.x-pl.x),n=(power>=6?3:(power>=3?2:1))*(cheatOn('multi')?10:1);
         pl.aim=a;
         for(var s=0;s<n;s++){
-          var aa=a+(s-(n-1)/2)*0.16;
+          var aa=a+(s-(n-1)/2)*(n>3?1.6/(n-1):0.16);if(bullets.length>=400)break;
           var bs=cheatOn('bullet')?1.7:1;bullets.push({x:pl.x,y:pl.y,vx:Math.cos(aa)*400*bs,vy:Math.sin(aa)*400*bs,life:0.8});
         }
         fireT=Math.max(0.15,0.4-power*0.02)*(cheatOn('reload')?0.33:1);
@@ -3610,8 +3610,9 @@ GAMES.duel=(function(){
       if(Math.abs(da)<0.55&&Math.hypot(ox-x,oz-z)<26&&los(x,z,ox,oz))a=ta;
     }
     face=a;
-    for(i=0;i<G.n;i++){
-      var aa=a+(Math.random()*2-1)*G.spread;
+    var nn=G.n*(cheatOn('multi')?10:1);
+    for(i=0;i<nn;i++){
+      var aa=a+(Math.random()*2-1)*(G.spread+(nn>G.n?0.35:0));
       var b={id:sid++,x:x+Math.sin(aa)*0.5,y:y+1.0,z:z+Math.cos(aa)*0.5,dx:Math.sin(aa),dz:Math.cos(aa),sp:G.sp*(cheatOn('bullet')?2:1),life:G.life,dmg:G.dmg,mine:true,col:G.col};
       bullets.push(b);shots.push([b.id,Math.round(b.x*100)/100,Math.round(b.y*100)/100,Math.round(b.z*100)/100,Math.round(b.dx*1000)/1000,Math.round(b.dz*1000)/1000,DUEL.gun]);
     }
@@ -7046,9 +7047,13 @@ GAMES.rocks=(function(){
   g.start=function(){best=lsGet('by.rocks',0);reset(true);};
   g.stop=function(){tl=tr=th=false;};
   function fire(){
-    if(shots.length>(cheatOn('ammo')?40:5))return;
+    var m=cheatOn('multi')?10:1,cap=cheatOn('ammo')?400:(m>1?59:5);
+    if(shots.length>cap)return;
     var bsp=cheatOn('bullet')?680:340;
-    shots.push({x:sx+Math.cos(ang)*16,y:sy+Math.sin(ang)*16,vx:Math.cos(ang)*bsp+svx,vy:Math.sin(ang)*bsp+svy,t:1.3});
+    for(var k=0;k<m;k++){
+      var aa=ang+(k-(m-1)/2)*0.09;
+      shots.push({x:sx+Math.cos(aa)*16,y:sy+Math.sin(aa)*16,vx:Math.cos(aa)*bsp+svx,vy:Math.sin(aa)*bsp+svy,t:1.3});
+    }
     beep(680,0.06,'square',0.035,1.6);
   }
   g.down=function(x,y){
@@ -10261,9 +10266,9 @@ if(window.visualViewport){
 }
 /* ===== Owner command panel (only the page owner sees the button) ===== */
 var ADM={},ROLES={},GR={},ANN=[],GSUB={};
-var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['c_speed','Cheat: Speed'],['c_oneshot','Cheat: One shot'],['c_god','Cheat: Immortal'],['c_jump','Cheat: Super jump'],['c_fly','Cheat: Flight'],['c_ammo','Cheat: Infinite ammo'],['c_reload','Cheat: Fast reload'],['c_bullet','Cheat: Fast bullets'],['c_wave','Cheat: Blitz start wave'],['c_cash','Cheat: Balloons cash'],['c_bricks','Cheat: Free bricks'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports']];
-var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:true,c_oneshot:true,c_god:true,c_jump:true,c_fly:true,c_ammo:true,c_reload:true,c_bullet:true,c_wave:true,c_cash:true,c_bricks:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true};
-var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:false,c_oneshot:false,c_god:false,c_jump:false,c_fly:false,c_ammo:false,c_reload:false,c_bullet:false,c_wave:true,c_cash:true,c_bricks:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false};
+var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['c_speed','Cheat: Speed'],['c_oneshot','Cheat: One shot'],['c_god','Cheat: Immortal'],['c_jump','Cheat: Super jump'],['c_fly','Cheat: Flight'],['c_ammo','Cheat: Infinite ammo'],['c_reload','Cheat: Fast reload'],['c_bullet','Cheat: Fast bullets'],['c_multi','Cheat: 10x shots'],['c_wave','Cheat: Blitz start wave'],['c_cash','Cheat: Balloons cash'],['c_bricks','Cheat: Free bricks'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports']];
+var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:true,c_oneshot:true,c_god:true,c_jump:true,c_fly:true,c_ammo:true,c_reload:true,c_bullet:true,c_multi:true,c_wave:true,c_cash:true,c_bricks:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true};
+var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:false,c_oneshot:false,c_god:false,c_jump:false,c_fly:false,c_ammo:false,c_reload:false,c_bullet:false,c_multi:false,c_wave:true,c_cash:true,c_bricks:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false};
 var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evPick:'',evNote:'',vu:'',ann:'',gu:'',ga:'50',adm:'',rn:'',pick:'',sureRole:'',players:null,sure:false,startWave:1,tdCash:false};
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
 function cleanPerms(p){var o={};PERMS.forEach(function(x){o[x[0]]=!!(p&&typeof p==='object'&&p[x[0]]===true);});
@@ -10550,7 +10555,8 @@ var CHEATS=[
   ['fly','Flight','Hold jump to fly up, let go to glide down',['obby','yard','duel','tag']],
   ['ammo','Infinite ammo','Never run out of shots',['rocks','bubble']],
   ['reload','Fast reload','Shoot 3x faster',['arena','duel']],
-  ['bullet','Fast bullets','Bullets fly much faster',['arena','duel','rocks']]
+  ['bullet','Fast bullets','Bullets fly much faster',['arena','duel','rocks']],
+  ['multi','10x shots','Every shot fires ten bullets',['arena','duel','rocks']]
 ];
 var CHEAT=(function(){var s=lsGet('cheats',{}),o={};CHEATS.forEach(function(c){o[c[0]]=!!(s&&s[c[0]]===true);});return o;})();
 function cheatBlocked(){return false;}
