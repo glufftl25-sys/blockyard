@@ -8,6 +8,7 @@
 #gmenu .gm-ico::after{content:'';position:absolute;left:0;right:0;top:50%;height:3px;margin-top:-1.5px;background:var(--ink)}
 #perf{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:74px;padding:4px 8px;border:2px solid var(--ink);border-radius:9px;background:rgba(10,12,30,.82);color:#fff;font:700 12px/1.2 var(--body);white-space:nowrap;font-variant-numeric:tabular-nums}
 #perf .ok{color:#5ed88a}#perf .meh{color:#ffd23f}#perf .low{color:#ff8a7a}
+#cheattag{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:2;pointer-events:none;padding:4px 10px;border:2px solid var(--ink);border-radius:999px;background:#ff5a4d;color:#fff;font:800 12px/1.2 var(--body);white-space:nowrap}
 #pmenu{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:rgba(8,8,24,.66)}
 .pm-card{width:min(420px,100%);max-height:calc(100dvh - 32px);overflow:auto;display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--bg);border:3px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 var(--ink);color:var(--text)}
 .pm-card h3{margin:0 0 2px;text-align:center;font:400 28px/1.1 var(--display);color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill}
@@ -796,7 +797,7 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
       <span id="perf" hidden></span>
       <button class="pill" id="snd" type="button" aria-pressed="true">Sound on</button>
     </div>
-    <div id="stage" hidden><canvas id="cv"></canvas></div>
+    <div id="stage" hidden><canvas id="cv"></canvas><div id="cheattag" hidden>Cheats used · scores won't save</div></div>
     <div id="story" hidden></div>
     <div id="pmenu" hidden role="dialog" aria-modal="true" aria-labelledby="pm-title"><div class="pm-card" id="pm-card"></div></div>
     <div id="mkui" hidden>
@@ -934,7 +935,7 @@ var LSP='';
 var LS_GLOBAL={mode:1,sound:1,cam3:1,players:1,session:1,guest:1,'duel.map':1,'duel.gun':1,cloudOut:1};
 function lsKey(k){return (LSP&&!LS_GLOBAL[k])?'blockyard.u.'+LSP+'.'+k:'blockyard.'+k;}
 function lsGet(k,d){try{var v=localStorage.getItem(lsKey(k));return v==null?d:JSON.parse(v);}catch(e){return d;}}
-function lsSet(k,v){try{localStorage.setItem(lsKey(k),JSON.stringify(v));}catch(e){}}
+function lsSet(k,v){if(typeof scoreBlocked==='function'&&scoreBlocked(k))return;try{localStorage.setItem(lsKey(k),JSON.stringify(v));}catch(e){}}
 /* passwords are never stored, only a salted, slow SHA-256 fingerprint of them */
 function sha256(ascii){
   function rr(v,a){return (v>>>a)|(v<<(32-a));}
@@ -1015,11 +1016,12 @@ function fit(){
 function loop(t){
   raf=requestAnimationFrame(loop);
   var raw=(t-lastT)/1000||0,dt=Math.min(0.033,raw); lastT=t;
-  if(cur&&cur.kind==='canvas'){var held=pmPaused();if(!held)cur.update(dt);ctx.setTransform(V.k,0,0,V.k,0,0);cur.draw();if(!held)gfxWatch(raw);}
+  if(cur&&cur.kind==='canvas'){var held=pmPaused();if(!held)cur.update(dt);ctx.setTransform(V.k,0,0,V.k,0,0);cur.draw();if(!held)gfxWatch(raw);if(cheatActiveHere())cheatMark();}
 }
 function openGame(id){
   var g=GAMES[id]; if(!g)return;
   pmClose(true);
+  CURID=id;RUNCHEAT=false;$('cheattag').hidden=true;
   cur=g; hub.hidden=true; play.hidden=false; $('menu3d').hidden=true; $('gtitle').textContent=g.title;
   $('tdpanel').hidden=(id!=='td');
   STAT.add('plays',1);
@@ -1036,7 +1038,7 @@ function closeGame(){
   cancelAnimationFrame(raf); raf=0;
   if(cur&&cur.stop)cur.stop();
   var wasTd=(cur===GAMES.td),wasMaker=(cur===GAMES.maker);
-  cur=null; perfShow(); play.hidden=true; $('tdpanel').hidden=true; if(typeof mkUiHide==='function')mkUiHide(); hub.hidden=false; refreshHub();
+  cur=null; CURID=''; perfShow(); play.hidden=true; $('tdpanel').hidden=true; if(typeof mkUiHide==='function')mkUiHide(); hub.hidden=false; refreshHub();
   if(wasMaker){if(MK.fromHub){MK.fromHub=false;}else openCreate();}
   else if(wasTd)openLobby();
   if(typeof YST!=='undefined'&&YST.resume&&!wasTd&&!wasMaker)openGame('yard');
@@ -1294,7 +1296,7 @@ GAMES.arena=(function(){
     pl={x:V.w/2,y:V.h*0.6,r:12,hp:3,inv:0,aim:-Math.PI/2};
     bullets=[];foes=[];gems=[];parts=[];pops=[];ebul=[];
     spawnT=0.6;fireT=0.2;t=0;score=0;kills=0;power=0;flash=0;newBest=false;
-    wave=(cheatOK('wave')&&CMD.startWave>1)?CMD.startWave-1:0;toSpawn=0;inWave=false;breakT=1.0;banner=0;boss=null;
+    wave=(cheatOK('wave')&&CMD.startWave>1)?(cheatMark(),CMD.startWave-1):0;toSpawn=0;inWave=false;breakT=1.0;banner=0;boss=null;
   }
   function mk(type,x,y){
     var w=wave;
@@ -3161,7 +3163,7 @@ GAMES.yard=(function(){
   }
   function toLobby(){st='lobby';gsz=0;netJoin('w3-yard-lobby');x=LOBBY.x;z=LOBBY.z;}
   /* the story clock is real time from the start, so time spent in the minigames counts too */
-  function beginStory(){st='story';node='start';YST.resume=null;resetRun();YST.t0=Date.now();x=START.x;z=START.z;}
+  function beginStory(){st='story';node='start';YST.resume=null;resetRun();YST.t0=Date.now();YST.cheat=false;x=START.x;z=START.z;}
   function beginPlay(){st='play';clock=0;}
   function chooseSize(n){
     gsz=n;PAD.reset();
@@ -3368,7 +3370,8 @@ GAMES.yard=(function(){
     txt('The yard glows again!',V.w/2,y+22,Math.min(22,V.w/16),P.sun);
     txt('Group time '+fmt(winSecs),V.w/2,y+60,22,'#fff');
     txt(String(winNames).slice(0,60),V.w/2,y+90,14,'#dfe6ff');
-    if(winT>0.6)txt('Tap to return to the yard',V.w/2,y+130,15,'#dfe6ff');
+    if(scoreBlocked('yard.board'))txt('Cheats were used, so this time is not saved',V.w/2,y+110,13,'#ff8a7a');
+    if(winT>0.6)txt('Tap to return to the yard',V.w/2,y+136,15,'#dfe6ff');
   }
   function waitView(){
     var y=V.h*0.25,n=waitingCount();
@@ -3591,6 +3594,7 @@ GAMES.duel=(function(){
       dl:Array.isArray(q.dl)?[netNum(q.dl[0],0,1e9,0)|0,netNum(q.dl[1],0,1e4,0)]:[0,0],gun:netNum(q.g,0,3,0)|0,name:netName(op),sh:Array.isArray(q.sh)?q.sh.slice(-10):[],peer:op.peer,sm:s,slot:pr[0]===NET.me?1:0};
   }
   function myHp(){
+    if(cheatOn('god'))return 100;
     var lost=(O&&!O.spec&&O.mt===mt&&O.dl[0]===life)?O.dl[1]:0;
     return Math.max(0,Math.round(100-lost-hpLoss));
   }
@@ -3621,7 +3625,7 @@ GAMES.duel=(function(){
           var ox=O.sm?O.sm.x:O.x,oz=O.sm?O.sm.z:O.z,oy=O.sm?O.sm.y:O.y;
           if(Math.hypot(b.x-ox,b.z-oz)<0.62&&b.y>oy-0.1&&b.y<oy+1.9){
             if(dealtLife!==O.life){dealtLife=O.life;dealt=0;}
-            dealt+=(bot&&cheatOn('oneshot'))?100:b.dmg;hitT=0.2;hit=true;beep(880,0.05,'square',0.04,1.8);
+            dealt+=cheatOn('oneshot')?100:b.dmg;hitT=0.2;hit=true;beep(880,0.05,'square',0.04,1.8);
             if(bot){bot.hurt=0.2;}
           }
         }else if(!b.mine&&bot&&!dead&&inv<=0&&!cheatOn('god')){
@@ -9042,7 +9046,7 @@ GAMES.td=(function(){
   function reset(){
     mode=TDCFG.mode;diff=TDCFG.diff;
     me=newLane();foe=null;
-    if(cheatOK('cash')&&CMD.tdCash)me.money+=1000;
+    if(cheatOK('cash')&&CMD.tdCash){me.money+=1000;cheatMark();}
     if(mode==='bot'){foe=newLane();botInit(foe,diff);}
     sel=null;selT=null;st='count';cnt=3;res=null;overT=0;t=0;flash=0;tipT=0;banner=0;
     lastPops=0;lastLeaks=0;otShown=0;gone=0;presL=-1;presE=-1;recvT=0;recvN=0;lastFoeSent=0;sentN=0;sentT=0;
@@ -10442,7 +10446,7 @@ function cmdRender(){
   var myCheats=CHEATS.filter(function(c){return can('c_'+c[0]);});
   if(myCheats.length||can('c_wave')||can('c_cash')||can('c_bricks')){
     any=true;
-    h+='<p class="lbl">Cheats</p><p class="note">Cheats only change your own game, and they switch off while other players are in your game. You can also turn them on from the game menu (the square button) while you play.</p>';
+    h+='<p class="lbl">Cheats</p><p class="note">Cheats only change your own game, and they work in multiplayer too. A game played with cheats on does not count for best scores or leaderboards. You can also turn them on from the game menu (the square button) while you play.</p>';
     myCheats.forEach(function(c){
       var on=!!CHEAT[c[0]];
       h+='<div class="row"><span class="who">'+esc(c[1])+'<small>'+esc(c[2])+' · works in '+c[3].length+' games</small></span><button class="mini'+(on?' ok':'')+'" type="button" data-cmd="cheat" data-k="'+c[0]+'" aria-pressed="'+on+'">'+(on?'On':'Off')+'</button></div>';
@@ -10518,7 +10522,7 @@ function cmdVGive(){
   }).then(function(err){if(err)cmdMsg('err',err);},cmdFail).then(cmdDone);
 }
 /* ===== cheats: the owner hands each one out as its own permission ("c_" + its key, under roles).
-   They only change your own game, and switch off while other players are in your game so matches stay fair. ===== */
+   They only change your own game, and they work in multiplayer too. ===== */
 var CHEATS=[
   ['speed','Speed','Move 1.6x faster',['arena','obby','yard','duel','tag']],
   ['oneshot','One shot','Enemies go down in one hit',['arena','duel','bust']],
@@ -10527,13 +10531,28 @@ var CHEATS=[
   ['fly','Flight','Hold jump to fly up, let go to glide down',['obby','yard','duel','tag']]
 ];
 var CHEAT=(function(){var s=lsGet('cheats',{}),o={};CHEATS.forEach(function(c){o[c[0]]=!!(s&&s[c[0]]===true);});return o;})();
-function cheatBlocked(){return !!NET.room&&pmPlayers().length>0;}
+function cheatBlocked(){return false;}
 function cheatOK(k){return can('c_'+k)&&!cheatBlocked();}
 function cheatOn(k){return !!CHEAT[k]&&cheatOK(k);}
 function cheatSpd(){return cheatOn('speed')?1.6:1;}
 function cheatJump(){return cheatOn('jump')?1.45:1;}
 function cheatToggle(k){if(!CHEAT.hasOwnProperty(k)||!can('c_'+k))return;CHEAT[k]=!CHEAT[k];lsSet('cheats',CHEAT);}
 function curId(){for(var k in GAMES)if(GAMES[k]===cur)return k;return '';}
+/* a visit to a game where a working cheat was switched on does not count: no best scores, wins or leaderboard times.
+   It resets when the game is opened again. In Yard Escape, a cheated minigame keeps that story run off the Top 10. */
+var RUNCHEAT=false,CURID='';
+function cheatActiveHere(){
+  if(!CURID)return false;
+  for(var i=0;i<CHEATS.length;i++){var c=CHEATS[i];if(CHEAT[c[0]]&&c[3].indexOf(CURID)>=0&&cheatOK(c[0]))return true;}
+  return false;
+}
+function cheatMark(){
+  if(!RUNCHEAT){RUNCHEAT=true;var t=$('cheattag');if(t)t.hidden=false;}
+  if(typeof YST!=='undefined'&&(YST.need||YST.resume||CURID==='yard'))YST.cheat=true;
+}
+function scoreKey(k){return typeof k==='string'&&(k.indexOf('by.')===0||k==='td.wins'||k==='yard.board');}
+function scoreBlocked(k){return scoreKey(k)&&(RUNCHEAT||(k==='yard.board'&&typeof YST!=='undefined'&&!!YST.cheat));}
+
 
 /* ===== cheat reports: players write reports/<their id>; the owner and anyone given the Cheat reports tool see them.
    The owner's Clear deletes a report; a tool holder's Clear hides it for everyone (repclear/<their id>), and a hide only
@@ -10635,10 +10654,10 @@ function pmRender(){
       });
     }
     h+='<div class="sendrow"><input class="field" id="pm-rname" maxlength="17" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Their username" aria-label="Username to report" value="'+esc(PM.rname)+'"><button class="mini bad" type="button" data-pm="repname">Report</button></div>';
+    if(RUNCHEAT)h+='<p class="note err">Cheats were used in this game, so your scores won\'t save. Leave and reopen the game to play for the boards again.</p>';
     var cid=curId(),cl=CHEATS.filter(function(c){return can('c_'+c[0]);});
     if(cl.length){
       h+='<p class="lbl">Cheats</p>';
-      if(cheatBlocked())h+='<p class="note">Cheats are off while other players are in your game.</p>';
       cl.forEach(function(c){
         var on=!!CHEAT[c[0]],works=c[3].indexOf(cid)>=0;
         h+='<div class="row"><span class="who">'+esc(c[1])+'<small>'+(works?esc(c[2]):'Does nothing in this game')+'</small></span><button class="mini'+(on?' ok':'')+'" type="button" data-pm="cheat" data-k="'+c[0]+'" aria-pressed="'+on+'">'+(on?'On':'Off')+'</button></div>';
