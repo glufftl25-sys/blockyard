@@ -3177,10 +3177,25 @@ GAMES.yard=(function(){
     var x0=cx-w/2;
     ctx.save();ctx.fillStyle=fill||'#fff';ctx.strokeStyle=P.ink;ctx.lineWidth=3;
     ctx.beginPath();ctx.rect(x0,y,w,h);ctx.fill();ctx.stroke();ctx.restore();
-    var fs=Math.min(15,h*0.58);
-    txt(label,cx,y+h/2,fs,P.ink);
+    var fs=Math.round(Math.min(16,h*0.52));ctx.font='700 '+fs+'px '+YBODY;
+    while(fs>10&&ctx.measureText(label).width>w-14){fs--;ctx.font='700 '+fs+'px '+YBODY;}
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=P.ink;ctx.fillText(label,cx,y+h/2+1);
     rects.push({x:x0,y:y,w:w,h:h,a:a});
   }
+  /* plain, outline-free text for reading: the story and its choices */
+  var YBODY='system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+  function ytxt(s,x,y,size,fill,wt){
+    ctx.font=(wt||'500')+' '+size+'px '+YBODY;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=fill||'#fff';ctx.fillText(s,x,y);
+  }
+  function ywrap(s,maxW,size){
+    ctx.font='500 '+size+'px '+YBODY;
+    var out=[],w='';
+    String(s).split(' ').forEach(function(word){var c=w?w+' '+word:word;if(w&&ctx.measureText(c).width>maxW){out.push(w);w=word;}else w=c;});
+    if(w)out.push(w);
+    return out;
+  }
+  function camOn(){return st==='lobby'||st==='wait'||st==='count'||st==='play';}
   function menuView(){
     var y=Math.max(56,V.h*0.03),rh=Math.min(50,(V.h-y-60)/4),bh=Math.max(16,rh-6),half=Math.min(170,(V.w-50)/2),
         cL=V.w/2-half/2-6,cR=V.w/2+half/2+6,r0=y+46,ph=46+4*rh+10,i;
@@ -3211,15 +3226,25 @@ GAMES.yard=(function(){
     button('Back',V.w/2,y+h-38,120,28,{a:'back'},'#dfe6ff');
   }
   function storyView(){
-    var n=NODES[node],w=Math.max(22,Math.floor((V.w-60)/7)),lines=wrapLines(n.t,w),y=Math.max(56,V.h*0.04),k;
-    var bh=Math.min(30,Math.max(18,(V.h-y-lines.length*16-60)/Math.max(1,n.c.length)));
-    panel(y,40+lines.length*16+n.c.length*(bh+6)+8);
-    lines.forEach(function(l,j){txt(l,V.w/2,y+22+j*16,13,'#fff');});
-    if(voting())txt('Group vote: '+votesIn()+' of '+memberKeys().length+' in, '+Math.max(0,Math.ceil(15-vt))+'s left',V.w/2,y+lines.length*16+30,11,P.sun);
-    var cy=y+30+lines.length*16;
+    var n=NODES[node],nc=n.c.length,vote=voting(),pw=Math.min(V.w-24,480),tw=pw-32,
+        fs=V.w<380?15:17,topMin=40,want=Math.max(64,V.h*0.06),lh,lines,bh,total,top,y;
+    for(;;){
+      lh=Math.round(fs*1.4);lines=ywrap(n.t,tw,fs);bh=Math.max(32,Math.round(fs*2.3));
+      total=20+lines.length*lh+(vote?lh:0)+14+nc*(bh+8)+8;
+      if(total<=V.h-topMin-10||fs<=12)break;
+      fs--;
+    }
+    top=Math.max(topMin,Math.min(want,V.h-10-total));
+    ctx.fillStyle='rgba(0,0,0,0.45)';ctx.fillRect(0,0,V.w,V.h);
+    ctx.save();ctx.fillStyle='#16183c';ctx.strokeStyle=P.ink;ctx.lineWidth=3;
+    ctx.fillRect(V.w/2-pw/2,top,pw,total);ctx.strokeRect(V.w/2-pw/2,top,pw,total);ctx.restore();
+    y=top+20+lh/2;
+    lines.forEach(function(l){ytxt(l,V.w/2,y,fs,'#ffffff');y+=lh;});
+    if(vote){ytxt('Group vote: '+votesIn()+' of '+memberKeys().length+' in, '+Math.max(0,Math.ceil(15-vt))+'s left',V.w/2,y,fs-2,P.sun,'700');y+=lh;}
+    y+=14-lh/2;
     n.c.forEach(function(c,j){
-      var lab=c[0]+(voting()?'  ['+voteCounts()[j]+']':'');
-      button(lab,V.w/2,cy+j*(bh+6),Math.min(V.w-60,340),bh,{a:'choice',i:j},myVote===j?'#b8f5cc':(c[2]&&c[2].game?'#ffd23f':'#fff'));
+      var lab=c[0]+(vote?'  ['+voteCounts()[j]+']':'');
+      button(lab,V.w/2,y+j*(bh+8),pw-32,bh,{a:'choice',i:j},myVote===j?'#b8f5cc':(c[2]&&c[2].game?'#ffd23f':'#fff'));
     });
   }
   /* group votes: in a group, everyone votes on a choice; votes count with their weight; a tie is broken by a shared, seeded pick */
@@ -3351,10 +3376,10 @@ GAMES.yard=(function(){
     netTags(tags);
     hud();
     if(flash>0){ctx.fillStyle='rgba(255,90,77,'+(flash/0.3*0.25)+')';ctx.fillRect(0,0,V.w,V.h);}
-    CAM3.draw(st==='lobby');
+    if(camOn())CAM3.draw(st==='lobby');
   };
   g.down=function(px,py,id){
-    if(CAM3.hit(px,py)){CAM3.cycle(face);return;}
+    if(camOn()&&CAM3.hit(px,py)){CAM3.cycle(face);return;}
     for(var i=rects.length-1;i>=0;i--){
       var r=rects[i];
       if(px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h){act(r.a);return;}
