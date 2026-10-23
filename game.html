@@ -1505,7 +1505,7 @@ GAMES.arena=(function(){
         var a=Math.atan2(tgt.y-pl.y,tgt.x-pl.x),n=(power>=6?3:(power>=3?2:1))*(cheatOn('multi')?10:1);
         pl.aim=a;
         for(var s=0;s<n;s++){
-          var aa=a+(s-(n-1)/2)*(n>3?1.6/(n-1):0.16);if(bullets.length>=400)break;
+          var aa=a+(s-(n-1)/2)*(n>3?Math.min(0.03,0.6/(n-1)):0.16);if(bullets.length>=400)break;
           var bs=cheatOn('bullet')?1.7:1;bullets.push({x:pl.x,y:pl.y,vx:Math.cos(aa)*400*bs,vy:Math.sin(aa)*400*bs,life:0.8});
         }
         fireT=Math.max(0.15,0.4-power*0.02)*(cheatOn('reload')?0.33:1);
