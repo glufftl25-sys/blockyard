@@ -1506,9 +1506,9 @@ GAMES.arena=(function(){
         pl.aim=a;
         for(var s=0;s<n;s++){
           var aa=a+(s-(n-1)/2)*0.16;
-          bullets.push({x:pl.x,y:pl.y,vx:Math.cos(aa)*400,vy:Math.sin(aa)*400,life:0.8});
+          var bs=cheatOn('bullet')?1.7:1;bullets.push({x:pl.x,y:pl.y,vx:Math.cos(aa)*400*bs,vy:Math.sin(aa)*400*bs,life:0.8});
         }
-        fireT=Math.max(0.15,0.4-power*0.02);
+        fireT=Math.max(0.15,0.4-power*0.02)*(cheatOn('reload')?0.33:1);
         beep(520,0.04,'square',0.02,1.3);
       }else fireT=0.05;
     }
@@ -3612,7 +3612,7 @@ GAMES.duel=(function(){
     face=a;
     for(i=0;i<G.n;i++){
       var aa=a+(Math.random()*2-1)*G.spread;
-      var b={id:sid++,x:x+Math.sin(aa)*0.5,y:y+1.0,z:z+Math.cos(aa)*0.5,dx:Math.sin(aa),dz:Math.cos(aa),sp:G.sp,life:G.life,dmg:G.dmg,mine:true,col:G.col};
+      var b={id:sid++,x:x+Math.sin(aa)*0.5,y:y+1.0,z:z+Math.cos(aa)*0.5,dx:Math.sin(aa),dz:Math.cos(aa),sp:G.sp*(cheatOn('bullet')?2:1),life:G.life,dmg:G.dmg,mine:true,col:G.col};
       bullets.push(b);shots.push([b.id,Math.round(b.x*100)/100,Math.round(b.y*100)/100,Math.round(b.z*100)/100,Math.round(b.dx*1000)/1000,Math.round(b.dz*1000)/1000,DUEL.gun]);
     }
     if(shots.length>12)shots=shots.slice(-12);
@@ -3709,7 +3709,7 @@ GAMES.duel=(function(){
       if(y>0||vy>0||!ground){var fl=cheatOn('fly');vy-=GRV*(fl?0.3:1)*dt;if(fl){if(vy<-3)vy=-3;if(y>7){y=7;vy=Math.min(vy,0);}}y+=vy*dt;if(y<=0&&ground&&y>-0.6){y=0;vy=0;}}
       if(inLava(x,z)&&y===0&&inv<=0&&!cheatOn('god')){hpLoss+=40*dt;hurt=0.15;}
       cool-=dt;
-      if(firing&&cool<=0&&endT<=0){cool=G.rate;shoot();}
+      if(firing&&cool<=0&&endT<=0){cool=G.rate*(cheatOn('reload')?0.33:1);shoot();}
       if(y<-8||myHp()<=0){
         deaths++;life++;dead=1.6;hpLoss=0;flash=0.5;vy=0;y=-50;
         beep(150,0.5,'sawtooth',0.07,0.4);
@@ -7046,8 +7046,9 @@ GAMES.rocks=(function(){
   g.start=function(){best=lsGet('by.rocks',0);reset(true);};
   g.stop=function(){tl=tr=th=false;};
   function fire(){
-    if(shots.length>5)return;
-    shots.push({x:sx+Math.cos(ang)*16,y:sy+Math.sin(ang)*16,vx:Math.cos(ang)*340+svx,vy:Math.sin(ang)*340+svy,t:1.3});
+    if(shots.length>(cheatOn('ammo')?40:5))return;
+    var bsp=cheatOn('bullet')?680:340;
+    shots.push({x:sx+Math.cos(ang)*16,y:sy+Math.sin(ang)*16,vx:Math.cos(ang)*bsp+svx,vy:Math.sin(ang)*bsp+svy,t:1.3});
     beep(680,0.06,'square',0.035,1.6);
   }
   g.down=function(x,y){
@@ -7333,7 +7334,7 @@ GAMES.bubble=(function(){
       while(grid.length&&grid[grid.length-1].every(function(v){return !v;}))grid.pop();
     }else{
       beep(360,0.06,'square',0.03,1);
-      shotsLeft--;
+      if(!cheatOn('ammo'))shotsLeft--;
       if(shotsLeft<=0){shotsLeft=6;addRow();drop++;}
     }
     for(var k=0;k<grid.length;k++)for(var m=0;m<grid[k].length;m++){
@@ -10260,9 +10261,9 @@ if(window.visualViewport){
 }
 /* ===== Owner command panel (only the page owner sees the button) ===== */
 var ADM={},ROLES={},GR={},ANN=[],GSUB={};
-var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['c_speed','Cheat: Speed'],['c_oneshot','Cheat: One shot'],['c_god','Cheat: Immortal'],['c_jump','Cheat: Super jump'],['c_fly','Cheat: Flight'],['c_wave','Cheat: Blitz start wave'],['c_cash','Cheat: Balloons cash'],['c_bricks','Cheat: Free bricks'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports']];
-var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:true,c_oneshot:true,c_god:true,c_jump:true,c_fly:true,c_wave:true,c_cash:true,c_bricks:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true};
-var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:false,c_oneshot:false,c_god:false,c_jump:false,c_fly:false,c_wave:true,c_cash:true,c_bricks:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false};
+var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['c_speed','Cheat: Speed'],['c_oneshot','Cheat: One shot'],['c_god','Cheat: Immortal'],['c_jump','Cheat: Super jump'],['c_fly','Cheat: Flight'],['c_ammo','Cheat: Infinite ammo'],['c_reload','Cheat: Fast reload'],['c_bullet','Cheat: Fast bullets'],['c_wave','Cheat: Blitz start wave'],['c_cash','Cheat: Balloons cash'],['c_bricks','Cheat: Free bricks'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports']];
+var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:true,c_oneshot:true,c_god:true,c_jump:true,c_fly:true,c_ammo:true,c_reload:true,c_bullet:true,c_wave:true,c_cash:true,c_bricks:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true};
+var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:false,c_oneshot:false,c_god:false,c_jump:false,c_fly:false,c_ammo:false,c_reload:false,c_bullet:false,c_wave:true,c_cash:true,c_bricks:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false};
 var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evPick:'',evNote:'',vu:'',ann:'',gu:'',ga:'50',adm:'',rn:'',pick:'',sureRole:'',players:null,sure:false,startWave:1,tdCash:false};
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
 function cleanPerms(p){var o={};PERMS.forEach(function(x){o[x[0]]=!!(p&&typeof p==='object'&&p[x[0]]===true);});
@@ -10546,7 +10547,10 @@ var CHEATS=[
   ['oneshot','One shot','Enemies go down in one hit',['arena','duel','bust']],
   ['god','Immortal','Nothing can hurt you',['arena','runner','dash','obby','duel','pac','bust','frog','catchg','rocks','flap','cave','road']],
   ['jump','Super jump','Jump much higher',['runner','dash','obby','yard','duel','tag']],
-  ['fly','Flight','Hold jump to fly up, let go to glide down',['obby','yard','duel','tag']]
+  ['fly','Flight','Hold jump to fly up, let go to glide down',['obby','yard','duel','tag']],
+  ['ammo','Infinite ammo','Never run out of shots',['rocks','bubble']],
+  ['reload','Fast reload','Shoot 3x faster',['arena','duel']],
+  ['bullet','Fast bullets','Bullets fly much faster',['arena','duel','rocks']]
 ];
 var CHEAT=(function(){var s=lsGet('cheats',{}),o={};CHEATS.forEach(function(c){o[c[0]]=!!(s&&s[c[0]]===true);});return o;})();
 function cheatBlocked(){return false;}
