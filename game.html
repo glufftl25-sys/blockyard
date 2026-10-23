@@ -3012,7 +3012,7 @@ GAMES.party=(function(){
   return g;
 })();
 
-var YST={resume:null,node:'start',gsz:0,elapsed:0,pen:0};
+var YST={resume:null,node:'start',gsz:0,elapsed:0,pen:0,t0:0};
 var WV={},WVMY={},wvSubbed=false;
 function wvOf(uid){var e=uid&&WV[uid];return e&&typeof e.w==='number'?e.w:1;}
 function wvList(){return Object.keys(WVMY).map(function(u){return {uid:u,name:WVMY[u].name,w:WVMY[u].w};});}
@@ -3074,9 +3074,11 @@ GAMES.yard=(function(){
     return out;
   }
   function boardAll(){var b=lsGet('yard.board',{});return (b&&typeof b==='object'&&!Array.isArray(b))?b:{};}
-  function boardOf(n){var a=boardAll()[n];return Array.isArray(a)?a:[];}
+  /* a time under a second is from the old timer bug, so it is never shown or kept */
+  function boardOf(n){var a=boardAll()[n];return Array.isArray(a)?a.filter(function(e){return e&&typeof e.t==='number'&&e.t>=1;}):[];}
   function saveTime(n,secs,names){
-    var all=boardAll(),a=Array.isArray(all[n])?all[n]:[];
+    if(!(secs>=1))return;
+    var all=boardAll(),a=boardOf(n);
     a.push({t:Math.round(secs*10)/10,n:String(names).slice(0,90)});
     a.sort(function(p,q){return p.t-q.t;});
     all[n]=a.slice(0,10);lsSet('yard.board',all);
@@ -3110,7 +3112,8 @@ GAMES.yard=(function(){
     for(var i=0;i<gsz+1;i++){var s=GSP[i];ghosts.push({x:s[0],z:s[1],sp:1.9+0.5*(gsz-1)});}
   }
   function toLobby(){st='lobby';gsz=0;netJoin('w3-yard-lobby');x=LOBBY.x;z=LOBBY.z;}
-  function beginStory(){st='story';node='start';YST.resume=null;resetRun();x=START.x;z=START.z;}
+  /* the story clock is real time from the start, so time spent in the minigames counts too */
+  function beginStory(){st='story';node='start';YST.resume=null;resetRun();YST.t0=Date.now();x=START.x;z=START.z;}
   function beginPlay(){st='play';clock=0;}
   function chooseSize(n){
     gsz=n;PAD.reset();
@@ -3160,6 +3163,7 @@ GAMES.yard=(function(){
   }
   g.update=function(dt){
     t+=dt;if(flash>0)flash-=dt;if(msgT>0)msgT-=dt;if(st==='win')winT+=dt;
+    if(st==='story'&&YST.t0)clock=(Date.now()-YST.t0)/1000;
     CAM3.tick(dt);
     var moving=PAD.axes(),mv=CAM3.dir(PAD.ax,PAD.ay);
     var jp=PAD.take();
@@ -3251,6 +3255,7 @@ GAMES.yard=(function(){
     }
     top=Math.max(topMin,Math.min(want,V.h-10-total));
     ctx.fillStyle='rgba(0,0,0,0.45)';ctx.fillRect(0,0,V.w,V.h);
+    txt('Time '+fmt(clock+pen),12,24,18,'#fff','left');
     ctx.save();ctx.fillStyle='#16183c';ctx.strokeStyle=P.ink;ctx.lineWidth=3;
     ctx.fillRect(V.w/2-pw/2,top,pw,total);ctx.strokeRect(V.w/2-pw/2,top,pw,total);ctx.restore();
     y=top+20+lh/2;
@@ -3303,6 +3308,7 @@ GAMES.yard=(function(){
     if(NODES[node].end)finish();
   }
   function finish(){
+    if(YST.t0){clock=(Date.now()-YST.t0)/1000;YST.t0=0;}
     st='win';winT=0;winSecs=clock+pen;winNames=nameList();
     saveTime(gsz,winSecs,winNames);beep(660,0.5,'square',0.06,2);
   }
@@ -3327,7 +3333,7 @@ GAMES.yard=(function(){
     if(st==='lobby'){left='Yard Escape';sub='Walk onto a yellow square to pick your group';}
     else if(st==='wait'){left='Waiting for your group '+waitingCount()+'/'+gsz;}
     else if(st==='count'){left='Starting in '+Math.ceil(cnt);}
-    else if(st==='story'){left='Yard Escape';}
+    else if(st==='story'){left='Time '+fmt(clock+pen);}
     else if(st==='play'){
       left='Time '+fmt(clock+pen);
       sub='Lanterns '+lanternCount()+'/3 · '+(lanternCount()>=3?'gate open, run to the gate!':'find the lanterns in the yard');
