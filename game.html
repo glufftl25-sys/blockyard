@@ -1146,7 +1146,7 @@ GAMES.runner=(function(){
     dist+=speed*dt; run+=dt*speed*0.045;
     if(jumpBuf>0){
       jumpBuf-=dt;
-      if(py===0&&vy===0){vy=JV;jumpBuf=0;beep(440,0.12,'square',0.04,2);}
+      if(py===0&&vy===0){vy=JV*cheatJump();jumpBuf=0;beep(440,0.12,'square',0.04,2);}
     }
     if(py>0||vy>0){
       var gr=GR; if(ducking&&vy<=0)gr*=1.8;
@@ -1165,7 +1165,7 @@ GAMES.runner=(function(){
     for(var k=0;k<obs.length;k++){
       var q=obs[k];
       var qx0=q.x+4,qx1=q.x+q.w-4,qy0=groundY-q.b-q.h+4,qy1=groundY-q.b-3;
-      if(x1>qx0&&x0<qx1&&y1>qy0&&y0<qy1){die();break;}
+      if(x1>qx0&&x0<qx1&&y1>qy0&&y0<qy1&&!cheatOn('god')){die();break;}
     }
     var m=Math.floor(score()/100);
     if(m>milestone){milestone=m;flash=0.5;beep(880,0.15,'square',0.04,1.5);}
@@ -1294,7 +1294,7 @@ GAMES.arena=(function(){
     pl={x:V.w/2,y:V.h*0.6,r:12,hp:3,inv:0,aim:-Math.PI/2};
     bullets=[];foes=[];gems=[];parts=[];pops=[];ebul=[];
     spawnT=0.6;fireT=0.2;t=0;score=0;kills=0;power=0;flash=0;newBest=false;
-    wave=(CMD.admin&&CMD.startWave>1)?CMD.startWave-1:0;toSpawn=0;inWave=false;breakT=1.0;banner=0;boss=null;
+    wave=(cheatOK('wave')&&CMD.startWave>1)?CMD.startWave-1:0;toSpawn=0;inWave=false;breakT=1.0;banner=0;boss=null;
   }
   function mk(type,x,y){
     var w=wave;
@@ -1332,6 +1332,7 @@ GAMES.arena=(function(){
     }
   }
   function hurt(){
+    if(cheatOn('god')){pl.inv=0.8;return;}
     pl.hp--;pl.inv=1.3;flash=0.25;
     for(var i=0;i<foes.length;i++){
       var f=foes[i],dx=f.x-pl.x,dy=f.y-pl.y,d=Math.hypot(dx,dy)||1;
@@ -1485,7 +1486,7 @@ GAMES.arena=(function(){
     if(keys.ArrowDown||keys.KeyS)dy+=1;
     var m=Math.hypot(dx,dy);
     if(m>1){dx/=m;dy/=m;m=1;}
-    if(m>0.05){pl.x+=dx*150*dt;pl.y+=dy*150*dt;}
+    var cs=cheatSpd();if(m>0.05){pl.x+=dx*150*cs*dt;pl.y+=dy*150*cs*dt;}
     pl.x=Math.max(pl.r,Math.min(V.w-pl.r,pl.x));
     pl.y=Math.max(pl.r+44,Math.min(V.h-pl.r,pl.y));
 
@@ -1542,7 +1543,7 @@ GAMES.arena=(function(){
         var f2=foes[k];if(f2.dead)continue;
         var ddx=f2.x-bu.x,ddy=f2.y-bu.y,rr=f2.r+4;
         if(ddx*ddx+ddy*ddy<rr*rr){
-          bu.dead=true;f2.hp--;f2.hit=0.1;
+          bu.dead=true;f2.hp-=cheatOn('oneshot')?99999:1;f2.hit=0.1;
           if(f2.hp<=0)kill(f2);else beep(300,0.05,'square',0.03);
           break;
         }
@@ -2227,10 +2228,10 @@ function obStep(S,dt,ix,iz,jp,jh,L){
   S.x+=S.vx*dt;S.z+=S.vz*dt;
   if(jp)S.buf=0.14;else S.buf-=dt;
   if(S.g)S.coy=0.11;else S.coy-=dt;
-  if(S.buf>0&&S.coy>0){S.vy=OB.JV;S.buf=0;S.coy=0;S.g=null;ev='jump';}
+  if(S.buf>0&&S.coy>0){S.vy=OB.JV*(S.jm||1);S.buf=0;S.coy=0;S.g=null;ev='jump';}
   if(!jh&&S.vy>4.2)S.vy=4.2;
   var py=S.y;
-  S.vy=Math.max(-32,S.vy-OB.G*dt);S.y+=S.vy*dt;
+  if(S.fly)S.vy=jh?6:Math.max(-3,S.vy-OB.G*dt);else S.vy=Math.max(-32,S.vy-OB.G*dt);S.y+=S.vy*dt;
   var land=null;
   for(i=0;i<L.length;i++){
     p=L[i];if(p.fs>=2)continue;
@@ -2323,9 +2324,10 @@ GAMES.obby=(function(){
     if(st==='run'){
       clock+=dt;
       obPlats(L,t,dt);
+      S.jm=cheatJump();S.fly=cheatOn('fly');var cs=cheatSpd();
       var h=Math.min(dt,1/30),n=Math.max(1,Math.ceil(dt/h)),k;
       for(k=0;k<n;k++){
-        var ev=obStep(S,dt/n,mv[0],mv[1],k===0&&jp,PAD.holding(),L);
+        var ev=obStep(S,dt/n,mv[0]*cs,mv[1]*cs,k===0&&jp,PAD.holding(),L);
         if(ev==='jump')beep(520,0.1,'square',0.04,1.8);
         else if(ev==='cp'){msg='CHECKPOINT!';msgT=1.4;beep(780,0.2,'square',0.05,1.6);}
         else if(ev==='win'){win();break;}
@@ -2333,7 +2335,7 @@ GAMES.obby=(function(){
       }
       for(var i=0;i<L.length;i++){
         var p=L[i];
-        if(p.k==='p'&&Math.abs(S.z-p.cz)<6&&obSpinHit(S,p,t)){die();break;}
+        if(p.k==='p'&&!cheatOn('god')&&Math.abs(S.z-p.cz)<6&&obSpinHit(S,p,t)){die();break;}
       }
       step+=dt*Math.min(12,Math.sqrt(S.vx*S.vx+S.vz*S.vz)*1.6);
     }
@@ -2475,7 +2477,7 @@ GAMES.dash=(function(){
     if(st==='ready')st='run';
     if(a==='left'&&lane>0){lane--;beep(380,0.06,'square',0.03,1.3);}
     else if(a==='right'&&lane<2){lane++;beep(380,0.06,'square',0.03,1.3);}
-    else if(a==='jump'&&py===0){vy=DS.JV;slideT=0;beep(520,0.1,'square',0.04,1.8);}
+    else if(a==='jump'&&py===0){vy=DS.JV*cheatJump();slideT=0;beep(520,0.1,'square',0.04,1.8);}
     else if(a==='slide'){slideT=DS.SLIDE;if(py>0)vy=Math.min(vy,-14);}
   }
   function lr(a){return CAM3.mode===1?(a==='left'?'right':'left'):a;}
@@ -2528,7 +2530,7 @@ GAMES.dash=(function(){
     for(i=rows.length-1;i>=0;i--){
       var r=rows[i];
       if(r.z<z-6){rows.splice(i,1);continue;}
-      if(dashHit(r.cells,px,py,slideT,Math.abs(r.z-z))){die();return;}
+      if(!cheatOn('god')&&dashHit(r.cells,px,py,slideT,Math.abs(r.z-z))){die();return;}
     }
     for(i=coins.length-1;i>=0;i--){
       var c=coins[i];
@@ -3203,7 +3205,7 @@ GAMES.yard=(function(){
     }
   }
   function camUpdate(dt){
-    var fr=CAM3.mode===1,tx=x*0.6,ty=6.2,tz=z+(fr?8.8:-8.8),e=Math.min(1,dt*5);
+    var fr=CAM3.mode===1,tx=x*0.6,ty=6.2+jy,tz=z+(fr?8.8:-8.8),e=Math.min(1,dt*5);
     if(CAM3.snap){e=1;CAM3.snap=false;}
     cam.x+=(tx-cam.x)*e;cam.y+=(ty-cam.y)*e;cam.z+=(tz-cam.z)*e;
   }
@@ -3214,9 +3216,10 @@ GAMES.yard=(function(){
     var moving=PAD.axes(),mv=CAM3.dir(PAD.ax,PAD.ay);
     var jp=PAD.take();
     if(st==='lobby'||st==='wait'||st==='count'||st==='play'){
-      if(jp&&jy<=0.001){vyy=8;beep(520,0.1,'square',0.04,1.8);}
-      vyy-=24*dt;jy+=vyy*dt;if(jy<=0){jy=0;vyy=0;}
-      if(moving){x+=mv[0]*SPD*dt;z+=mv[1]*SPD*dt;face=Math.atan2(mv[0],mv[1]);step+=dt*9;}
+      if(jp&&jy<=0.001&&!cheatOn('fly')){vyy=8*cheatJump();beep(520,0.1,'square',0.04,1.8);}
+      if(cheatOn('fly'))vyy=PAD.holding()?6:Math.max(-3,vyy-24*dt);else vyy-=24*dt;
+      jy+=vyy*dt;if(jy<=0){jy=0;vyy=0;}if(jy>20){jy=20;vyy=Math.min(vyy,0);}
+      if(moving){var cs=cheatSpd();x+=mv[0]*SPD*cs*dt;z+=mv[1]*SPD*cs*dt;face=Math.atan2(mv[0],mv[1]);step+=dt*9;}
       solid();
     }
     if(st==='lobby'&&PADS.some(function(p){return Math.abs(x-p[0])<1.3&&Math.abs(z-p[1])<1.3;})){
@@ -3414,9 +3417,9 @@ GAMES.yard=(function(){
     rects=[];
     R3.sky('#25295a','#6d74b0',V.h);
     R3.fog([58,60,104],26,72);
-    if(CAM3.mode===2)R3.camera(x,1.45,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
-    else if(CAM3.mode===1)R3.look(cam.x,cam.y,cam.z,cam.x*0.5+x*0.5,0.9,z-3.5,V.w*0.98,V.w/2,V.h*0.5);
-    else R3.look(cam.x,cam.y,cam.z,cam.x*0.5+x*0.5,0.6,z+5.5,V.w*0.98,V.w/2,V.h*0.5);
+    if(CAM3.mode===2)R3.camera(x,1.45+jy,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
+    else if(CAM3.mode===1)R3.look(cam.x,cam.y,cam.z,cam.x*0.5+x*0.5,0.9+jy,z-3.5,V.w*0.98,V.w/2,V.h*0.5);
+    else R3.look(cam.x,cam.y,cam.z,cam.x*0.5+x*0.5,0.6+jy,z+5.5,V.w*0.98,V.w/2,V.h*0.5);
     R3.box(0,-0.6,0,30,0.6,30,[92,98,128],0,true);
     R3.box(0,0,-HALF,30,2.4,1,[150,140,170]);R3.box(0,0,HALF,30,2.4,1,[150,140,170]);
     R3.box(-HALF,0,0,1,2.4,30,[150,140,170]);R3.box(HALF,0,0,1,2.4,30,[150,140,170]);
@@ -3618,10 +3621,10 @@ GAMES.duel=(function(){
           var ox=O.sm?O.sm.x:O.x,oz=O.sm?O.sm.z:O.z,oy=O.sm?O.sm.y:O.y;
           if(Math.hypot(b.x-ox,b.z-oz)<0.62&&b.y>oy-0.1&&b.y<oy+1.9){
             if(dealtLife!==O.life){dealtLife=O.life;dealt=0;}
-            dealt+=b.dmg;hitT=0.2;hit=true;beep(880,0.05,'square',0.04,1.8);
+            dealt+=(bot&&cheatOn('oneshot'))?100:b.dmg;hitT=0.2;hit=true;beep(880,0.05,'square',0.04,1.8);
             if(bot){bot.hurt=0.2;}
           }
-        }else if(!b.mine&&bot&&!dead&&inv<=0){
+        }else if(!b.mine&&bot&&!dead&&inv<=0&&!cheatOn('god')){
           if(Math.hypot(b.x-x,b.z-z)<0.62&&b.y>y-0.1&&b.y<y+1.9){
             if(bot.dl[0]!==life)bot.dl=[life,0];
             bot.dl[1]+=b.dmg;hit=true;gotHit=0.25;beep(200,0.08,'sawtooth',0.05,0.6);
@@ -3686,15 +3689,16 @@ GAMES.duel=(function(){
     if(dead>0){dead-=dt;if(dead<=0)respawn(false);}
     else if(!(O&&O.spec)){
       var acc=y>0?30:60;
-      vx+=clampN(mvv[0]*SPD-vx,-acc*dt,acc*dt);vz+=clampN(mvv[1]*SPD-vz,-acc*dt,acc*dt);
+      var cs=cheatSpd();vx+=clampN(mvv[0]*SPD*cs-vx,-acc*dt,acc*dt);vz+=clampN(mvv[1]*SPD*cs-vz,-acc*dt,acc*dt);
       var o={x:x+vx*dt,z:z+vz*dt,y:y};push(o,0.4);x=o.x;z=o.z;
       var sp=Math.hypot(vx,vz);if(sp>0.7){step+=dt*sp*1.5;if(!firing&&CAM3.mode!==2){face=Math.atan2(vx,vz);aim=face;}}
       if(CAM3.mode===2){aim=CAM3.yaw;face=aim;}
       if(jumpWant||PAD.take())buf=0.12;else buf-=dt;jumpWant=false;
       var ground=!inHole(x,z);
-      if(buf>0&&y===0&&ground){vy=JV;buf=0;beep(520,0.08,'square',0.03,1.8);}
-      if(y>0||vy>0||!ground){vy-=GRV*dt;y+=vy*dt;if(y<=0&&ground&&y>-0.6){y=0;vy=0;}}
-      if(inLava(x,z)&&y===0&&inv<=0){hpLoss+=40*dt;hurt=0.15;}
+      if(buf>0&&cheatOn('fly')){vy=7;buf=0;}
+      else if(buf>0&&y===0&&ground){vy=JV*cheatJump();buf=0;beep(520,0.08,'square',0.03,1.8);}
+      if(y>0||vy>0||!ground){var fl=cheatOn('fly');vy-=GRV*(fl?0.3:1)*dt;if(fl){if(vy<-3)vy=-3;if(y>7){y=7;vy=Math.min(vy,0);}}y+=vy*dt;if(y<=0&&ground&&y>-0.6){y=0;vy=0;}}
+      if(inLava(x,z)&&y===0&&inv<=0&&!cheatOn('god')){hpLoss+=40*dt;hurt=0.15;}
       cool-=dt;
       if(firing&&cool<=0&&endT<=0){cool=G.rate;shoot();}
       if(y<-8||myHp()<=0){
@@ -3721,7 +3725,7 @@ GAMES.duel=(function(){
     if(CAM3.snap){CAMP.x=x*0.6;CAMP.z=ez;CAM3.snap=false;}
     else if(!dead){CAMP.x+=(x*0.6-CAMP.x)*0.12;CAMP.z+=(ez-CAMP.z)*0.12;}
     if(CAM3.mode===2&&!dead)R3.camera(x,cy+1.45,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
-    else R3.look(CAMP.x,12,CAMP.z,CAMP.x*0.9,0,CAMP.z+(fr?-8:8),V.w*0.98,V.w/2,V.h*0.5);
+    else R3.look(CAMP.x,12+Math.max(0,y)*0.8,CAMP.z,CAMP.x*0.9,Math.max(0,y)*0.5,CAMP.z+(fr?-8:8),V.w*0.98,V.w/2,V.h*0.5);
     var i,j,TL=2,nx=Math.round(M.W*2/TL),nz=Math.round(M.D*2/TL);
     for(i=0;i<nx;i++)for(j=0;j<nz;j++){
       var cx=-M.W+(i+0.5)*TL,cz=-M.D+(j+0.5)*TL;
@@ -3949,7 +3953,7 @@ GAMES.pac=(function(){
       var a=pos(pl),c=pos(b);
       if(Math.abs(a[0]-c[0])<0.62&&Math.abs(a[1]-c[1])<0.62){
         if(b.scared){chain++;var pts=200*Math.pow(2,Math.min(3,chain-1));score+=pts;pop.push({x:c[0],y:c[1],s:String(pts),t:0.9});b.zap=2.5;b.scared=0;beep(900,0.2,'square',0.05,2);}
-        else{lives--;st='dead';deadT=1.6;flashT=0.5;beep(150,0.6,'sawtooth',0.07,0.4);}
+        else if(!cheatOn('god')){lives--;st='dead';deadT=1.6;flashT=0.5;beep(150,0.6,'sawtooth',0.07,0.4);}
       }
     });
   };
@@ -4780,14 +4784,15 @@ GAMES.bust=(function(){
         if(bx+R<b.x||bx-R>b.x+b.w||by+R<b.y||by-R>b.y+b.h)continue;
         var ox=Math.min(bx+R-b.x,b.x+b.w-(bx-R)),oy=Math.min(by+R-b.y,b.y+b.h-(by-R));
         if(ox<oy)vx=-vx;else vy=-vy;
-        b.hp--;score+=10;beep(760,0.04,'square',0.035,1.6);
+        b.hp-=cheatOn('oneshot')?99:1;score+=10;beep(760,0.04,'square',0.035,1.6);
         if(b.hp<=0){
           bricks.splice(i,1);score+=10;
           if(Math.random()<0.12)drop.push({x:b.x+b.w/2,y:b.y,k:Math.random()<0.5?'wide':'slow'});
         }
         break;
       }
-      if(by>V.h+20){
+      if(by>V.h+20&&cheatOn('god')){by=V.h+19;vy=-(Math.abs(vy)||300);}
+      else if(by>V.h+20){
         lives--;beep(170,0.4,'sawtooth',0.06,0.5);
         if(lives<=0){st='over';overT=0;if(score>best){best=score;newBest=true;lsSet('by.bust',best);}}
         else{serve();msg='Ball lost!';msgT=1.2;}
@@ -5414,14 +5419,16 @@ GAMES.tag=(function(){
     var info=hostIT(),it=!!(info&&info.p===me()),safe=info?(Date.now()-info.at)/1000:99;
     if(it)secs+=dt;
     var moving=PAD.axes(),jp=PAD.take(),mv=CAM3.dir(PAD.ax,PAD.ay);
-    var sp=it?SPD*1.12:SPD,acc=y>0?30:60;
+    var sp=(it?SPD*1.12:SPD)*cheatSpd(),acc=y>0?30:60;
     vx+=clampN(mv[0]*sp-vx,-acc*dt,acc*dt);vz+=clampN(mv[1]*sp-vz,-acc*dt,acc*dt);
     var o={x:x+vx*dt,z:z+vz*dt};push(o,0.4);x=o.x;z=o.z;
     var s2=Math.hypot(vx,vz);if(s2>0.7){face=Math.atan2(vx,vz);step+=dt*s2*1.5;}
     if(jp)buf=0.12;else buf-=dt;
-    if(buf>0&&y===0){vy=JV;buf=0;beep(520,0.1,'square',0.04,1.8);}
+    if(buf>0&&cheatOn('fly')){vy=7;buf=0;}
+    else if(buf>0&&y===0){vy=JV*cheatJump();buf=0;beep(520,0.1,'square',0.04,1.8);}
     if(!PAD.holding()&&vy>4.5)vy=4.5;
-    if(y>0||vy>0){vy-=GR*dt;y+=vy*dt;if(y<=0){y=0;vy=0;}}
+    if(cheatOn('fly')){vy=PAD.holding()?6:Math.max(-3,vy-GR*dt);y+=vy*dt;if(y<=0){y=0;vy=0;}if(y>8){y=8;vy=Math.min(vy,0);}}
+    else if(y>0||vy>0){vy-=GR*dt;y+=vy*dt;if(y<=0){y=0;vy=0;}}
     /* touching someone while It claims a tag; the claim rides along in presence so it cannot be lost */
     if(it&&safe>SAFE){
       var ps=allPlayers();
@@ -5452,7 +5459,7 @@ GAMES.tag=(function(){
     if(CAM3.snap){CAMP.x=x*0.6;CAMP.z=ez;CAM3.snap=false;}
     else{CAMP.x+=(x*0.6-CAMP.x)*0.12;CAMP.z+=(ez-CAMP.z)*0.12;}
     if(CAM3.mode===2)R3.camera(x,y+1.45,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
-    else R3.look(CAMP.x,13,CAMP.z,CAMP.x*0.9,0,CAMP.z+(fr?-9:9),V.w*0.98,V.w/2,V.h*0.5);
+    else R3.look(CAMP.x,13+Math.max(0,y)*0.8,CAMP.z,CAMP.x*0.9,Math.max(0,y)*0.5,CAMP.z+(fr?-9:9),V.w*0.98,V.w/2,V.h*0.5);
     var n=Math.round(HALF*2/2.6),i,j;
     for(i=0;i<n;i++)for(j=0;j<n;j++)R3.box(-HALF+(i+0.5)*2.6,-0.5,-HALF+(j+0.5)*2.6,2.6,0.5,2.6,((i+j)&1)?[250,205,120]:[240,190,105],0,true);
     for(i=0;i<5;i++){
@@ -6138,6 +6145,7 @@ GAMES.frog=(function(){
     build();home();
   }
   function die(why){
+    if(cheatOn('god'))return;
     lives--;msg=why;msgT=1.2;beep(160,0.3,'sawtooth',0.06,0.5);
     if(lives<=0){st='over';t=0;if(score>best){best=score;newBest=true;lsSet('by.frog',best);}return;}
     home();
@@ -6235,6 +6243,7 @@ GAMES.flap=(function(){
   };
   function end(){
     if(st==='over')return;
+    if(cheatOn('god')){if(y>V.h-26){y=V.h-26;vy=Math.min(vy,0);}if(y<-20){y=-20;vy=Math.max(vy,0);}return;}
     st='over';t=0;beep(170,0.4,'sawtooth',0.06,0.5);
     if(score>best){best=score;newBest=true;lsSet('by.flap',best);}
   }
@@ -6959,7 +6968,7 @@ GAMES.catchg=(function(){
       if(o.y>by-14&&o.y<by+22&&Math.abs(o.x-bx)<BW/2+8){
         o.hit=1;
         if(o.k==='rock'){
-          lives--;combo=0;msg='Ouch! A rock';msgT=1;beep(150,0.3,'sawtooth',0.06,0.5);
+          if(!cheatOn('god'))lives--;combo=0;msg='Ouch! A rock';msgT=1;beep(150,0.3,'sawtooth',0.06,0.5);
           if(lives<=0)end();
         }else{
           combo++;
@@ -6969,7 +6978,7 @@ GAMES.catchg=(function(){
         }
       }else if(o.y>V.h+24){
         o.hit=1;
-        if(o.k!=='rock'){lives--;combo=0;msg='Missed!';msgT=0.9;beep(220,0.2,'sawtooth',0.05,0.6);if(lives<=0)end();}
+        if(o.k!=='rock'){if(!cheatOn('god'))lives--;combo=0;msg='Missed!';msgT=0.9;beep(220,0.2,'sawtooth',0.05,0.6);if(lives<=0)end();}
       }
     });
     items=items.filter(function(o){return !o.hit&&o.y<V.h+30;});
@@ -7053,6 +7062,7 @@ GAMES.rocks=(function(){
     else if((c==='Space'||c==='KeyF')&&d)fire();
   };
   function hit(){
+    if(cheatOn('god')){inv=1;return;}
     lives--;inv=2;beep(150,0.4,'sawtooth',0.06,0.4);
     for(var i=0;i<16;i++)parts.push({x:sx,y:sy,vx:(Math.random()*2-1)*180,vy:(Math.random()*2-1)*180,t:0.8,c:P.orange});
     sx=V.w/2;sy=V.h/2;svx=0;svy=0;
@@ -7654,6 +7664,7 @@ GAMES.cave=(function(){
   };
   function end(){
     if(st==='over')return;
+    if(cheatOn('god')){if(y>V.h){y=V.h;vy=Math.min(vy,0);}if(y<0){y=0;vy=Math.max(vy,0);}return;}
     st='over';t=0;beep(150,0.5,'sawtooth',0.06,0.4);
     if(score>best){best=score;newBest=true;lsSet('by.cave',best);}
   }
@@ -7940,7 +7951,7 @@ GAMES.road=(function(){
     var cy=V.h-100;
     for(var k=0;k<cars.length;k++){
       var c=cars[k];
-      if(c.l===lane&&c.y>cy-56&&c.y<cy+56){
+      if(c.l===lane&&c.y>cy-56&&c.y<cy+56&&!cheatOn('god')){
         st='over';t=0;beep(150,0.5,'sawtooth',0.06,0.4);
         if(score>best){best=score;newBest=true;lsSet('by.road',best);}
         return;
@@ -9031,7 +9042,7 @@ GAMES.td=(function(){
   function reset(){
     mode=TDCFG.mode;diff=TDCFG.diff;
     me=newLane();foe=null;
-    if(CMD.admin&&CMD.tdCash)me.money+=1000;
+    if(cheatOK('cash')&&CMD.tdCash)me.money+=1000;
     if(mode==='bot'){foe=newLane();botInit(foe,diff);}
     sel=null;selT=null;st='count';cnt=3;res=null;overT=0;t=0;flash=0;tipT=0;banner=0;
     lastPops=0;lastLeaks=0;otShown=0;gone=0;presL=-1;presE=-1;recvT=0;recvN=0;lastFoeSent=0;sentN=0;sentT=0;
@@ -10238,12 +10249,15 @@ if(window.visualViewport){
 }
 /* ===== Owner command panel (only the page owner sees the button) ===== */
 var ADM={},ROLES={},GR={},ANN=[],GSUB={};
-var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['tools','Test tools'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports']];
-var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true};
-var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false};
+var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['c_speed','Cheat: Speed'],['c_oneshot','Cheat: One shot'],['c_god','Cheat: Immortal'],['c_jump','Cheat: Super jump'],['c_fly','Cheat: Flight'],['c_wave','Cheat: Blitz start wave'],['c_cash','Cheat: Balloons cash'],['c_bricks','Cheat: Free bricks'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports']];
+var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:true,c_oneshot:true,c_god:true,c_jump:true,c_fly:true,c_wave:true,c_cash:true,c_bricks:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true};
+var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:false,c_oneshot:false,c_god:false,c_jump:false,c_fly:false,c_wave:true,c_cash:true,c_bricks:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false};
 var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evPick:'',evNote:'',vu:'',ann:'',gu:'',ga:'50',adm:'',rn:'',pick:'',sureRole:'',players:null,sure:false,startWave:1,tdCash:false};
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
-function cleanPerms(p){var o={};PERMS.forEach(function(x){o[x[0]]=!!(p&&typeof p==='object'&&p[x[0]]===true);});return o;}
+function cleanPerms(p){var o={};PERMS.forEach(function(x){o[x[0]]=!!(p&&typeof p==='object'&&p[x[0]]===true);});
+  /* roles saved before cheats existed had one "tools" switch: it becomes the three old test cheats */
+  if(p&&typeof p==='object'&&p.tools===true){o.c_wave=true;o.c_cash=true;o.c_bricks=true;}
+  return o;}
 function cleanRoleName(n){return (typeof n==='string'&&/^[A-Za-z0-9 _-]{1,20}$/.test(n))?n:'Role';}
 /* what a person may do: the owner's own list first, then roles given out by people the owner trusted with "Give roles" */
 function directPerms(uid){
@@ -10425,12 +10439,17 @@ function cmdRender(){
     h+='<p class="lbl">Chat cleanup</p>';
     h+='<button class="choice" type="button" data-cmd="chats"'+dis+'>'+(CMD.sure?'Tap again to delete ALL chat messages':'Delete all chat messages')+'</button>';
   }
-  if(can('tools')){
+  var myCheats=CHEATS.filter(function(c){return can('c_'+c[0]);});
+  if(myCheats.length||can('c_wave')||can('c_cash')||can('c_bricks')){
     any=true;
-    h+='<p class="lbl">Test tools (only change your own device)</p>';
-    h+='<div class="row"><span class="who">Block Blitz start wave</span><button class="mini" type="button" data-cmd="wdn">-</button><span class="chip">'+CMD.startWave+'</span><button class="mini" type="button" data-cmd="wup">+</button></div>';
-    h+='<div class="row"><span class="who">Balloon Battle: +$1000 at the start</span><button class="mini'+(CMD.tdCash?' ok':'')+'" type="button" data-cmd="cash">'+(CMD.tdCash?'On':'Off')+'</button></div>';
-    h+='<div class="row"><span class="who">Give myself 100 bricks</span><button class="mini ok" type="button" data-cmd="self">+100</button></div>';
+    h+='<p class="lbl">Cheats</p><p class="note">Cheats only change your own game, and they switch off while other players are in your game. You can also turn them on from the game menu (the square button) while you play.</p>';
+    myCheats.forEach(function(c){
+      var on=!!CHEAT[c[0]];
+      h+='<div class="row"><span class="who">'+esc(c[1])+'<small>'+esc(c[2])+' · works in '+c[3].length+' games</small></span><button class="mini'+(on?' ok':'')+'" type="button" data-cmd="cheat" data-k="'+c[0]+'" aria-pressed="'+on+'">'+(on?'On':'Off')+'</button></div>';
+    });
+    if(can('c_wave'))h+='<div class="row"><span class="who">Block Blitz start wave</span><button class="mini" type="button" data-cmd="wdn">-</button><span class="chip">'+CMD.startWave+'</span><button class="mini" type="button" data-cmd="wup">+</button></div>';
+    if(can('c_cash'))h+='<div class="row"><span class="who">Balloon Battle: +$1000 at the start</span><button class="mini'+(CMD.tdCash?' ok':'')+'" type="button" data-cmd="cash">'+(CMD.tdCash?'On':'Off')+'</button></div>';
+    if(can('c_bricks'))h+='<div class="row"><span class="who">Give myself 100 bricks</span><button class="mini ok" type="button" data-cmd="self">+100</button></div>';
   }
   if(!any&&!own&&!asg)h+='<p class="note">Your role has no tools turned on yet.</p>';
   cmdBody.innerHTML=h;
@@ -10498,6 +10517,24 @@ function cmdVGive(){
     });
   }).then(function(err){if(err)cmdMsg('err',err);},cmdFail).then(cmdDone);
 }
+/* ===== cheats: the owner hands each one out as its own permission ("c_" + its key, under roles).
+   They only change your own game, and switch off while other players are in your game so matches stay fair. ===== */
+var CHEATS=[
+  ['speed','Speed','Move 1.6x faster',['arena','obby','yard','duel','tag']],
+  ['oneshot','One shot','Enemies go down in one hit',['arena','duel','bust']],
+  ['god','Immortal','Nothing can hurt you',['arena','runner','dash','obby','duel','pac','bust','frog','catchg','rocks','flap','cave','road']],
+  ['jump','Super jump','Jump much higher',['runner','dash','obby','yard','duel','tag']],
+  ['fly','Flight','Hold jump to fly up, let go to glide down',['obby','yard','duel','tag']]
+];
+var CHEAT=(function(){var s=lsGet('cheats',{}),o={};CHEATS.forEach(function(c){o[c[0]]=!!(s&&s[c[0]]===true);});return o;})();
+function cheatBlocked(){return !!NET.room&&pmPlayers().length>0;}
+function cheatOK(k){return can('c_'+k)&&!cheatBlocked();}
+function cheatOn(k){return !!CHEAT[k]&&cheatOK(k);}
+function cheatSpd(){return cheatOn('speed')?1.6:1;}
+function cheatJump(){return cheatOn('jump')?1.45:1;}
+function cheatToggle(k){if(!CHEAT.hasOwnProperty(k)||!can('c_'+k))return;CHEAT[k]=!CHEAT[k];lsSet('cheats',CHEAT);}
+function curId(){for(var k in GAMES)if(GAMES[k]===cur)return k;return '';}
+
 /* ===== cheat reports: players write reports/<their id>; the owner and anyone given the Cheat reports tool see them.
    The owner's Clear deletes a report; a tool holder's Clear hides it for everyone (repclear/<their id>), and a hide only
    counts when its writer holds the tool ===== */
@@ -10556,7 +10593,7 @@ function cmdRepClear(uid,id){
 }
 
 /* ===== in-game menu: Resume, Leave (are you sure?), FPS and ping, and reporting cheaters in multiplayer ===== */
-var PM={open:false,view:'menu',pick:'',msg:null,busy:false,sent:{}};
+var PM={open:false,view:'menu',pick:'',msg:null,busy:false,sent:{},rname:'',target:null};
 var PERF={on:!!lsGet('perf',false),raf:0,frames:0,t0:0,fps:0,ping:null,pingT:0,busy:false};
 function pmPlayers(){return NET.room?NET.peers.filter(function(p){return !p.sameTab&&p.kind==='viewer';}):[];}
 function pmPaused(){return PM.open&&!NET.room;}
@@ -10579,47 +10616,64 @@ function pmRender(){
     h+='<h3 id="pm-title">Are you sure?</h3><p class="note">You will leave '+esc(title)+'.'+((typeof YST!=='undefined'&&YST.need)?' Leaving this fight restarts the Yard Escape story.':'')+'</p>';
     h+='<button class="choice bad" type="button" data-pm="yes">Yes, leave</button>';
     h+='<button class="choice alt" type="button" data-pm="no">No, keep playing</button>';
-  }else if(PM.view==='report'){
-    var p=ps.filter(function(x){return x.peer===PM.pick;})[0];
-    if(!p){PM.view='menu';return pmRender();}
-    h+='<h3 id="pm-title">Report '+esc(netName(p))+'</h3><p class="note">What are they doing? Your report goes to the game owner.</p>';
+  }else if(PM.view==='report'&&PM.target){
+    h+='<h3 id="pm-title">Report '+esc(PM.target.name)+'</h3><p class="note">What are they doing? Your report goes to the people who check cheat reports.</p>';
     REP_WHY.forEach(function(w){h+='<button class="choice alt" type="button" data-pm="why" data-w="'+w[0]+'"'+(PM.busy?' disabled':'')+'>'+esc(w[1])+'</button>';});
     h+='<button class="choice" type="button" data-pm="back">Cancel</button>';
   }else{
+    PM.view='menu';
     h+='<h3 id="pm-title">'+(pmPaused()?'Paused':'Game menu')+'</h3>';
     h+='<button class="choice" type="button" data-pm="resume">Resume</button>';
     h+='<button class="choice alt" type="button" data-pm="leave">Leave game</button>';
     h+='<div class="row"><span class="who">Show FPS and ping<small>In the top right corner</small></span><button class="mini'+(PERF.on?' ok':'')+'" type="button" data-pm="perf" aria-pressed="'+PERF.on+'">'+(PERF.on?'On':'Off')+'</button></div>';
+    h+='<p class="lbl">Report a cheater</p>';
     if(NET.room){
-      h+='<p class="lbl">Report a cheater</p>';
-      if(!ps.length)h+='<p class="note">No other players here right now.</p>';
+      if(!ps.length)h+='<p class="note">No other players are in this game right now.</p>';
       ps.slice(0,12).forEach(function(p){
         var done=!!PM.sent[p.peer];
-        h+='<div class="row"><span class="who">'+esc(netName(p))+'</span>'+(done?'<span class="mini ok">Reported</span>':'<button class="mini bad" type="button" data-pm="rep" data-p="'+esc(p.peer)+'">Report</button>')+'</div>';
+        h+='<div class="row"><span class="who">'+esc(netName(p))+'<small>In this game now</small></span>'+(done?'<span class="mini ok">Reported</span>':'<button class="mini bad" type="button" data-pm="rep" data-p="'+esc(p.peer)+'">Report</button>')+'</div>';
       });
     }
-    if(!NET.room)h+='<p class="note">The game is paused while this menu is open.</p>';
+    h+='<div class="sendrow"><input class="field" id="pm-rname" maxlength="17" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Their username" aria-label="Username to report" value="'+esc(PM.rname)+'"><button class="mini bad" type="button" data-pm="repname">Report</button></div>';
+    var cid=curId(),cl=CHEATS.filter(function(c){return can('c_'+c[0]);});
+    if(cl.length){
+      h+='<p class="lbl">Cheats</p>';
+      if(cheatBlocked())h+='<p class="note">Cheats are off while other players are in your game.</p>';
+      cl.forEach(function(c){
+        var on=!!CHEAT[c[0]],works=c[3].indexOf(cid)>=0;
+        h+='<div class="row"><span class="who">'+esc(c[1])+'<small>'+(works?esc(c[2]):'Does nothing in this game')+'</small></span><button class="mini'+(on?' ok':'')+'" type="button" data-pm="cheat" data-k="'+c[0]+'" aria-pressed="'+on+'">'+(on?'On':'Off')+'</button></div>';
+      });
+    }
+    if(pmPaused())h+='<p class="note">The game is paused while this menu is open.</p>';
   }
   if(PM.msg)h+='<p class="note '+PM.msg.t+'" role="status">'+esc(PM.msg.s)+'</p>';
   $('pm-card').innerHTML=h;
 }
+function pmTargetPeer(peer){var p=pmPlayers().filter(function(x){return x.peer===peer;})[0];return p?{peer:p.peer,name:netName(p),by:p.by||''}:null;}
 function pmSend(why){
-  var p=pmPlayers().filter(function(x){return x.peer===PM.pick;})[0];
-  if(!p){PM.view='menu';pmRender();return;}
-  if(!SOC.db||!SOC.uid){PM.msg={t:'err',s:'Sign in to your account to send reports.'};PM.view='menu';pmRender();return;}
-  var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),ref=SOC.db.doc('reports/'+SOC.uid);
-  var entry={at:Date.now(),who:p.by||'',name:netName(p).slice(0,40),game:(cur&&cur.title)||'',why:why};
+  var tg=PM.target;
+  if(!tg){PM.view='menu';pmRender();return;}
+  if(!SOC.db||!SOC.uid){PM.msg={t:'err',s:SOLO?'Reports need the online version of Blockyard Arcade.':'Sign in to your account to send reports.'};PM.view='menu';PM.target=null;pmRender();return;}
   PM.busy=true;pmRender();
-  ref.get().then(function(s){
-    var d=s.exists?(s.data()||{}):null,list={};
-    if(d&&d.list&&typeof d.list==='object'){var ks=Object.keys(d.list).sort().slice(-40);ks.forEach(function(k){list[k]=d.list[k];});}
-    list[id]=entry;
-    return ref.set({name:SOC.account?SOC.account.username:'',list:list,at:Date.now()});
-  }).then(function(){
-    PM.sent[p.peer]=1;PM.msg={t:'good',s:'Report sent. Thanks for keeping games fair.'};
-  },function(){
-    PM.msg={t:'err',s:'That report did not send. Check your connection and try again.'};
-  }).then(function(){PM.busy=false;PM.view='menu';if(PM.open)pmRender();});
+  var who=tg.typed?cmdLookup(tg.name):Promise.resolve({uid:tg.by,name:tg.name});
+  who.then(function(d){
+    if(typeof d==='string')throw {msg:d};
+    if(d.uid&&d.uid===SOC.uid)throw {msg:'You cannot report yourself.'};
+    var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),ref=SOC.db.doc('reports/'+SOC.uid);
+    var entry={at:Date.now(),who:d.uid||'',name:String(d.name||tg.name).slice(0,40),game:(cur&&cur.title)||'',why:why};
+    return ref.get().then(function(s){
+      var x=s.exists?(s.data()||{}):null,list={};
+      if(x&&x.list&&typeof x.list==='object'){Object.keys(x.list).sort().slice(-40).forEach(function(k){list[k]=x.list[k];});}
+      list[id]=entry;
+      return ref.set({name:SOC.account?SOC.account.username:'',list:list,at:Date.now()});
+    }).then(function(){
+      if(tg.peer)PM.sent[tg.peer]=1;
+      if(tg.typed)PM.rname='';
+      PM.msg={t:'good',s:'Report sent. Thanks for keeping games fair.'};
+    });
+  }).catch(function(e){
+    PM.msg={t:'err',s:(e&&e.msg)||'That report did not send. Check your connection and try again.'};
+  }).then(function(){PM.busy=false;PM.view='menu';PM.target=null;if(PM.open)pmRender();});
 }
 $('pmenu').addEventListener('click',function(e){
   if(e.target===e.currentTarget){pmClose();return;}
@@ -10630,10 +10684,17 @@ $('pmenu').addEventListener('click',function(e){
   else if(a==='no'){PM.view='menu';pmRender();}
   else if(a==='yes'){pmClose(true);closeGame();}
   else if(a==='perf'){PERF.on=!PERF.on;lsSet('perf',PERF.on);perfShow();pmRender();}
-  else if(a==='rep'){PM.pick=b.getAttribute('data-p')||'';PM.view='report';PM.msg=null;pmRender();}
-  else if(a==='back'){PM.view='menu';pmRender();}
+  else if(a==='rep'){PM.target=pmTargetPeer(b.getAttribute('data-p'));PM.msg=null;if(PM.target)PM.view='report';pmRender();}
+  else if(a==='repname'){
+    var n=(PM.rname||'').trim().replace(/^@/,'');
+    if(!NAME_RE.test(n)){PM.msg={t:'err',s:'Type their exact username first.'};pmRender();return;}
+    PM.target={name:n,typed:true};PM.view='report';PM.msg=null;pmRender();
+  }
+  else if(a==='back'){PM.view='menu';PM.target=null;pmRender();}
   else if(a==='why'&&!PM.busy)pmSend(b.getAttribute('data-w'));
+  else if(a==='cheat'){cheatToggle(b.getAttribute('data-k'));pmRender();}
 });
+$('pmenu').addEventListener('input',function(e){if(e.target.id==='pm-rname')PM.rname=e.target.value;});
 function perfShow(){
   var el=$('perf'),vis=PERF.on&&!!cur;
   el.hidden=!vis;
@@ -10800,7 +10861,7 @@ cmdBody.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;
   if(!b||b.disabled||!CMD.admin)return;
   var a=b.getAttribute('data-cmd');
-  var OWN={newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={repclear:'reports',vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'tools',wup:'tools',cash:'tools',self:'tools',grant:'assign',pickrole:'assign'};
+  var OWN={newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={repclear:'reports',vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'c_wave',wup:'c_wave',cash:'c_cash',self:'c_bricks',grant:'assign',pickrole:'assign'};
   if(OWN[a]&&!CMD.owner)return;
   if(NEED[a]&&!can(NEED[a]))return;
   if(a!=='chats')CMD.sure=false;
@@ -10827,6 +10888,7 @@ cmdBody.addEventListener('click',function(e){
   else if(a==='rmadmin')cmdRemoveAdmin(b.getAttribute('data-id'));
   else if(a==='chats')cmdChats();
   else if(a==='pick'){CMD.gu=b.getAttribute('data-name')||'';CMD.msg=null;cmdRender();var g=$('cmd-ga');if(g)g.focus();}
+  else if(a==='cheat'){cheatToggle(b.getAttribute('data-k'));cmdRender();}
   else if(a==='wdn'){CMD.startWave=Math.max(1,CMD.startWave-1);cmdRender();}
   else if(a==='wup'){CMD.startWave=Math.min(30,CMD.startWave+1);cmdRender();}
   else if(a==='cash'){CMD.tdCash=!CMD.tdCash;cmdRender();}
