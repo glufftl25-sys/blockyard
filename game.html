@@ -8,7 +8,9 @@
 #gmenu .gm-ico::after{content:'';position:absolute;left:0;right:0;top:50%;height:3px;margin-top:-1.5px;background:var(--ink)}
 #perf{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:74px;padding:4px 8px;border:2px solid var(--ink);border-radius:9px;background:rgba(10,12,30,.82);color:#fff;font:700 12px/1.2 var(--body);white-space:nowrap;font-variant-numeric:tabular-nums}
 #perf .ok{color:#5ed88a}#perf .meh{color:#ffd23f}#perf .low{color:#ff8a7a}
+#bantag{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);z-index:2;pointer-events:none;padding:4px 10px;border:2px solid var(--ink);border-radius:999px;background:#ffd23f;color:#14213d;font:800 12px/1.2 var(--body);white-space:nowrap;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis}
 #cheattag{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:2;pointer-events:none;padding:4px 10px;border:2px solid var(--ink);border-radius:999px;background:#ff5a4d;color:#fff;font:800 12px/1.2 var(--body);white-space:nowrap}
+.who.rp small{white-space:normal;overflow:visible}
 #pmenu{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:rgba(8,8,24,.66)}
 .pm-card{width:min(420px,100%);max-height:calc(100dvh - 32px);overflow:auto;display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--bg);border:3px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 var(--ink);color:var(--text)}
 .pm-card h3{margin:0 0 2px;text-align:center;font:400 28px/1.1 var(--display);color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill}
@@ -797,7 +799,7 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
       <span id="perf" hidden></span>
       <button class="pill" id="snd" type="button" aria-pressed="true">Sound on</button>
     </div>
-    <div id="stage" hidden><canvas id="cv"></canvas><div id="cheattag" hidden>Cheats used · scores won't save</div></div>
+    <div id="stage" hidden><canvas id="cv"></canvas><div id="bantag" hidden>Reported · online play is off until it is reviewed</div><div id="cheattag" hidden>Cheats used · scores won't save</div></div>
     <div id="story" hidden></div>
     <div id="pmenu" hidden role="dialog" aria-modal="true" aria-labelledby="pm-title"><div class="pm-card" id="pm-card"></div></div>
     <div id="mkui" hidden>
@@ -1021,7 +1023,7 @@ function loop(t){
 function openGame(id){
   var g=GAMES[id]; if(!g)return;
   pmClose(true);
-  CURID=id;RUNCHEAT=false;$('cheattag').hidden=true;
+  CURID=id;RUNCHEAT=false;$('cheattag').hidden=true;$('bantag').hidden=true;NET.blocked=false;
   cur=g; hub.hidden=true; play.hidden=false; $('menu3d').hidden=true; $('gtitle').textContent=g.title;
   $('tdpanel').hidden=(id!=='td');
   STAT.add('plays',1);
@@ -2809,6 +2811,7 @@ var NET={room:null,name:'',offs:[],peers:[],on:false,last:0,pend:null,sm:{},fail
 var AVN={};
 function netJoin(name){
   netLeave();
+  if(typeof amBlocked==='function'&&amBlocked()){NET.blocked=true;var bt=$('bantag');if(bt&&cur)bt.hidden=false;return;}
   NET.name=name;NET.on=true;NET.fail=false;
   getRoom().then(function(rm){
     if(!rm)throw 0;
@@ -2882,6 +2885,7 @@ function netTags(tags){
   ctx.restore();
 }
 function netStatus(){
+  if(NET.blocked)return 'Reported: online play is off for now';
   if(NET.fail)return 'Offline · needs an invite to this page';
   if(!NET.room)return 'Connecting...';
   var n=netOthers().length;
@@ -3166,6 +3170,7 @@ GAMES.yard=(function(){
   function beginStory(){st='story';node='start';YST.resume=null;resetRun();YST.t0=Date.now();YST.cheat=false;x=START.x;z=START.z;}
   function beginPlay(){st='play';clock=0;}
   function chooseSize(n){
+    if(n>1&&typeof amBlocked==='function'&&amBlocked()){st='lobby';gsz=0;x=LOBBY.x;z=LOBBY.z;PAD.reset();msg='Reported: only 1 player games for now';msgT=4;return;}
     gsz=n;PAD.reset();
     if(n===1){netLeave();beginStory();return;}
     netJoin('w3-yard-'+n);st='wait';
@@ -9285,6 +9290,7 @@ function mpLeave(){
 }
 function mpJoin(code){
   mpLeave();
+  if(typeof amBlocked==='function'&&amBlocked())return Promise.reject({code:'reported'});
   return getRoom().then(function(rm){
     if(!rm)throw {code:'no_room'};
     return rm.join('td-'+code.toLowerCase());
@@ -9329,6 +9335,7 @@ function inviteSub(){
   },function(){});
 }
 function joinFail(e){
+  if(e&&e.code==='reported')return banText();
   if(e&&e.code==='no_room')return offText('Live matches');
   if(e&&e.code==='not_permitted')return 'You cannot join live matches yet. Ask the page owner to invite your email to this page.';
   return 'Could not open the match. Check your connection and try again.';
@@ -9613,7 +9620,7 @@ function walletInit(){
     s.docs.forEach(function(d){ADM[d.id]=d.data()||{};});
     syncAdmin();giftSubs();showBanner();
   },function(){});
-  rqInit();avInit();pubInit();evInit();if(SOC.account)bioInit();
+  rqInit();avInit();pubInit();evInit();if(SOC.account)bioInit();repSync();
   db.collection('checks').onSnapshot(function(s){
     VC={};
     s.docs.forEach(function(d){VC[d.id]=d.data()||{};});
@@ -9677,7 +9684,7 @@ function syncAdmin(){
   CMD.perms=CMD.owner?P_ALL:(permsOf(SOC.uid)||{});
   CMD.admin=!!CMD.perms.panel;
   $('cmd-btn').hidden=!CMD.admin;
-  rqSync();
+  rqSync();if(typeof repEnforce==='function'&&REP.subbed)repEnforce();
   if(!cmdEl.hidden){if(CMD.admin)cmdRender();else toHub();}
   vRefresh(true);
 }
@@ -10399,12 +10406,23 @@ function cmdRender(){
   }
   if(own||can('reports')){
     any=true;repSync();
-    var rv=repVisible();
-    h+='<p class="lbl">Cheat reports</p>';
-    if(!rv.length)h+='<p class="note">No reports right now. Players report cheaters from the game menu in multiplayer games.</p>';
-    rv.slice(0,30).forEach(function(r){
-      h+='<div class="row"><span class="who">@'+esc(r.name)+' \u00b7 '+esc(repWhy(r.why))+'<small>in '+esc(r.game||'a game')+' \u00b7 reported by @'+esc(r.by)+' \u00b7 '+esc(agoText(r.at))+'</small></span><button class="mini" type="button" data-cmd="repclear" data-u="'+esc(r.uid)+'" data-i="'+esc(r.id)+'"'+dis+'>Clear</button></div>';
+    var rw=REP.list.filter(function(r){return repStatus(r)==='wait';}),rb=REP.list.filter(function(r){return repStatus(r)==='ok';});
+    h+='<p class="lbl">Cheat reports</p><p class="note">Until a report is reviewed, the reported player can\'t play online games. Approve keeps them out of online games until you unblock them. Decline lets them play again. Reports about the owner do nothing.</p>';
+    if(!rw.length)h+='<p class="note">No reports are waiting.</p>';
+    rw.slice(0,30).forEach(function(r){
+      var ownT=repIsOwner(r.who),self=r.who&&r.who===SOC.uid;
+      var sub=esc(repWhy(r.why))+' · in '+esc(r.game||'a game')+' · reported by @'+esc(r.by)+' · '+esc(agoText(r.at))+(ownT?' · owner, so this does nothing':(!r.who?' · guest, can\'t be blocked':''));
+      h+='<div class="row"><span class="who rp">@'+esc(r.name)+'<small>'+sub+'</small></span>'+
+        (self&&!CMD.owner?'<span class="chip">About you</span>':'<button class="mini bad" type="button" data-cmd="repok" data-u="'+esc(r.uid)+'" data-i="'+esc(r.id)+'"'+dis+'>Approve</button><button class="mini" type="button" data-cmd="repno" data-u="'+esc(r.uid)+'" data-i="'+esc(r.id)+'"'+dis+'>Decline</button>')+'</div>';
     });
+    if(rb.length){
+      h+='<p class="lbl">Blocked from online games</p>';
+      rb.slice(0,30).forEach(function(r){
+        var self=r.who&&r.who===SOC.uid;
+        h+='<div class="row"><span class="who rp">@'+esc(r.name)+'<small>Approved: '+esc(repWhy(r.why))+' in '+esc(r.game||'a game')+(repIsOwner(r.who)?' · owner, so this does nothing':'')+'</small></span>'+
+          (self&&!CMD.owner?'<span class="chip">About you</span>':'<button class="mini" type="button" data-cmd="repno" data-u="'+esc(r.uid)+'" data-i="'+esc(r.id)+'"'+dis+'>Unblock</button>')+'</div>';
+      });
+    }
   }
   if(own||can('votes')){
     any=true;
@@ -10554,39 +10572,68 @@ function scoreKey(k){return typeof k==='string'&&(k.indexOf('by.')===0||k==='td.
 function scoreBlocked(k){return scoreKey(k)&&(RUNCHEAT||(k==='yard.board'&&typeof YST!=='undefined'&&!!YST.cheat));}
 
 
-/* ===== cheat reports: players write reports/<their id>; the owner and anyone given the Cheat reports tool see them.
-   The owner's Clear deletes a report; a tool holder's Clear hides it for everyone (repclear/<their id>), and a hide only
-   counts when its writer holds the tool ===== */
+/* ===== cheat reports: players write reports/<their id>. The owner and anyone given the Cheat reports tool review them:
+   each decision is saved in repclear/<reviewer id> as {s:'ok'|'no',at}, and only counts when the reviewer holds the tool
+   (and is not the reported player). A reported player can't join online games while a report about them is waiting
+   or approved. Reports about the owner go through but never block the owner. ===== */
 var REP_WHY=[['speed','Speed or teleport hacks'],['aim','Aim or auto-play cheats'],['glitch','Glitch or bug abuse'],['other','Other cheating']];
 function repWhy(k){for(var i=0;i<REP_WHY.length;i++)if(REP_WHY[i][0]===k)return REP_WHY[i][1];return 'Cheating';}
 function agoText(t){var s=Math.max(0,(Date.now()-(+t||0))/1000);if(s<90)return 'just now';if(s<5400)return Math.round(s/60)+' min ago';if(s<129600)return Math.round(s/3600)+' h ago';return Math.round(s/86400)+' days ago';}
-var REP={list:[],docs:{},subbed:false,hide:{},mine:{}};
+var REP={list:[],docs:{},subbed:false,hide:{},mine:{},loaded:false};
 function repKey(uid,id){return uid+'~'+id;}
-function repVisible(){
-  return REP.list.filter(function(r){
-    var k=repKey(r.uid,r.id);
-    return !Object.keys(REP.hide).some(function(g){
-      if(!REP.hide[g][k])return false;
-      if(g===SOC.uid)return can('reports');
-      var p=(typeof permsOf==='function')?permsOf(g):null;return !!(p&&p.reports);
-    });
+function repIsOwner(uid){return !!uid&&((ADM[uid]&&ADM[uid].owner===true)||(CMD.owner&&uid===SOC.uid));}
+function repStatus(r){
+  var key=repKey(r.uid,r.id),best=null;
+  Object.keys(REP.hide).forEach(function(g){
+    var e=REP.hide[g][key];if(!e)return;
+    if(r.who&&g===r.who)return;
+    if(g===SOC.uid){if(!can('reports'))return;}
+    else{var p=(typeof permsOf==='function')?permsOf(g):null;if(!p||!p.reports)return;}
+    if(!best||e.at>=best.at)best=e;
   });
+  return best?best.s:'wait';
 }
-function cmdRepHide(uid,id){
+/* is this device's own account kept out of online games right now? */
+function amBlocked(){
+  if(!SOC.uid||CMD.owner||!REP.loaded)return false;
+  return REP.list.some(function(r){return r.who===SOC.uid&&repStatus(r)!=='no';});
+}
+function banText(){return 'You were reported for cheating, so online games are off until the report is reviewed.';}
+function repEnforce(){
+  var b=amBlocked();
+  if(b&&(NET.on||NET.room)){netLeave();NET.blocked=true;}
+  if(b&&typeof MP!=='undefined'&&MP.room){try{mpLeave();}catch(e){}if(typeof lobby!=='undefined'&&!lobby.hidden){LB.msg={t:'err',s:banText()};lobRender();}}
+  if(!b)NET.blocked=false;
+  var t=$('bantag');if(t)t.hidden=!(b&&NET.blocked&&!!cur);
+  if(PM.open)pmRender();
+}
+function cmdRepDecide(uid,id,s){
   if(!can('reports')||!SOC.db||!SOC.uid||!uid||!id)return;
-  var list={},ks=Object.keys(REP.mine).sort(function(a,b){return (REP.mine[a]||0)-(REP.mine[b]||0);}).slice(-250);
+  var list={},ks=Object.keys(REP.mine).sort(function(a,b){return (REP.mine[a].at||0)-(REP.mine[b].at||0);}).slice(-250);
   ks.forEach(function(k){list[k]=REP.mine[k];});
-  list[repKey(uid,id)]=Date.now();
+  list[repKey(uid,id)]={s:s,at:Date.now()};
   CMD.busy=true;cmdRender();
-  SOC.db.doc('repclear/'+SOC.uid).set({list:list,at:Date.now()}).then(function(){REP.mine=list;cmdMsg('good','Report cleared for everyone.');},cmdFail).then(cmdDone);
+  SOC.db.doc('repclear/'+SOC.uid).set({list:list,at:Date.now()}).then(function(){
+    REP.mine=list;
+    cmdMsg('good',s==='ok'?'Report approved. That player stays out of online games until you unblock them.':'Report declined. That player can play online games again.');
+  },cmdFail).then(cmdDone);
 }
 function repSync(){
-  if(REP.subbed||!SOC.db||!can('reports'))return;REP.subbed=true;
+  if(REP.subbed||!SOC.db||!SOC.uid)return;REP.subbed=true;
+  var got=0;
   SOC.db.collection('repclear').onSnapshot(function(s){
     var hide={};
-    s.docs.forEach(function(d){var data=d.data()||{},l=(data.list&&typeof data.list==='object')?data.list:{},o={};Object.keys(l).slice(0,400).forEach(function(k){o[k]=+l[k]||1;});hide[d.id]=o;});
+    s.docs.forEach(function(d){
+      var data=d.data()||{},l=(data.list&&typeof data.list==='object')?data.list:{},o={};
+      Object.keys(l).slice(0,400).forEach(function(k){
+        var v=l[k];
+        o[k]=(v&&typeof v==='object')?{s:v.s==='ok'?'ok':'no',at:+v.at||0}:{s:'no',at:+v||0};
+      });
+      hide[d.id]=o;
+    });
     REP.hide=hide;REP.mine=hide[SOC.uid]||{};
-    if(!cmdEl.hidden)cmdRender();
+    got|=1;if(got===3)REP.loaded=true;
+    repEnforce();if(!cmdEl.hidden)cmdRender();
   },function(){});
   SOC.db.collection('reports').onSnapshot(function(s){
     var out=[],docs={};
@@ -10595,20 +10642,14 @@ function repSync(){
       docs[d.id]=data;
       Object.keys(list).slice(0,60).forEach(function(k){
         var e=list[k];if(!e||typeof e!=='object')return;
-        out.push({uid:d.id,id:k,at:+e.at||0,name:String(e.name||'Player').slice(0,40),by:String(data.name||'player').slice(0,20),game:String(e.game||'').slice(0,40),why:String(e.why||'')});
+        out.push({uid:d.id,id:k,at:+e.at||0,who:String(e.who||''),name:String(e.name||'Player').slice(0,40),by:String(data.name||'player').slice(0,20),game:String(e.game||'').slice(0,40),why:String(e.why||'')});
       });
     });
     out.sort(function(a,b){return b.at-a.at;});
     REP.list=out;REP.docs=docs;
-    if(!cmdEl.hidden)cmdRender();
+    got|=2;if(got===3)REP.loaded=true;
+    repEnforce();if(!cmdEl.hidden)cmdRender();
   },function(){REP.subbed=false;});
-}
-function cmdRepClear(uid,id){
-  if(!CMD.owner||!SOC.db||!uid||!id)return;
-  var data=REP.docs[uid]||{},old=(data.list&&typeof data.list==='object')?data.list:{},list={};
-  Object.keys(old).forEach(function(k){if(k!==id)list[k]=old[k];});
-  CMD.busy=true;cmdRender();
-  SOC.db.doc('reports/'+uid).set({name:String(data.name||''),list:list,at:+data.at||Date.now()}).then(function(){cmdMsg('good','Report cleared.');},cmdFail).then(cmdDone);
 }
 
 /* ===== in-game menu: Resume, Leave (are you sure?), FPS and ping, and reporting cheaters in multiplayer ===== */
@@ -10645,6 +10686,7 @@ function pmRender(){
     h+='<button class="choice" type="button" data-pm="resume">Resume</button>';
     h+='<button class="choice alt" type="button" data-pm="leave">Leave game</button>';
     h+='<div class="row"><span class="who">Show FPS and ping<small>In the top right corner</small></span><button class="mini'+(PERF.on?' ok':'')+'" type="button" data-pm="perf" aria-pressed="'+PERF.on+'">'+(PERF.on?'On':'Off')+'</button></div>';
+    if(amBlocked())h+='<p class="note err">'+esc(banText())+' You can still play single-player games.</p>';
     h+='<p class="lbl">Report a cheater</p>';
     if(NET.room){
       if(!ps.length)h+='<p class="note">No other players are in this game right now.</p>';
@@ -10880,12 +10922,12 @@ cmdBody.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;
   if(!b||b.disabled||!CMD.admin)return;
   var a=b.getAttribute('data-cmd');
-  var OWN={newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={repclear:'reports',vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'c_wave',wup:'c_wave',cash:'c_cash',self:'c_bricks',grant:'assign',pickrole:'assign'};
+  var OWN={newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={repok:'reports',repno:'reports',vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'c_wave',wup:'c_wave',cash:'c_cash',self:'c_bricks',grant:'assign',pickrole:'assign'};
   if(OWN[a]&&!CMD.owner)return;
   if(NEED[a]&&!can(NEED[a]))return;
   if(a!=='chats')CMD.sure=false;
   if(a!=='delrole')CMD.sureRole='';
-  if(a==='repclear'){if(CMD.owner)cmdRepClear(b.getAttribute('data-u'),b.getAttribute('data-i'));else cmdRepHide(b.getAttribute('data-u'),b.getAttribute('data-i'));}
+  if(a==='repok'||a==='repno')cmdRepDecide(b.getAttribute('data-u'),b.getAttribute('data-i'),a==='repok'?'ok':'no');
   else if(a==='vwset')cmdVWSet();
   else if(a==='vwrm')cmdVWRm(b.getAttribute('data-u'));
   else if(a==='post')cmdPost();
