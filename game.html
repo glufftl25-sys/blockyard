@@ -1286,7 +1286,7 @@ GAMES.arena=(function(){
       gems.push({x:f.x-16,y:f.y,life:12},{x:f.x+16,y:f.y,life:12});
       beep(240,0.5,'sawtooth',0.07,3);
       if(fromYard&&wave>=YWAVE&&st==='run'){
-        st='won';wonT=0;inWave=false;toSpawn=0;
+        st='won';wonT=0;inWave=false;toSpawn=0;YST.need=false;
         if(score>best){best=score;newBest=true;lsSet('by.arena',best);}
         if(wave>bestW){bestW=wave;lsSet('by.arenaw',bestW);}
       }
@@ -1310,6 +1310,7 @@ GAMES.arena=(function(){
     beep(130,0.3,'sawtooth',0.07,0.5);
     if(pl.hp<=0){
       st='over';overT=0;
+      if(fromYard)beep(110,0.7,'sawtooth',0.07,0.4);
       if(score>best){best=score;newBest=true;lsSet('by.arena',best);}
       if(wave>bestW){bestW=wave;lsSet('by.arenaw',bestW);}
     }
@@ -1430,7 +1431,7 @@ GAMES.arena=(function(){
   function tap(){
     if(st==='won'){if(wonT>0.6)leaveToYard();return false;}
     if(st==='ready')st='run';
-    else if(st==='over'&&overT>0.5){reset();st='run';}
+    else if(st==='over'&&overT>0.5){if(fromYard){leaveToYard();return false;}reset();st='run';}
     return st==='run';
   }
 
@@ -1441,7 +1442,7 @@ GAMES.arena=(function(){
   g.update=function(dt){
     updateFx(dt);
     if(st==='won'){wonT+=dt;if(wonT>2.4)leaveToYard();return;}
-    if(st==='over'){overT+=dt;return;}
+    if(st==='over'){overT+=dt;if(fromYard&&overT>3)leaveToYard();return;}
     if(st!=='run')return;
     t+=dt;if(flash>0)flash-=dt;if(pl.inv>0)pl.inv-=dt;
 
@@ -1637,6 +1638,8 @@ GAMES.arena=(function(){
       else panel(my,[['BLOCK BLITZ',32,P.sun],['Drag anywhere to move',16,'#fff'],['Survive waves. Beat bosses!',16,'#fff'],['TAP TO START',22,P.sun]]);
     }else if(st==='won'){
       panel(my,[['BOSS BEATEN!',32,P.sun],['Wave '+wave+'   Score '+score,20,'#fff'],['Back to Yard Escape...',18,'#fff']]);
+    }else if(st==='over'&&fromYard){
+      panel(my,[['GAME OVER',32,P.brick],['Wave '+wave+'   Score '+score,20,'#fff'],['The story starts over...',18,P.sun]]);
     }else if(st==='over'){
       panel(my,[['GAME OVER',32,P.brick],['Wave '+wave+'   Score '+score,22,'#fff'],[newBest?'New best!':'Best '+best+'  (wave '+bestW+')',18,P.sun],[overT>0.5?'Tap to retry':' ',20,'#fff']]);
     }
@@ -3012,7 +3015,8 @@ GAMES.party=(function(){
   return g;
 })();
 
-var YST={resume:null,node:'start',gsz:0,elapsed:0,pen:0,t0:0};
+/* need: a minigame from the story still has to be won; losing it (or leaving it) restarts the story */
+var YST={resume:null,node:'start',gsz:0,elapsed:0,pen:0,t0:0,need:false};
 var WV={},WVMY={},wvSubbed=false;
 function wvOf(uid){var e=uid&&WV[uid];return e&&typeof e.w==='number'?e.w:1;}
 function wvList(){return Object.keys(WVMY).map(function(u){return {uid:u,name:WVMY[u].name,w:WVMY[u].w};});}
@@ -3064,7 +3068,7 @@ GAMES.yard=(function(){
     'Ghost blocks drift between the crates. Touch one and you lose 3 seconds and go back to the start.',
     'Find all three lanterns, then light the gate at the back of the yard. Go!'];
   var jy=0,vyy=0,st='lobby',prev='lobby',gsz=0,t=0,clock=0,pen=0,flash=0,msg='',msgT=0,face=0,step=0,x=0,z=0,
-      node='start',myVote=null,vt=0,cnt=3,inv=0,got={},myFin=false,ghosts=[],rects=[],tab=1,winT=0,winSecs=0,winNames='',
+      node='start',myVote=null,vt=0,lostNote=false,cnt=3,inv=0,got={},myFin=false,ghosts=[],rects=[],tab=1,winT=0,winSecs=0,winNames='',
       cam={x:0,y:6.2,z:-9};
   function fmt(s){var m=Math.floor(s/60),r=s-m*60;return m+':'+(r<10?'0':'')+r.toFixed(1);}
   function wrapLines(s,n){
@@ -3249,7 +3253,7 @@ GAMES.yard=(function(){
         fs=V.w<380?15:17,topMin=40,want=Math.max(64,V.h*0.06),lh,lines,bh,total,top,y;
     for(;;){
       lh=Math.round(fs*1.4);lines=ywrap(n.t,tw,fs);bh=Math.max(32,Math.round(fs*2.3));
-      total=20+lines.length*lh+(vote?lh:0)+14+nc*(bh+8)+8;
+      total=20+(lostNote?lh:0)+lines.length*lh+(vote?lh:0)+14+nc*(bh+8)+8;
       if(total<=V.h-topMin-10||fs<=12)break;
       fs--;
     }
@@ -3259,6 +3263,7 @@ GAMES.yard=(function(){
     ctx.save();ctx.fillStyle='#16183c';ctx.strokeStyle=P.ink;ctx.lineWidth=3;
     ctx.fillRect(V.w/2-pw/2,top,pw,total);ctx.strokeRect(V.w/2-pw/2,top,pw,total);ctx.restore();
     y=top+20+lh/2;
+    if(lostNote){ytxt('You lost, so the story starts over!',V.w/2,y,fs,'#ff8a7a','700');y+=lh;}
     lines.forEach(function(l){ytxt(l,V.w/2,y,fs,'#ffffff');y+=lh;});
     if(vote){ytxt('Group vote: '+votesIn()+' of '+memberKeys().length+' in, '+Math.max(0,Math.ceil(15-vt))+'s left',V.w/2,y,fs-2,P.sun,'700');y+=lh;}
     y+=14-lh/2;
@@ -3298,10 +3303,10 @@ GAMES.yard=(function(){
   /* a choice either moves the story on, or opens a minigame; closing that minigame brings you back here */
   function choose(k){
     var c=NODES[node].c[k];if(!c)return;
-    myVote=null;vt=0;
+    myVote=null;vt=0;lostNote=false;
     var o=c[2]||{};
     if(o.game){
-      YST.resume=c[1];YST.gsz=gsz;YST.elapsed=clock;YST.pen=pen;
+      YST.resume=c[1];YST.gsz=gsz;YST.elapsed=clock;YST.pen=pen;YST.need=true;lostNote=false;
       g.stop();openGame(o.game);return;
     }
     node=c[1];
@@ -3421,10 +3426,11 @@ GAMES.yard=(function(){
   g.start=function(){
     PAD.reset();CAM3.snap=true;wvSync();
     if(YST.resume){
-      var nx=YST.resume;YST.resume=null;
+      var nx=YST.resume,lost=YST.need;YST.resume=null;YST.need=false;
       gsz=YST.gsz;clock=YST.elapsed;pen=YST.pen;node=nx;st='story';myVote=null;vt=0;
       if(gsz>1)netJoin('w3-yard-'+gsz);
-      if(NODES[nx]&&NODES[nx].end)finish();
+      if(lost){beginStory();lostNote=true;}
+      else if(NODES[nx]&&NODES[nx].end)finish();
     }else toLobby();
     cam.x=x*0.6;cam.y=6.2;cam.z=z-8.8;
   };
@@ -6771,7 +6777,7 @@ GAMES.four=(function(){
   var g={kind:'canvas',title:'Four in a Row',lw:400};
   var CW=7,CH=6,b,turn,st,t,S,ox,oy,bot,wins,msg,line,dropA;
   /* opened from Yard Escape: you play the Fog King (the bot); a win sends you back to the story's ending */
-  var fromYard=false,yWon=false,leaving=false;
+  var fromYard=false,yWon=false,yLost=false,leaving=false;
   function leaveToYard(){if(leaving)return;leaving=true;setTimeout(function(){if(cur===g)closeGame();},0);}
   function metrics(){S=Math.max(14,Math.floor(Math.min((V.w-30)/CW,(V.h-220)/CH))||14);ox=(V.w-S*CW)/2;oy=116;}
   function at(x,y){return (x<0||y<0||x>=CW||y>=CH)?-1:b[y*CW+x];}
@@ -6792,7 +6798,7 @@ GAMES.four=(function(){
     return -1;
   }
   function undo(col){for(var y=0;y<CH;y++)if(b[y*CW+col]){b[y*CW+col]=0;return;}}
-  function reset(){b=new Array(CW*CH).fill(0);turn=1;st='run';t=0;msg='';line=null;dropA=null;yWon=false;metrics();}
+  function reset(){b=new Array(CW*CH).fill(0);turn=1;st='run';t=0;msg='';line=null;dropA=null;yWon=false;yLost=false;metrics();}
   g.start=function(){
     fromYard=typeof YST!=='undefined'&&!!YST.resume;leaving=false;
     bot=fromYard?true:lsGet('four.bot',true);wins=lsGet('by.four',0);reset();
@@ -6813,8 +6819,8 @@ GAMES.four=(function(){
     if(!w)return false;
     st='over';t=0;line=w.c||null;
     if(w.p==='draw'){msg='FULL BOARD';beep(320,0.25,'square',0.05,1);}
-    else if(w.p===1){msg=fromYard?'YOU WIN THE LANTERN!':(bot?'YOU WIN!':'YELLOW WINS!');if(bot){wins++;lsSet('by.four',wins);}if(fromYard)yWon=true;beep(900,0.3,'square',0.05,1.8);}
-    else{msg=fromYard?'THE FOG KING WINS':(bot?'BOT WINS':'RED WINS!');beep(170,0.4,'sawtooth',0.06,0.5);}
+    else if(w.p===1){msg=fromYard?'YOU WIN THE LANTERN!':(bot?'YOU WIN!':'YELLOW WINS!');if(bot){wins++;lsSet('by.four',wins);}if(fromYard){yWon=true;YST.need=false;}beep(900,0.3,'square',0.05,1.8);}
+    else{msg=fromYard?'THE FOG KING WINS':(bot?'BOT WINS':'RED WINS!');if(fromYard)yLost=true;beep(170,0.4,'sawtooth',0.06,0.5);}
     return true;
   }
   function play(col){
@@ -6833,7 +6839,7 @@ GAMES.four=(function(){
     },340);
   }
   g.down=function(x,y){
-    if(st==='over'){if(t>0.5){if(yWon)leaveToYard();else reset();}return;}
+    if(st==='over'){if(t>0.5){if(yWon||yLost)leaveToYard();else reset();}return;}
     if(y<100){if(fromYard)return;bot=!bot;lsSet('four.bot',bot);reset();return;}
     if(bot&&turn!==1)return;
     var c=Math.floor((x-ox)/S);
@@ -6842,10 +6848,10 @@ GAMES.four=(function(){
   };
   g.key=function(c,d){
     if(!d)return;
-    if(st==='over'){if(t>0.5){if(yWon)leaveToYard();else reset();}return;}
+    if(st==='over'){if(t>0.5){if(yWon||yLost)leaveToYard();else reset();}return;}
     if(c.indexOf('Digit')===0){var col=+c.slice(5)-1;if(col>=0&&col<CW&&(!bot||turn===1))play(col);}
   };
-  g.update=function(dt){t+=dt;if(dropA){dropA.t-=dt;if(dropA.t<=0)dropA=null;}if(yWon&&st==='over'&&t>2.6)leaveToYard();};
+  g.update=function(dt){t+=dt;if(dropA){dropA.t-=dt;if(dropA.t<=0)dropA=null;}if((yWon||yLost)&&st==='over'&&t>(yLost?3:2.6))leaveToYard();};
   g.draw=function(){
     ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
     ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(V.w/2-80,58,160,30);
@@ -6872,7 +6878,7 @@ GAMES.four=(function(){
       var my=oy+S*CH+32;
       if(my+40>V.h){my=V.h/2-14;ctx.fillStyle='rgba(16,26,51,0.9)';ctx.fillRect(0,my-24,V.w,72);}
       txt(msg,V.w/2,my,24,msg.indexOf('YOU')===0||msg.indexOf('YELLOW')===0?P.grass:(msg==='FULL BOARD'?'#fff':P.brick));
-      if(t>0.5)txt(yWon?'Back to Yard Escape...':(fromYard?'Tap to try again':'Tap to play again'),V.w/2,my+30,15,'#fff');
+      if(t>0.5||yLost)txt(yWon?'Back to Yard Escape...':(yLost?'The story starts over...':(fromYard?'Tap to try again':'Tap to play again')),V.w/2,my+30,15,'#fff');
     }
   };
   return g;
