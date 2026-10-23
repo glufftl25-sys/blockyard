@@ -974,10 +974,21 @@ var hub=$('hub'),play=$('play'),stage=$('stage'),cv=$('cv'),ctx=cv.getContext('2
 var V={w:480,h:800,k:1,css:1};
 var cur=null,raf=0,lastT=0;
 
+/* graphics quality: how many real pixels the game canvas draws per screen pixel (more = sharper) */
+var GFX={high:{d:3,px:3600000},mid:{d:1.5,px:2200000},low:{d:1,px:1200000}},gfxSlow=false,gfxAvg=0,gfxN=0;
+function gfxMode(){var m=lsGet('gfx','high');return GFX[m]?m:'high';}
+function gfxCap(){var m=gfxMode();if(m==='high'&&gfxSlow)m='mid';return GFX[m];}
+/* Sharp mode steps down to Balanced for this visit if a game keeps running under about 33 frames a second */
+function gfxWatch(raw){
+  if(gfxSlow||gfxMode()!=='high'||!(raw>0)||raw>0.25)return;
+  gfxAvg+=raw;gfxN++;
+  if(gfxN>=180){if(gfxAvg/gfxN>0.03){gfxSlow=true;fit();}gfxAvg=0;gfxN=0;}
+}
 function fit(){
   if(!cur||cur.kind!=='canvas')return;
   var r=stage.getBoundingClientRect(); if(r.width<10||r.height<10)return;
-  var dpr=Math.min(window.devicePixelRatio||1,1.5);
+  var q=gfxCap(),sd=window.devicePixelRatio||1,dpr=Math.min(sd,q.d),area=r.width*r.height;
+  if(area*dpr*dpr>q.px)dpr=Math.max(Math.min(1,sd),Math.sqrt(q.px/area));
   cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr);
   if(cur.pre)cur.pre(r.width,r.height);
   V.k=cv.width/cur.lw; V.w=cur.lw; V.h=cv.height/V.k; V.css=cur.lw/r.width;
@@ -986,8 +997,8 @@ function fit(){
 }
 function loop(t){
   raf=requestAnimationFrame(loop);
-  var dt=Math.min(0.033,(t-lastT)/1000||0); lastT=t;
-  if(cur&&cur.kind==='canvas'){cur.update(dt);ctx.setTransform(V.k,0,0,V.k,0,0);cur.draw();}
+  var raw=(t-lastT)/1000||0,dt=Math.min(0.033,raw); lastT=t;
+  if(cur&&cur.kind==='canvas'){cur.update(dt);ctx.setTransform(V.k,0,0,V.k,0,0);cur.draw();gfxWatch(raw);}
 }
 function openGame(id){
   var g=GAMES[id]; if(!g)return;
@@ -997,7 +1008,7 @@ function openGame(id){
   var isCv=g.kind==='canvas';
   stage.hidden=!isCv; storyEl.hidden=isCv;
   cancelAnimationFrame(raf);
-  if(isCv){fit();g.start();lastT=performance.now();raf=requestAnimationFrame(loop);}
+  if(isCv){gfxAvg=0;gfxN=0;fit();g.start();lastT=performance.now();raf=requestAnimationFrame(loop);}
   if(typeof mkUiSync==='function'&&id!=='maker')mkUiHide();
   else{g.start(storyEl);}
 }
@@ -11027,6 +11038,11 @@ function setRender(){
     h+='<button class="modebtn'+(m===o[0]?' on':'')+'" type="button" data-mode="'+o[0]+'" aria-pressed="'+(m===o[0])+'"><span class="modepic" style="background:'+o[2]+'"><i style="background:'+o[3]+'"></i><i style="background:#ffd23f"></i><i style="background:#3cc8f0"></i></span>'+o[1]+'</button>';
   });
   h+='</div><p class="lbl">Sound</p><div class="row"><span class="who">Game sounds</span><button class="mini'+(soundOn?' ok':'')+'" type="button" data-snd="1" aria-pressed="'+soundOn+'">'+(soundOn?'On':'Off')+'</button></div>';
+  var gm=gfxMode();
+  h+='<p class="lbl">Graphics</p>';
+  [['high','Sharp','Best look. Eases off if a game lags.'],['mid','Balanced','A little softer, smoother on older devices.'],['low','Battery saver','Softest look, uses the least power.']].forEach(function(o){
+    h+='<div class="row"><span class="who">'+o[1]+'<small>'+o[2]+'</small></span><button class="mini'+(gm===o[0]?' ok':'')+'" type="button" data-gq="'+o[0]+'" aria-pressed="'+(gm===o[0])+'">'+(gm===o[0]?'On':'Use')+'</button></div>';
+  });
   h+='<p class="lbl">Controls</p><div class="sheet"><p>Keys for moving, jumping and shooting in every game. Tap a key, then press the new one. Press Esc to cancel.</p></div>';
   BIND_ACT.forEach(function(a){
     h+='<div class="row"><span class="who">'+a[1]+'</span>'+(BIND_WAIT===a[0]?'<button class="mini bad" type="button" data-bind="'+a[0]+'">Press a key\u2026</button>':'<button class="mini" type="button" data-bind="'+a[0]+'">'+esc(keyLabel(BIND[a[0]]))+'</button>')+'</div>';
@@ -11066,6 +11082,8 @@ $('set-body').addEventListener('input',function(e){
 });
 $('set-body').addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;if(!b)return;
+  var gq=b.getAttribute('data-gq');
+  if(gq&&GFX[gq]){lsSet('gfx',gq);gfxSlow=false;setRender();return;}
   var sv=b.getAttribute('data-sv'),st=b.getAttribute('data-st');
   if(st==='pw')stChangePw();
   else if(st==='out')stSignOut();
