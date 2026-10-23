@@ -6764,6 +6764,9 @@ GAMES.tictac=(function(){
 GAMES.four=(function(){
   var g={kind:'canvas',title:'Four in a Row',lw:400};
   var CW=7,CH=6,b,turn,st,t,S,ox,oy,bot,wins,msg,line,dropA;
+  /* opened from Yard Escape: you play the Fog King (the bot); a win sends you back to the story's ending */
+  var fromYard=false,yWon=false,leaving=false;
+  function leaveToYard(){if(leaving)return;leaving=true;setTimeout(function(){if(cur===g)closeGame();},0);}
   function metrics(){S=Math.max(14,Math.floor(Math.min((V.w-30)/CW,(V.h-220)/CH))||14);ox=(V.w-S*CW)/2;oy=116;}
   function at(x,y){return (x<0||y<0||x>=CW||y>=CH)?-1:b[y*CW+x];}
   function findWin(){
@@ -6783,8 +6786,11 @@ GAMES.four=(function(){
     return -1;
   }
   function undo(col){for(var y=0;y<CH;y++)if(b[y*CW+col]){b[y*CW+col]=0;return;}}
-  function reset(){b=new Array(CW*CH).fill(0);turn=1;st='run';t=0;msg='';line=null;dropA=null;metrics();}
-  g.start=function(){bot=lsGet('four.bot',true);wins=lsGet('by.four',0);reset();};
+  function reset(){b=new Array(CW*CH).fill(0);turn=1;st='run';t=0;msg='';line=null;dropA=null;yWon=false;metrics();}
+  g.start=function(){
+    fromYard=typeof YST!=='undefined'&&!!YST.resume;leaving=false;
+    bot=fromYard?true:lsGet('four.bot',true);wins=lsGet('by.four',0);reset();
+  };
   g.resize=function(){metrics();};
   g.stop=function(){};
   function botMove(){
@@ -6801,8 +6807,8 @@ GAMES.four=(function(){
     if(!w)return false;
     st='over';t=0;line=w.c||null;
     if(w.p==='draw'){msg='FULL BOARD';beep(320,0.25,'square',0.05,1);}
-    else if(w.p===1){msg=bot?'YOU WIN!':'YELLOW WINS!';if(bot){wins++;lsSet('by.four',wins);}beep(900,0.3,'square',0.05,1.8);}
-    else{msg=bot?'BOT WINS':'RED WINS!';beep(170,0.4,'sawtooth',0.06,0.5);}
+    else if(w.p===1){msg=fromYard?'YOU WIN THE LANTERN!':(bot?'YOU WIN!':'YELLOW WINS!');if(bot){wins++;lsSet('by.four',wins);}if(fromYard)yWon=true;beep(900,0.3,'square',0.05,1.8);}
+    else{msg=fromYard?'THE FOG KING WINS':(bot?'BOT WINS':'RED WINS!');beep(170,0.4,'sawtooth',0.06,0.5);}
     return true;
   }
   function play(col){
@@ -6821,8 +6827,8 @@ GAMES.four=(function(){
     },340);
   }
   g.down=function(x,y){
-    if(st==='over'){if(t>0.5)reset();return;}
-    if(y<100){bot=!bot;lsSet('four.bot',bot);reset();return;}
+    if(st==='over'){if(t>0.5){if(yWon)leaveToYard();else reset();}return;}
+    if(y<100){if(fromYard)return;bot=!bot;lsSet('four.bot',bot);reset();return;}
     if(bot&&turn!==1)return;
     var c=Math.floor((x-ox)/S);
     if(c<0||c>=CW)return;
@@ -6830,15 +6836,15 @@ GAMES.four=(function(){
   };
   g.key=function(c,d){
     if(!d)return;
-    if(st==='over'){if(t>0.5)reset();return;}
+    if(st==='over'){if(t>0.5){if(yWon)leaveToYard();else reset();}return;}
     if(c.indexOf('Digit')===0){var col=+c.slice(5)-1;if(col>=0&&col<CW&&(!bot||turn===1))play(col);}
   };
-  g.update=function(dt){t+=dt;if(dropA){dropA.t-=dt;if(dropA.t<=0)dropA=null;}};
+  g.update=function(dt){t+=dt;if(dropA){dropA.t-=dt;if(dropA.t<=0)dropA=null;}if(yWon&&st==='over'&&t>2.6)leaveToYard();};
   g.draw=function(){
     ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
     ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(V.w/2-80,58,160,30);
-    txt(bot?'vs Bot':'2 Players',V.w/2,73,16,'#fff');
-    txt('Tap here to switch',V.w/2,100,12,'#9fb0d8');
+    txt(fromYard?'vs the Fog King':(bot?'vs Bot':'2 Players'),V.w/2,73,16,'#fff');
+    txt(fromYard?'Win to take the last lantern':'Tap here to switch',V.w/2,100,12,'#9fb0d8');
     box(ox-6,oy-6,S*CW+12,S*CH+12,'#2d4a96');
     for(var y=0;y<CH;y++)for(var x=0;x<CW;x++){
       var v=at(x,y),cxp=ox+x*S+S/2,cyp=oy+y*S+S/2,r=Math.max(2,(S||14)*0.38);
@@ -6854,11 +6860,13 @@ GAMES.four=(function(){
       ctx.lineTo(ox+line[1][0]*S+S/2,oy+line[1][1]*S+S/2);
       ctx.stroke();ctx.lineCap='butt';
     }
-    txt(bot?('Wins vs bot: '+wins):'Yellow goes first',V.w/2,28,16,P.sun);
-    if(st==='run')txt(bot?(turn===1?'Tap a column':'Bot thinking...'):(turn===1?'Yellow turn':'Red turn'),V.w/2,oy+S*CH+32,19,turn===1?P.sun:P.brick);
+    txt(fromYard?'Yard Escape: final challenge':(bot?('Wins vs bot: '+wins):'Yellow goes first'),V.w/2,28,16,P.sun);
+    if(st==='run')txt(bot?(turn===1?'Tap a column':(fromYard?'The Fog King is thinking...':'Bot thinking...')):(turn===1?'Yellow turn':'Red turn'),V.w/2,oy+S*CH+32,19,turn===1?P.sun:P.brick);
     else{
-      txt(msg,V.w/2,oy+S*CH+32,24,msg.indexOf('YOU')===0||msg.indexOf('YELLOW')===0?P.grass:(msg==='FULL BOARD'?'#fff':P.brick));
-      if(t>0.5)txt('Tap to play again',V.w/2,oy+S*CH+62,15,'#fff');
+      var my=oy+S*CH+32;
+      if(my+40>V.h){my=V.h/2-14;ctx.fillStyle='rgba(16,26,51,0.9)';ctx.fillRect(0,my-24,V.w,72);}
+      txt(msg,V.w/2,my,24,msg.indexOf('YOU')===0||msg.indexOf('YELLOW')===0?P.grass:(msg==='FULL BOARD'?'#fff':P.brick));
+      if(t>0.5)txt(yWon?'Back to Yard Escape...':(fromYard?'Tap to try again':'Tap to play again'),V.w/2,my+30,15,'#fff');
     }
   };
   return g;
