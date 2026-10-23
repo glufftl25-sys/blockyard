@@ -1248,6 +1248,8 @@ GAMES.runner=(function(){
 GAMES.arena=(function(){
   var g={kind:'canvas',title:'Block Blitz',lw:360};
   var st='ready',overT=0,t=0,score=0,kills=0,power=0,best=0,bestW=0,newBest=false,flash=0;
+  /* opened from Yard Escape: beating the wave 5 boss wins and sends you back to the story */
+  var fromYard=false,YWAVE=5,wonT=0,leaving=false;
   var pl=null,bullets=[],foes=[],gems=[],parts=[],pops=[],spawnT=0,fireT=0,stick=null,keys={};
   var wave=0,toSpawn=0,inWave=false,breakT=0,banner=0,bannerS='',bannerSub='',bannerBoss=false,boss=null,ebul=[];
   var BN=['BIG BLOB','SPIKE SPINNER','MEGA BRUTE'];
@@ -1283,6 +1285,11 @@ GAMES.arena=(function(){
       pops.push({x:f.x,y:f.y-34,s:'BOSS DOWN!',life:1.7});
       gems.push({x:f.x-16,y:f.y,life:12},{x:f.x+16,y:f.y,life:12});
       beep(240,0.5,'sawtooth',0.07,3);
+      if(fromYard&&wave>=YWAVE&&st==='run'){
+        st='won';wonT=0;inWave=false;toSpawn=0;
+        if(score>best){best=score;newBest=true;lsSet('by.arena',best);}
+        if(wave>bestW){bestW=wave;lsSet('by.arenaw',bestW);}
+      }
       return;
     }
     burst(f.x,f.y,f.type==='brute'?14:7,f.type==='dasher'?P.orange:(f.type==='spitter'?P.lilac:P.brick));
@@ -1419,17 +1426,21 @@ GAMES.arena=(function(){
       if(o.life<=0)pops.splice(j,1);
     }
   }
+  function leaveToYard(){if(leaving)return;leaving=true;setTimeout(function(){if(cur===g)closeGame();},0);}
   function tap(){
+    if(st==='won'){if(wonT>0.6)leaveToYard();return false;}
     if(st==='ready')st='run';
     else if(st==='over'&&overT>0.5){reset();st='run';}
     return st==='run';
   }
 
-  g.start=function(){best=lsGet('by.arena',0);bestW=lsGet('by.arenaw',0);stick=null;keys={};reset();st='ready';};
+  g.start=function(){best=lsGet('by.arena',0);bestW=lsGet('by.arenaw',0);stick=null;keys={};reset();st='ready';
+    fromYard=typeof YST!=='undefined'&&!!YST.resume;wonT=0;leaving=false;};
   g.resize=function(){if(pl){pl.x=Math.min(pl.x,V.w-14);pl.y=Math.min(pl.y,V.h-14);}};
 
   g.update=function(dt){
     updateFx(dt);
+    if(st==='won'){wonT+=dt;if(wonT>2.4)leaveToYard();return;}
     if(st==='over'){overT+=dt;return;}
     if(st!=='run')return;
     t+=dt;if(flash>0)flash-=dt;if(pl.inv>0)pl.inv-=dt;
@@ -1604,6 +1615,7 @@ GAMES.arena=(function(){
     for(var h=0;h<5;h++)heart(10+h*28,10,3,h<pl.hp?P.brick:'rgba(255,255,255,.55)');
     txt('POWER '+power,10,46,13,P.sun,'left');
     txt('WAVE '+Math.max(1,wave),V.w/2+34,22,18,P.sun);
+    if(fromYard&&st==='run'&&!boss)txt('Goal: wave '+YWAVE+' boss',V.w/2+34,44,12,'#fff');
     txt(String(score),V.w-12,22,26,'#fff','right');
     txt('BEST '+best,V.w-12,46,13,'#fff','right');
     if(boss&&st==='run'){
@@ -1621,7 +1633,10 @@ GAMES.arena=(function(){
     }
     var my=V.h/2-110;
     if(st==='ready'){
-      panel(my,[['BLOCK BLITZ',32,P.sun],['Drag anywhere to move',16,'#fff'],['Survive waves. Beat bosses!',16,'#fff'],['TAP TO START',22,P.sun]]);
+      if(fromYard)panel(my,[['BLOCK BLITZ',32,P.sun],['Drag anywhere to move',16,'#fff'],['Beat the wave '+YWAVE+' boss to go back',16,'#fff'],['TAP TO START',22,P.sun]]);
+      else panel(my,[['BLOCK BLITZ',32,P.sun],['Drag anywhere to move',16,'#fff'],['Survive waves. Beat bosses!',16,'#fff'],['TAP TO START',22,P.sun]]);
+    }else if(st==='won'){
+      panel(my,[['BOSS BEATEN!',32,P.sun],['Wave '+wave+'   Score '+score,20,'#fff'],['Back to Yard Escape...',18,'#fff']]);
     }else if(st==='over'){
       panel(my,[['GAME OVER',32,P.brick],['Wave '+wave+'   Score '+score,22,'#fff'],[newBest?'New best!':'Best '+best+'  (wave '+bestW+')',18,P.sun],[overT>0.5?'Tap to retry':' ',20,'#fff']]);
     }
