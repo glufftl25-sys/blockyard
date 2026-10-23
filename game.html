@@ -1,6 +1,20 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#15152b"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Blockyard"><title>Blockyard Arcade</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2313121f'/%3E%3Crect x='8' y='3' width='16' height='26' fill='%23e3262e'/%3E%3Crect x='10' y='6' width='12' height='9' fill='%230c1a40'/%3E%3Cpath d='M14 8v5l4-2.5z' fill='%23fff'/%3E%3Crect x='11' y='18' width='2' height='2' fill='%23ffd23f'/%3E%3Crect x='15' y='18' width='2' height='2' fill='%233f7dff'/%3E%3C/svg%3E"><style>[hidden]{display:none!important}html{color-scheme:light;height:100%}body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}@media (hover:hover){.tile:hover{transform:translateY(-3px);box-shadow:0 7px 0 var(--ink,#14213d)}}
 .tile{transition:transform .12s ease}
+
+/* in-game menu: square button, FPS and ping readout, pause menu */
+#gmenu{flex:none;width:46px;height:42px;padding:0;display:grid;place-items:center}
+#gmenu .gm-ico{position:relative;width:20px;height:16px;border-top:3px solid var(--ink);border-bottom:3px solid var(--ink)}
+#gmenu .gm-ico::after{content:'';position:absolute;left:0;right:0;top:50%;height:3px;margin-top:-1.5px;background:var(--ink)}
+#perf{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:74px;padding:4px 8px;border:2px solid var(--ink);border-radius:9px;background:rgba(10,12,30,.82);color:#fff;font:700 12px/1.2 var(--body);white-space:nowrap;font-variant-numeric:tabular-nums}
+#perf .ok{color:#5ed88a}#perf .meh{color:#ffd23f}#perf .low{color:#ff8a7a}
+#pmenu{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:rgba(8,8,24,.66)}
+.pm-card{width:min(420px,100%);max-height:calc(100dvh - 32px);overflow:auto;display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--bg);border:3px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 var(--ink);color:var(--text)}
+.pm-card h3{margin:0 0 2px;text-align:center;font:400 28px/1.1 var(--display);color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill}
+.pm-card .choice{text-align:center}
+.pm-card .choice.bad{background:var(--brick);color:#fff}
+.pm-card .note{text-align:center}
+.pm-card .note.err{color:#ff8a7a}.pm-card .note.good{color:#5ed88a}
 </style></head><body>
 <title>Blockyard Arcade</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -776,12 +790,15 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
 
   <section id="play" class="screen" hidden>
     <div class="bar">
-      <button class="pill" id="back" type="button">Back</button>
+      <button class="pill" id="gmenu" type="button" aria-label="Game menu" aria-haspopup="dialog"><span class="gm-ico"></span></button>
+      <button class="pill" id="back" type="button" hidden>Back</button>
       <h2 id="gtitle">Game</h2>
+      <span id="perf" hidden></span>
       <button class="pill" id="snd" type="button" aria-pressed="true">Sound on</button>
     </div>
     <div id="stage" hidden><canvas id="cv"></canvas></div>
     <div id="story" hidden></div>
+    <div id="pmenu" hidden role="dialog" aria-modal="true" aria-labelledby="pm-title"><div class="pm-card" id="pm-card"></div></div>
     <div id="mkui" hidden>
       <div id="mk-tools"></div>
       <div id="mk-tabs"></div>
@@ -998,25 +1015,28 @@ function fit(){
 function loop(t){
   raf=requestAnimationFrame(loop);
   var raw=(t-lastT)/1000||0,dt=Math.min(0.033,raw); lastT=t;
-  if(cur&&cur.kind==='canvas'){cur.update(dt);ctx.setTransform(V.k,0,0,V.k,0,0);cur.draw();gfxWatch(raw);}
+  if(cur&&cur.kind==='canvas'){var held=pmPaused();if(!held)cur.update(dt);ctx.setTransform(V.k,0,0,V.k,0,0);cur.draw();if(!held)gfxWatch(raw);}
 }
 function openGame(id){
   var g=GAMES[id]; if(!g)return;
+  pmClose(true);
   cur=g; hub.hidden=true; play.hidden=false; $('menu3d').hidden=true; $('gtitle').textContent=g.title;
   $('tdpanel').hidden=(id!=='td');
   STAT.add('plays',1);
   var isCv=g.kind==='canvas';
   stage.hidden=!isCv; storyEl.hidden=isCv;
   cancelAnimationFrame(raf);
+  perfShow();
   if(isCv){gfxAvg=0;gfxN=0;fit();g.start();lastT=performance.now();raf=requestAnimationFrame(loop);}
   if(typeof mkUiSync==='function'&&id!=='maker')mkUiHide();
   else{g.start(storyEl);}
 }
 function closeGame(){
+  pmClose(true);
   cancelAnimationFrame(raf); raf=0;
   if(cur&&cur.stop)cur.stop();
   var wasTd=(cur===GAMES.td),wasMaker=(cur===GAMES.maker);
-  cur=null; play.hidden=true; $('tdpanel').hidden=true; if(typeof mkUiHide==='function')mkUiHide(); hub.hidden=false; refreshHub();
+  cur=null; perfShow(); play.hidden=true; $('tdpanel').hidden=true; if(typeof mkUiHide==='function')mkUiHide(); hub.hidden=false; refreshHub();
   if(wasMaker){if(MK.fromHub){MK.fromHub=false;}else openCreate();}
   else if(wasTd)openLobby();
   if(typeof YST!=='undefined'&&YST.resume&&!wasTd&&!wasMaker)openGame('yard');
@@ -3029,23 +3049,34 @@ GAMES.party=(function(){
 /* need: a minigame from the story still has to be won; losing it (or leaving it) restarts the story */
 var YST={resume:null,node:'start',gsz:0,elapsed:0,pen:0,t0:0,need:false};
 var WV={},WVMY={},wvSubbed=false;
-function wvOf(uid){var e=uid&&WV[uid];return e&&typeof e.w==='number'?e.w:1;}
+/* a weight only counts when it was saved by the owner or someone given the Vote weights tool; the owner's entry wins */
+var WVRAW={};
+function wvOf(uid){
+  if(!uid)return 1;
+  var best=null,bestOwn=false;
+  Object.keys(WVRAW).forEach(function(g){
+    var e=WVRAW[g][uid];if(!e)return;
+    var p=(typeof permsOf==='function')?permsOf(g):null;if(!p||!p.votes)return;
+    var own=!!(ADM[g]&&ADM[g].owner===true);
+    if(!best||(own&&!bestOwn)){best=e;bestOwn=own;}
+  });
+  return best?best.w:1;
+}
 function wvList(){return Object.keys(WVMY).map(function(u){return {uid:u,name:WVMY[u].name,w:WVMY[u].w};});}
 /* vote weights: each giver keeps a list in weights/<their uid>; the owner's own entries win over others */
 function wvSync(){
   if(wvSubbed||!SOC.db)return;wvSubbed=true;
   SOC.db.collection('weights').onSnapshot(function(s){
-    var m={},mine={};
+    var raw={};
     s.docs.forEach(function(d){
-      var data=d.data()||{},list=(data&&typeof data.list==='object')?data.list:{},own=d.id===SOC.uid;
+      var data=d.data()||{},list=(data&&typeof data.list==='object')?data.list:{},out={};
       Object.keys(list).slice(0,300).forEach(function(u){
         var e=list[u];if(!e||typeof e.w!=='number')return;
-        var r={w:clampN(e.w,0,10),name:safeName(e.name)};
-        if(own)mine[u]=r;
-        if(!m[u]||own)m[u]=r;
+        out[u]={w:clampN(e.w,0,10),name:safeName(e.name)};
       });
+      raw[d.id]=out;
     });
-    WV=m;WVMY=mine;
+    WVRAW=raw;WVMY=raw[SOC.uid]||{};
     if(!cmdEl.hidden)cmdRender();
   },function(){});
 }
@@ -10348,6 +10379,14 @@ function cmdRender(){
       h+='<div class="row"><span class="who">@'+esc(x.name)+VSVG+'<small>given by @'+esc(x.byName)+'</small></span>'+((own||x.by===SOC.uid)?'<button class="mini" type="button" data-cmd="vrm" data-u="'+esc(x.uid)+'" data-g="'+esc(x.by)+'"'+dis+'>Remove</button>':'')+'</div>';
     });
   }
+  if(own){
+    any=true;repSync();
+    h+='<p class="lbl">Cheat reports</p>';
+    if(!REP.list.length)h+='<p class="note">No reports right now. Players report cheaters from the game menu in multiplayer games.</p>';
+    REP.list.slice(0,30).forEach(function(r){
+      h+='<div class="row"><span class="who">@'+esc(r.name)+' \u00b7 '+esc(repWhy(r.why))+'<small>in '+esc(r.game||'a game')+' \u00b7 reported by @'+esc(r.by)+' \u00b7 '+esc(agoText(r.at))+'</small></span><button class="mini" type="button" data-cmd="repclear" data-u="'+esc(r.uid)+'" data-i="'+esc(r.id)+'"'+dis+'>Clear</button></div>';
+    });
+  }
   if(own||can('votes')){
     any=true;
     h+='<p class="lbl">Vote weights</p><p class="note">How much a player\'s vote counts when their group makes a story choice. 1 is normal, 2 counts double, 0 means the vote does not count.</p>';
@@ -10458,6 +10497,143 @@ function cmdVGive(){
     });
   }).then(function(err){if(err)cmdMsg('err',err);},cmdFail).then(cmdDone);
 }
+/* ===== cheat reports: players write reports/<their id>; only the owner can read them ===== */
+var REP_WHY=[['speed','Speed or teleport hacks'],['aim','Aim or auto-play cheats'],['glitch','Glitch or bug abuse'],['other','Other cheating']];
+function repWhy(k){for(var i=0;i<REP_WHY.length;i++)if(REP_WHY[i][0]===k)return REP_WHY[i][1];return 'Cheating';}
+function agoText(t){var s=Math.max(0,(Date.now()-(+t||0))/1000);if(s<90)return 'just now';if(s<5400)return Math.round(s/60)+' min ago';if(s<129600)return Math.round(s/3600)+' h ago';return Math.round(s/86400)+' days ago';}
+var REP={list:[],docs:{},subbed:false};
+function repSync(){
+  if(REP.subbed||!SOC.db||!CMD.owner)return;REP.subbed=true;
+  SOC.db.collection('reports').onSnapshot(function(s){
+    var out=[],docs={};
+    s.docs.forEach(function(d){
+      var data=d.data()||{},list=(data.list&&typeof data.list==='object')?data.list:{};
+      docs[d.id]=data;
+      Object.keys(list).slice(0,60).forEach(function(k){
+        var e=list[k];if(!e||typeof e!=='object')return;
+        out.push({uid:d.id,id:k,at:+e.at||0,name:String(e.name||'Player').slice(0,40),by:String(data.name||'player').slice(0,20),game:String(e.game||'').slice(0,40),why:String(e.why||'')});
+      });
+    });
+    out.sort(function(a,b){return b.at-a.at;});
+    REP.list=out;REP.docs=docs;
+    if(!cmdEl.hidden)cmdRender();
+  },function(){REP.subbed=false;});
+}
+function cmdRepClear(uid,id){
+  if(!CMD.owner||!SOC.db||!uid||!id)return;
+  var data=REP.docs[uid]||{},old=(data.list&&typeof data.list==='object')?data.list:{},list={};
+  Object.keys(old).forEach(function(k){if(k!==id)list[k]=old[k];});
+  CMD.busy=true;cmdRender();
+  SOC.db.doc('reports/'+uid).set({name:String(data.name||''),list:list,at:+data.at||Date.now()}).then(function(){cmdMsg('good','Report cleared.');},cmdFail).then(cmdDone);
+}
+
+/* ===== in-game menu: Resume, Leave (are you sure?), FPS and ping, and reporting cheaters in multiplayer ===== */
+var PM={open:false,view:'menu',pick:'',msg:null,busy:false,sent:{}};
+var PERF={on:!!lsGet('perf',false),raf:0,frames:0,t0:0,fps:0,ping:null,pingT:0,busy:false};
+function pmPlayers(){return NET.room?NET.peers.filter(function(p){return !p.sameTab&&p.kind==='viewer';}):[];}
+function pmPaused(){return PM.open&&!NET.room;}
+function pmToggle(){if(!cur)return;if(PM.open)pmClose();else pmOpen();}
+function pmOpen(){
+  if(!cur)return;
+  PM.open=true;PM.view='menu';PM.msg=null;PM.pick='';
+  try{PAD.reset();}catch(e){}
+  $('pmenu').hidden=false;pmRender();
+  var f=$('pm-card').querySelector('button');if(f)f.focus();
+}
+function pmClose(quiet){
+  if(!PM.open)return;
+  PM.open=false;$('pmenu').hidden=true;
+  if(!quiet){lastT=performance.now();var m=$('gmenu');if(m)m.focus();}
+}
+function pmRender(){
+  var h='',title=cur?cur.title:'this game',ps=pmPlayers();
+  if(PM.view==='leave'){
+    h+='<h3 id="pm-title">Are you sure?</h3><p class="note">You will leave '+esc(title)+'.'+((typeof YST!=='undefined'&&YST.need)?' Leaving this fight restarts the Yard Escape story.':'')+'</p>';
+    h+='<button class="choice bad" type="button" data-pm="yes">Yes, leave</button>';
+    h+='<button class="choice alt" type="button" data-pm="no">No, keep playing</button>';
+  }else if(PM.view==='report'){
+    var p=ps.filter(function(x){return x.peer===PM.pick;})[0];
+    if(!p){PM.view='menu';return pmRender();}
+    h+='<h3 id="pm-title">Report '+esc(netName(p))+'</h3><p class="note">What are they doing? Your report goes to the game owner.</p>';
+    REP_WHY.forEach(function(w){h+='<button class="choice alt" type="button" data-pm="why" data-w="'+w[0]+'"'+(PM.busy?' disabled':'')+'>'+esc(w[1])+'</button>';});
+    h+='<button class="choice" type="button" data-pm="back">Cancel</button>';
+  }else{
+    h+='<h3 id="pm-title">'+(pmPaused()?'Paused':'Game menu')+'</h3>';
+    h+='<button class="choice" type="button" data-pm="resume">Resume</button>';
+    h+='<button class="choice alt" type="button" data-pm="leave">Leave game</button>';
+    h+='<div class="row"><span class="who">Show FPS and ping<small>In the top right corner</small></span><button class="mini'+(PERF.on?' ok':'')+'" type="button" data-pm="perf" aria-pressed="'+PERF.on+'">'+(PERF.on?'On':'Off')+'</button></div>';
+    if(NET.room){
+      h+='<p class="lbl">Report a cheater</p>';
+      if(!ps.length)h+='<p class="note">No other players here right now.</p>';
+      ps.slice(0,12).forEach(function(p){
+        var done=!!PM.sent[p.peer];
+        h+='<div class="row"><span class="who">'+esc(netName(p))+'</span>'+(done?'<span class="mini ok">Reported</span>':'<button class="mini bad" type="button" data-pm="rep" data-p="'+esc(p.peer)+'">Report</button>')+'</div>';
+      });
+    }
+    if(!NET.room)h+='<p class="note">The game is paused while this menu is open.</p>';
+  }
+  if(PM.msg)h+='<p class="note '+PM.msg.t+'" role="status">'+esc(PM.msg.s)+'</p>';
+  $('pm-card').innerHTML=h;
+}
+function pmSend(why){
+  var p=pmPlayers().filter(function(x){return x.peer===PM.pick;})[0];
+  if(!p){PM.view='menu';pmRender();return;}
+  if(!SOC.db||!SOC.uid){PM.msg={t:'err',s:'Sign in to your account to send reports.'};PM.view='menu';pmRender();return;}
+  var id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),ref=SOC.db.doc('reports/'+SOC.uid);
+  var entry={at:Date.now(),who:p.by||'',name:netName(p).slice(0,40),game:(cur&&cur.title)||'',why:why};
+  PM.busy=true;pmRender();
+  ref.get().then(function(s){
+    var d=s.exists?(s.data()||{}):null,list={};
+    if(d&&d.list&&typeof d.list==='object'){var ks=Object.keys(d.list).sort().slice(-40);ks.forEach(function(k){list[k]=d.list[k];});}
+    list[id]=entry;
+    return ref.set({name:SOC.account?SOC.account.username:'',list:list,at:Date.now()});
+  }).then(function(){
+    PM.sent[p.peer]=1;PM.msg={t:'good',s:'Report sent. Thanks for keeping games fair.'};
+  },function(){
+    PM.msg={t:'err',s:'That report did not send. Check your connection and try again.'};
+  }).then(function(){PM.busy=false;PM.view='menu';if(PM.open)pmRender();});
+}
+$('pmenu').addEventListener('click',function(e){
+  if(e.target===e.currentTarget){pmClose();return;}
+  var b=e.target.closest?e.target.closest('button'):null;if(!b||b.disabled)return;
+  var a=b.getAttribute('data-pm');
+  if(a==='resume')pmClose();
+  else if(a==='leave'){PM.view='leave';PM.msg=null;pmRender();}
+  else if(a==='no'){PM.view='menu';pmRender();}
+  else if(a==='yes'){pmClose(true);closeGame();}
+  else if(a==='perf'){PERF.on=!PERF.on;lsSet('perf',PERF.on);perfShow();pmRender();}
+  else if(a==='rep'){PM.pick=b.getAttribute('data-p')||'';PM.view='report';PM.msg=null;pmRender();}
+  else if(a==='back'){PM.view='menu';pmRender();}
+  else if(a==='why'&&!PM.busy)pmSend(b.getAttribute('data-w'));
+});
+function perfShow(){
+  var el=$('perf'),vis=PERF.on&&!!cur;
+  el.hidden=!vis;
+  if(vis&&!PERF.raf){PERF.t0=performance.now();PERF.frames=0;PERF.pingT=0;PERF.raf=requestAnimationFrame(perfTick);perfDraw();}
+  if(!vis&&PERF.raf){cancelAnimationFrame(PERF.raf);PERF.raf=0;}
+}
+function perfTick(t){
+  PERF.raf=requestAnimationFrame(perfTick);PERF.frames++;
+  var el=t-PERF.t0;
+  if(el>=500){PERF.fps=Math.round(PERF.frames*1000/el);PERF.frames=0;PERF.t0=t;perfDraw();}
+  if(!PERF.pingT||t-PERF.pingT>3000){PERF.pingT=t;perfPing();}
+}
+/* ping: how long one tiny read takes to reach the game's server and come back */
+function perfPing(){
+  if(!SOC.db||PERF.busy)return;
+  PERF.busy=true;var s=performance.now();
+  SOC.db.doc('ping/x').get().then(function(){PERF.ping=Math.round(performance.now()-s);},function(){PERF.ping=-1;}).then(function(){PERF.busy=false;perfDraw();});
+}
+function perfDraw(){
+  var el=$('perf');if(el.hidden)return;
+  var f=PERF.fps,fc=f>=50?'ok':(f>=30?'meh':'low'),p=PERF.ping,pt,pc;
+  if(!SOC.db){pt='offline';pc='meh';}
+  else if(p===null){pt='...';pc='meh';}
+  else if(p<0){pt='no signal';pc='low';}
+  else{pt=p+' ms';pc=p<=120?'ok':(p<=250?'meh':'low');}
+  el.innerHTML='<span class="'+fc+'">'+(f||'--')+' FPS</span><span class="'+pc+'">Ping '+pt+'</span>';
+}
+
 function cmdVWSet(){
   if(!can('votes')||!SOC.db)return;
   var nm=(CMD.vwn||'').trim(),w=parseFloat(CMD.vww);
@@ -10596,12 +10772,13 @@ cmdBody.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;
   if(!b||b.disabled||!CMD.admin)return;
   var a=b.getAttribute('data-cmd');
-  var OWN={newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'tools',wup:'tools',cash:'tools',self:'tools',grant:'assign',pickrole:'assign'};
+  var OWN={repclear:1,newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'tools',wup:'tools',cash:'tools',self:'tools',grant:'assign',pickrole:'assign'};
   if(OWN[a]&&!CMD.owner)return;
   if(NEED[a]&&!can(NEED[a]))return;
   if(a!=='chats')CMD.sure=false;
   if(a!=='delrole')CMD.sureRole='';
-  if(a==='vwset')cmdVWSet();
+  if(a==='repclear')cmdRepClear(b.getAttribute('data-u'),b.getAttribute('data-i'));
+  else if(a==='vwset')cmdVWSet();
   else if(a==='vwrm')cmdVWRm(b.getAttribute('data-u'));
   else if(a==='post')cmdPost();
   else if(a==='clearann')cmdClearAnn();
@@ -10872,7 +11049,8 @@ window.addEventListener('keydown',function(e){
     if(!$('settings').hidden)setRender();
     return;
   }
-  if(e.code==='Escape'&&cur){closeGame();return;}
+  if(e.code==='Escape'&&cur){e.preventDefault();pmToggle();return;}
+  if(PM.open)return;
   if(!cur||!cur.key)return;
   var c=bindMap(e.code);
   if(c===null)return;
@@ -11939,6 +12117,7 @@ function launchTile(id){
   })();
 }
 $('back').addEventListener('click',closeGame);
+$('gmenu').addEventListener('click',function(){pmToggle();});
 $('snd').addEventListener('click',function(){soundOn=!soundOn;lsSet('sound',soundOn);syncSnd();initAudio();});
 if(window.ResizeObserver)new ResizeObserver(fit).observe(stage);
 window.addEventListener('resize',fit);
