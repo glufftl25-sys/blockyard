@@ -10238,9 +10238,9 @@ if(window.visualViewport){
 }
 /* ===== Owner command panel (only the page owner sees the button) ===== */
 var ADM={},ROLES={},GR={},ANN=[],GSUB={};
-var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['tools','Test tools'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights']];
-var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:true,verify:true,events:true,assign:true,votes:true};
-var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:false,verify:false,events:false,assign:false,votes:false};
+var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['tools','Test tools'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports']];
+var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true};
+var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,tools:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false};
 var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evPick:'',evNote:'',vu:'',ann:'',gu:'',ga:'50',adm:'',rn:'',pick:'',sureRole:'',players:null,sure:false,startWave:1,tdCash:false};
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
 function cleanPerms(p){var o={};PERMS.forEach(function(x){o[x[0]]=!!(p&&typeof p==='object'&&p[x[0]]===true);});return o;}
@@ -10379,11 +10379,12 @@ function cmdRender(){
       h+='<div class="row"><span class="who">@'+esc(x.name)+VSVG+'<small>given by @'+esc(x.byName)+'</small></span>'+((own||x.by===SOC.uid)?'<button class="mini" type="button" data-cmd="vrm" data-u="'+esc(x.uid)+'" data-g="'+esc(x.by)+'"'+dis+'>Remove</button>':'')+'</div>';
     });
   }
-  if(own){
+  if(own||can('reports')){
     any=true;repSync();
+    var rv=repVisible();
     h+='<p class="lbl">Cheat reports</p>';
-    if(!REP.list.length)h+='<p class="note">No reports right now. Players report cheaters from the game menu in multiplayer games.</p>';
-    REP.list.slice(0,30).forEach(function(r){
+    if(!rv.length)h+='<p class="note">No reports right now. Players report cheaters from the game menu in multiplayer games.</p>';
+    rv.slice(0,30).forEach(function(r){
       h+='<div class="row"><span class="who">@'+esc(r.name)+' \u00b7 '+esc(repWhy(r.why))+'<small>in '+esc(r.game||'a game')+' \u00b7 reported by @'+esc(r.by)+' \u00b7 '+esc(agoText(r.at))+'</small></span><button class="mini" type="button" data-cmd="repclear" data-u="'+esc(r.uid)+'" data-i="'+esc(r.id)+'"'+dis+'>Clear</button></div>';
     });
   }
@@ -10497,13 +10498,40 @@ function cmdVGive(){
     });
   }).then(function(err){if(err)cmdMsg('err',err);},cmdFail).then(cmdDone);
 }
-/* ===== cheat reports: players write reports/<their id>; only the owner can read them ===== */
+/* ===== cheat reports: players write reports/<their id>; the owner and anyone given the Cheat reports tool see them.
+   The owner's Clear deletes a report; a tool holder's Clear hides it for everyone (repclear/<their id>), and a hide only
+   counts when its writer holds the tool ===== */
 var REP_WHY=[['speed','Speed or teleport hacks'],['aim','Aim or auto-play cheats'],['glitch','Glitch or bug abuse'],['other','Other cheating']];
 function repWhy(k){for(var i=0;i<REP_WHY.length;i++)if(REP_WHY[i][0]===k)return REP_WHY[i][1];return 'Cheating';}
 function agoText(t){var s=Math.max(0,(Date.now()-(+t||0))/1000);if(s<90)return 'just now';if(s<5400)return Math.round(s/60)+' min ago';if(s<129600)return Math.round(s/3600)+' h ago';return Math.round(s/86400)+' days ago';}
-var REP={list:[],docs:{},subbed:false};
+var REP={list:[],docs:{},subbed:false,hide:{},mine:{}};
+function repKey(uid,id){return uid+'~'+id;}
+function repVisible(){
+  return REP.list.filter(function(r){
+    var k=repKey(r.uid,r.id);
+    return !Object.keys(REP.hide).some(function(g){
+      if(!REP.hide[g][k])return false;
+      if(g===SOC.uid)return can('reports');
+      var p=(typeof permsOf==='function')?permsOf(g):null;return !!(p&&p.reports);
+    });
+  });
+}
+function cmdRepHide(uid,id){
+  if(!can('reports')||!SOC.db||!SOC.uid||!uid||!id)return;
+  var list={},ks=Object.keys(REP.mine).sort(function(a,b){return (REP.mine[a]||0)-(REP.mine[b]||0);}).slice(-250);
+  ks.forEach(function(k){list[k]=REP.mine[k];});
+  list[repKey(uid,id)]=Date.now();
+  CMD.busy=true;cmdRender();
+  SOC.db.doc('repclear/'+SOC.uid).set({list:list,at:Date.now()}).then(function(){REP.mine=list;cmdMsg('good','Report cleared for everyone.');},cmdFail).then(cmdDone);
+}
 function repSync(){
-  if(REP.subbed||!SOC.db||!CMD.owner)return;REP.subbed=true;
+  if(REP.subbed||!SOC.db||!can('reports'))return;REP.subbed=true;
+  SOC.db.collection('repclear').onSnapshot(function(s){
+    var hide={};
+    s.docs.forEach(function(d){var data=d.data()||{},l=(data.list&&typeof data.list==='object')?data.list:{},o={};Object.keys(l).slice(0,400).forEach(function(k){o[k]=+l[k]||1;});hide[d.id]=o;});
+    REP.hide=hide;REP.mine=hide[SOC.uid]||{};
+    if(!cmdEl.hidden)cmdRender();
+  },function(){});
   SOC.db.collection('reports').onSnapshot(function(s){
     var out=[],docs={};
     s.docs.forEach(function(d){
@@ -10772,12 +10800,12 @@ cmdBody.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;
   if(!b||b.disabled||!CMD.admin)return;
   var a=b.getAttribute('data-cmd');
-  var OWN={repclear:1,newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'tools',wup:'tools',cash:'tools',self:'tools',grant:'assign',pickrole:'assign'};
+  var OWN={newrole:1,delrole:1,perm:1,giverole:1,rmadmin:1},NEED={repclear:'reports',vwset:'votes',vwrm:'votes',evgo:'events',evend:'events',vgive:'verify',vrm:'verify',rqdone:'requests',rqno:'requests',post:'banner',clearann:'banner',gift:'gift',pick:'gift',players:'players',chats:'chats',wdn:'tools',wup:'tools',cash:'tools',self:'tools',grant:'assign',pickrole:'assign'};
   if(OWN[a]&&!CMD.owner)return;
   if(NEED[a]&&!can(NEED[a]))return;
   if(a!=='chats')CMD.sure=false;
   if(a!=='delrole')CMD.sureRole='';
-  if(a==='repclear')cmdRepClear(b.getAttribute('data-u'),b.getAttribute('data-i'));
+  if(a==='repclear'){if(CMD.owner)cmdRepClear(b.getAttribute('data-u'),b.getAttribute('data-i'));else cmdRepHide(b.getAttribute('data-u'),b.getAttribute('data-i'));}
   else if(a==='vwset')cmdVWSet();
   else if(a==='vwrm')cmdVWRm(b.getAttribute('data-u'));
   else if(a==='post')cmdPost();
