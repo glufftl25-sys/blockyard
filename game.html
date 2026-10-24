@@ -525,9 +525,9 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#7cc8ff" width="88" height="88"/><rect x="8" y="70" width="28" height="7" fill="#5ed88a" stroke="#14213d" stroke-width="2"/><rect x="50" y="50" width="28" height="7" fill="#3f8cff" stroke="#14213d" stroke-width="2"/><rect x="14" y="28" width="28" height="7" fill="#5ed88a" stroke="#14213d" stroke-width="2"/><rect x="54" y="20" width="16" height="16" fill="#ffd23f" stroke="#14213d" stroke-width="3"/><rect x="58" y="25" width="3" height="4" fill="#14213d"/><rect x="64" y="25" width="3" height="4" fill="#14213d"/></svg></span>
           <span class="tt">Sky Hop</span><span class="ts"><span id="best-hop">Best 0</span> · Bounce up</span>
         </button>
-        <button class="tile" type="button" data-game="paint" data-name="paint battle online multiplayer 2d colour color tiles" style="--c:#ff6b5b">
+        <button class="tile" type="button" data-game="paint" data-name="paint battle online multiplayer 2d colour color tiles lobby bots loop fill" style="--c:#ff6b5b">
           <span class="thumb"><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#101a33" width="88" height="88"/><rect x="8" y="8" width="22" height="22" fill="#3cc8f0"/><rect x="33" y="8" width="22" height="22" fill="#3cc8f0"/><rect x="58" y="8" width="22" height="22" fill="#ff6b5b"/><rect x="8" y="33" width="22" height="22" fill="#5ed88a"/><rect x="33" y="33" width="22" height="22" fill="#ff6b5b"/><rect x="58" y="33" width="22" height="22" fill="#ff6b5b"/><rect x="8" y="58" width="22" height="22" fill="#5ed88a"/><rect x="33" y="58" width="22" height="22" fill="#5ed88a"/><rect x="58" y="58" width="22" height="22" fill="#3cc8f0"/><rect x="36" y="36" width="16" height="16" fill="#fff" stroke="#14213d" stroke-width="3"/></svg></span>
-          <span class="tt">Paint Battle</span><span class="ts"><span id="best-paint">Wins 0</span> · Online · Paint the floor</span>
+          <span class="tt">Paint Battle</span><span class="ts"><span id="best-paint">Wins 0</span> · Online · 1-5 players + bots</span>
         </button>
         <button class="tile" type="button" data-game="hoops" data-name="hoops basketball shoot 2d" style="--c:#ff9a3c">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#2d3a6b" width="88" height="88"/><rect x="34" y="16" width="36" height="6" fill="#ff5a4d"/><path d="M36 22l8 16h18l6-16" fill="none" stroke="#fff" stroke-width="2"/><rect x="66" y="10" width="6" height="20" fill="#9aa4bb"/><circle cx="26" cy="58" r="13" fill="#ff9a3c" stroke="#14213d" stroke-width="3"/><path d="M13 58h26M26 45v26" stroke="#14213d" stroke-width="2"/></svg></span>
@@ -3412,144 +3412,323 @@ GAMES.hop=(function(){
   return g;
 })();
 
-/* ===== Paint Battle (2D online): run around painting the floor your colour. Most tiles when the round ends wins.
-   Rounds follow the wall clock; each player's newest paint marks travel in presence, and the newest mark on a tile wins.
-   Bots play when you're on your own. ===== */
+/* ===== Paint Battle (2D, online): walk around the lobby and step on a yellow pad to pick how many players (1 to 5) and
+   bots (0 to 10). Matches last 60 seconds: paint the floor your colour, and close a full loop of your colour to fill in
+   everything inside it. Most tiles wins. Players who pick the same setup are grouped in one room; the group's host (the
+   lowest player id) sets the start time and splits the bots by ping: the device with the best ping runs the most bots,
+   and each slower device runs fewer. ===== */
 GAMES.paint=(function(){
   var g={kind:'canvas',title:'Paint Battle',lw:360};
-  var COLS=12,ROWS=16,ROUND=75000,SHOW=6000,SPD=4.2,R=12;
-  var PAL=['#3cc8f0','#ff6b5b','#5ed88a','#ffd23f','#b48cff','#ff9a3c','#ff8ad4','#9fb0d8'];
-  var own=[],tm=[],x=6,yy=8,rnd=0,mine=[],bots=[],stick=null,keys={},cs=20,ox=0,oy=0,t=0,lastCell=-1,done=-1,msg='',msgT=0,face=1;
-  function roundId(){return Math.floor(Date.now()/ROUND);}
-  function msLeft(){return ROUND-(Date.now()%ROUND);}
-  function painting(){return msLeft()>SHOW;}
-  var lastKey='me';
+  var COLS=12,ROWS=16,MATCH=60000,SHOW=6000,SPD=4.2,BSPD=3.1,LW=10,LH=13,MAXB=10,MK=200;
+  var PAL=['#3cc8f0','#ff6b5b','#5ed88a','#ffd23f','#b48cff','#ff9a3c','#ff8ad4','#2fd4c4','#e2e86b','#c97bff','#ff4d7a','#9fb0d8','#7ee07e','#ffb3a0','#6fa8ff'];
+  var LPADS=[[2,2.6],[8,2.6],[2,10.4],[8,10.4]];
+  var SPAWN=[[1.5,1.5],[10.5,14.5],[10.5,1.5],[1.5,14.5],[6,8],[6,1.5],[6,14.5],[1.5,8],[10.5,8],[3.5,4.5],[8.5,11.5],[8.5,4.5],[3.5,11.5],[6,5],[6,11]];
+  var FONTB='system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+  var st='lobby',t=0,lx=5,ly=6.5,x=6,yy=8,stick=null,keys={},rects=[],np=1,nb=3,gsz=1,gbots=3,cfg='',mStart=0,initFor=0,saved=false,msg='',msgT=0;
+  var alloc=null,botsFor=0,pingT=-9,own=[],tm=[],marks=[],bots=[],cs=20,ox=0,oy=0,lcs=24,lox=0,loy=0,lastKey='me',result=null;
+  function now(){return Date.now();}
   function myKey(){return NET.me||'me';}
-  function botsOn(){return netOthers().length===0;}
-  function layout(){cs=Math.floor(Math.min((V.w-16)/COLS,(V.h-150)/ROWS));ox=Math.floor((V.w-cs*COLS)/2);oy=Math.max(78,Math.floor((V.h-cs*ROWS)/2)+10);}
-  function clear(){own=[];tm=[];for(var i=0;i<COLS*ROWS;i++){own.push('');tm.push(0);}mine=[];lastCell=-1;}
-  function newRound(){
-    rnd=roundId();clear();
-    x=1+Math.random()*(COLS-2);yy=1+Math.random()*(ROWS-2);
-    bots.forEach(function(b){b.x=1+Math.random()*(COLS-2);b.y=1+Math.random()*(ROWS-2);b.tx=b.x;b.ty=b.y;});
+  function myName(){return SOC.account?SOC.account.username:'You';}
+  function myCol(){return SKIN.col(P.blue);}
+  function rgbCss(a){return 'rgb('+a[0]+','+a[1]+','+a[2]+')';}
+  function layout(){
+    cs=Math.floor(Math.min((V.w-16)/COLS,(V.h-150)/ROWS));ox=Math.floor((V.w-cs*COLS)/2);oy=Math.max(78,Math.floor((V.h-cs*ROWS)/2)+10);
+    lcs=Math.floor(Math.min((V.w-16)/LW,(V.h-150)/LH));lox=Math.floor((V.w-lcs*LW)/2);loy=Math.max(84,Math.floor((V.h-lcs*LH)/2)+14);
   }
-  function makeBots(){bots=[];for(var i=0;i<3;i++)bots.push({k:'bot'+i,n:['Bot Mint','Bot Grape','Bot Mango'][i],x:2+i*4,y:3+i*4,tx:0,ty:0,think:0});}
-  function players(){
-    var a=[{k:myKey(),n:SOC.account?SOC.account.username:'You',x:x,y:yy,me:true}];
-    netOthers().forEach(function(p){var q=p.presence;if(q.r===rnd)a.push({k:p.peer,n:netName(p),x:netNum(q.x,0,COLS,0),y:netNum(q.z,0,ROWS,0)});});
-    if(botsOn())bots.forEach(function(b){a.push({k:b.k,n:b.n,x:b.x,y:b.y,bot:true});});
+  function clear(){own=[];tm=[];for(var i=0;i<COLS*ROWS;i++){own.push('');tm.push(0);}marks=[];}
+  function inMatch(){return st==='wait'||st==='count'||st==='play'||st==='results';}
+  /* the other players in my match room, and who hosts (lowest key) */
+  function groupOthers(){
+    if(!cfg)return [];
+    return netOthers().filter(function(p){var q=p.presence;return q.c===cfg&&(q.st==='wait'||q.st==='count'||q.st==='play'||q.st==='results');});
+  }
+  function keyList(){var k=[myKey()];groupOthers().forEach(function(p){k.push(p.peer);});return k.sort();}
+  function hostKey(){return keyList()[0];}
+  function amHost(){return hostKey()===myKey();}
+  function hostPeer(){var h=hostKey();return groupOthers().filter(function(p){return p.peer===h;})[0]||null;}
+  function myPing(){var p=PERF.ping;return (typeof p==='number'&&p>=0)?p:999;}
+  function pingOf(k){
+    if(k===myKey())return myPing();
+    var p=groupOthers().filter(function(o){return o.peer===k;})[0];
+    return p?netNum(p.presence.pg,0,999,999):999;
+  }
+  /* best ping first; weights 5,4,3... so each slower device gets fewer bots; leftover bots go to the best pings */
+  function makeAlloc(){
+    var ks=keyList().map(function(k){return {k:k,p:pingOf(k)};});
+    ks.sort(function(a,b){return a.p-b.p||(a.k<b.k?-1:1);});
+    var n=ks.length,W=n*(n+1)/2,out=[],used=0;
+    ks.forEach(function(e,r){var share=gbots*(n-r)/W,c=Math.floor(share);used+=c;out.push({k:e.k,c:c,f:share-c,r:r,p:e.p});});
+    out.slice(0,gbots-used).forEach(function(e){e.c++;});
+    return out.map(function(e){return [e.k,e.c,e.p];});
+  }
+  function botIdx(a,k){var s=0,r=[];if(!a)return r;for(var i=0;i<a.length;i++){if(a[i][0]===k){for(var j=0;j<a[i][1];j++)r.push(s+j);return r;}s+=a[i][1];}return r;}
+  function makeBots(){
+    var ks=keyList().length;bots=botIdx(alloc,myKey()).slice(0,MAXB).map(function(i){var s2=SPAWN[(ks+i)%SPAWN.length];return {i:i,x:s2[0],y:s2[1],tx:s2[0],ty:s2[1],think:0};});
+    botsFor=mStart;
+  }
+  function people(){
+    var a=[{k:myKey(),n:myName(),x:x,y:yy,me:true}],mk=myKey();
+    bots.forEach(function(b){a.push({k:mk+':b'+b.i,n:'Bot '+(b.i+1),x:b.x,y:b.y,bot:true,mine:true});});
+    groupOthers().forEach(function(p){
+      var q=p.presence;a.push({k:p.peer,n:netName(p),x:netNum(q.x,0,COLS,0),y:netNum(q.z,0,ROWS,0)});
+      if(Array.isArray(q.bp))q.bp.slice(0,MAXB).forEach(function(v){
+        if(Array.isArray(v))a.push({k:p.peer+':b'+(v[0]|0),n:'Bot '+((v[0]|0)+1),x:netNum(v[1],0,COLS,0),y:netNum(v[2],0,ROWS,0),bot:true});
+      });
+    });
     return a;
   }
-  function colorOf(k,list){
-    var ks=list.map(function(p){return p.k;}).sort();
-    var i=ks.indexOf(k);return PAL[(i<0?0:i)%PAL.length];
-  }
-  function paintAt(k,px,py,stamp){
-    var c=Math.floor(py)*COLS+Math.floor(px);
-    if(c<0||c>=own.length)return -1;
-    if(stamp>=tm[c]){own[c]=k;tm[c]=stamp;}
-    return c;
-  }
+  function colorMap(list){var ks=list.map(function(p){return p.k;}).sort(),m={};ks.forEach(function(k,i){m[k]=PAL[i%PAL.length];});return m;}
   function counts(){var o={};own.forEach(function(k){if(k)o[k]=(o[k]||0)+1;});return o;}
-  g.start=function(){layout();makeBots();newRound();stick=null;keys={};msg='';msgT=0;done=-1;netJoin('w2-paint');};
+  function cellAt(px,py){var c=Math.floor(py)*COLS+Math.floor(px);return (c>=0&&c<own.length)?c:-1;}
+  function addMark(c,s,bi){var m=[c,s];if(bi!==undefined)m.push(bi);marks.push(m);if(marks.length>MK)marks.shift();}
+  /* a closed loop of one colour fills everything inside it: every tile the outside can't reach without crossing that colour */
+  function fill(k,s,bi){
+    if(own.length!==COLS*ROWS)return 0;
+    var N=own.length,seen=new Uint8Array(N),q=[],i,c;
+    function add(c){if(!seen[c]&&own[c]!==k){seen[c]=1;q.push(c);}}
+    for(i=0;i<COLS;i++){add(i);add((ROWS-1)*COLS+i);}
+    for(i=0;i<ROWS;i++){add(i*COLS);add(i*COLS+COLS-1);}
+    while(q.length){c=q.pop();var cx=c%COLS,cy=(c-cx)/COLS;if(cx>0)add(c-1);if(cx<COLS-1)add(c+1);if(cy>0)add(c-COLS);if(cy<ROWS-1)add(c+COLS);}
+    var n=0;
+    for(c=0;c<N;c++)if(!seen[c]&&own[c]!==k){own[c]=k;tm[c]=s;addMark(c,s,bi);n++;}
+    if(n&&k===myKey()){msg='Loop closed! +'+n+' tiles';msgT=1.4;beep(990,0.18,'square',0.05,1.6);}
+    return n;
+  }
+  function paint(k,c,s,bi){if(c<0||own[c]===k)return;own[c]=k;tm[c]=s;addMark(c,s,bi);fill(k,s,bi);}
+  function toLobby(){
+    st='lobby';cfg='';mStart=0;initFor=0;bots=[];alloc=null;botsFor=0;result=null;stick=null;lx=5;ly=6.5;
+    netJoin('w2-paint-lobby');
+  }
+  function startGroup(){
+    gsz=np;gbots=nb;cfg='p'+gsz+'b'+gbots;mStart=0;initFor=0;alloc=null;botsFor=0;bots=[];result=null;
+    if(gsz===1){netLeave();mStart=now()+3000;alloc=makeAlloc();st='count';return;}
+    if(typeof amBlocked==='function'&&amBlocked()){msg='Reported: only 1 player games for now';msgT=3;st='menu';cfg='';return;}
+    netJoin('w2-paint-'+cfg);st='wait';
+  }
+  function startMatch(){
+    clear();saved=false;
+    var ks=keyList(),idx=Math.max(0,ks.indexOf(myKey())),sp=SPAWN[idx%SPAWN.length];
+    x=sp[0];yy=sp[1];
+    bots=[];botsFor=0;
+    if(alloc)makeBots();
+  }
+  function finishMatch(){
+    var list=people(),cn=counts();
+    var rank=list.map(function(p){return {p:p,v:cn[p.k]||0};}).sort(function(a,b){return b.v-a.v;});
+    result=rank;
+    if(!saved&&rank.length&&rank[0].p.me&&rank[0].v>0){saved=true;lsSet('by.paint',lsGet('by.paint',0)+1);beep(880,0.5,'square',0.06,2);}
+  }
+  function act(a){
+    if(!a)return;
+    if(a.a==='np'){np=a.n;}
+    else if(a.a==='nb'){nb=clampN(nb+a.d,0,MAXB);}
+    else if(a.a==='go'){startGroup();}
+    else if(a.a==='back'){st='lobby';lx=5;ly=6.5;}
+    else if(a.a==='leave'){toLobby();}
+    beep(600,0.04,'square',0.03,1.2);
+  }
+  g.start=function(){layout();keys={};msg='';msgT=0;np=1;nb=3;toLobby();};
   g.stop=function(){netLeave();};
+  /* wide screens get a wider play area, so there's always room for the board and the menu */
+  g.pre=function(w,h){g.lw=Math.max(360,Math.ceil(560*w/h));};
   g.resize=function(){layout();};
-  g.down=function(px,py,id){if(!stick)stick={id:id,ox:px,oy:py,dx:0,dy:0};};
+  g.down=function(px,py,id){
+    for(var i=rects.length-1;i>=0;i--){var r=rects[i];if(px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h){act(r.a);return;}}
+    if(st==='menu'||st==='wait')return;
+    if(!stick)stick={id:id,ox:px,oy:py,dx:0,dy:0};
+  };
   g.move=function(px,py,id){
     if(!stick||stick.id!==id)return;
     var dx=px-stick.ox,dy=py-stick.oy,m=Math.hypot(dx,dy);
     if(m>40){stick.ox+=dx/m*(m-40);stick.oy+=dy/m*(m-40);dx=px-stick.ox;dy=py-stick.oy;}
-    stick.dx=dx/40;stick.dy=dy/40;stick.x=px;stick.y=py;
+    stick.dx=dx/40;stick.dy=dy/40;
   };
   g.up=function(px,py,id){if(stick&&stick.id===id)stick=null;};
-  g.key=function(c,d){keys[c]=d;};
+  g.key=function(c,d){
+    keys[c]=d;
+    if(!d||st!=='menu')return;
+    if(c.indexOf('Digit')===0){var n=+c.slice(5);if(n>=1&&n<=5)np=n;}
+    else if(c==='Enter')startGroup();
+  };
+  function moveVec(){
+    var dx=0,dy=0;
+    if(stick){dx=stick.dx;dy=stick.dy;}
+    if(keys.KeyA||keys.ArrowLeft)dx-=1;if(keys.KeyD||keys.ArrowRight)dx+=1;
+    if(keys.KeyW||keys.ArrowUp)dy-=1;if(keys.KeyS||keys.ArrowDown)dy+=1;
+    var m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}
+    return [dx,dy,m];
+  }
   g.update=function(dt){
     t+=dt;if(msgT>0)msgT-=dt;
-    if(roundId()!==rnd)newRound();
-    if(myKey()!==lastKey){var ok=lastKey,nk=myKey();own=own.map(function(k){return k===ok?nk:k;});lastKey=nk;}
-    var now=Date.now(),list=players(),i;
-    /* other players' newest marks */
-    netOthers().forEach(function(p){
-      var q=p.presence;if(q.r!==rnd||!Array.isArray(q.pl))return;
-      q.pl.slice(-60).forEach(function(m){
-        if(!Array.isArray(m))return;
-        var c=m[0]|0,s=+m[1];
-        if(c>=0&&c<own.length&&isFinite(s)&&s>tm[c]){own[c]=p.peer;tm[c]=s;}
+    if(t-pingT>3){pingT=t;perfPing();}
+    var mv,i;
+    if(st==='lobby'||st==='menu'){
+      if(st==='lobby'){
+        mv=moveVec();
+        if(mv[2]>0.05){lx+=mv[0]*SPD*cheatSpd()*dt;ly+=mv[1]*SPD*cheatSpd()*dt;}
+        lx=clampN(lx,0.5,LW-0.5);ly=clampN(ly,0.5,LH-0.5);
+        for(i=0;i<LPADS.length;i++)if(Math.abs(lx-LPADS[i][0])<0.9&&Math.abs(ly-LPADS[i][1])<0.9){st='menu';stick=null;keys={};break;}
+      }
+      netSend({x:Math.round(lx*100)/100,z:Math.round(ly*100)/100,st:'lobby',pg:myPing()});netFlush();
+      return;
+    }
+    if(myKey()!==lastKey){var ok=lastKey,nk=myKey();own=own.map(function(k){return k===ok?nk:(k.indexOf(ok+':')===0?nk+k.slice(ok.length):k);});if(alloc)alloc.forEach(function(e){if(e[0]===ok)e[0]=nk;});lastKey=nk;}
+    /* agree on the start time: the host sets it once the group is full; everyone else copies the host */
+    var hp=hostPeer();
+    if(amHost()){if(!mStart&&keyList().length>=gsz){mStart=now()+3500;alloc=makeAlloc();}}
+    else if(hp&&+hp.presence.ms>0){
+      mStart=+hp.presence.ms;
+      var ba=hp.presence.ba;
+      if(!alloc&&Array.isArray(ba))alloc=ba.slice(0,8).filter(Array.isArray).map(function(e){return [String(e[0]),clampN(e[1]|0,0,MAXB),netNum(e[2],0,999,999)];});
+    }
+    if(mStart){
+      var n=now(),ns=n<mStart?'count':(n<mStart+MATCH?'play':(n<mStart+MATCH+SHOW?'results':'done'));
+      if((ns==='count'||ns==='play')&&initFor!==mStart){initFor=mStart;startMatch();}
+      if(alloc&&botsFor!==mStart&&(ns==='count'||ns==='play'))makeBots();
+      if(ns==='results'&&st!=='results')finishMatch();
+      if(ns==='done'){toLobby();return;}
+      st=ns;
+    }
+    if(st==='play'){
+      var s=now();
+      groupOthers().forEach(function(p){
+        var q=p.presence;if(!Array.isArray(q.pl))return;
+        q.pl.slice(-MK).forEach(function(m){
+          if(!Array.isArray(m))return;
+          var c=m[0]|0,rel=+m[1],ts=mStart+rel;
+          if(c<0||c>=own.length||!isFinite(rel)||rel<-1000||rel>MATCH+2000||ts<=tm[c])return;
+          own[c]=m.length>2?(p.peer+':b'+(m[2]|0)):p.peer;tm[c]=ts;
+        });
       });
-    });
-    if(painting()){
-      var dx=0,dy=0;
-      if(stick){dx=stick.dx;dy=stick.dy;}
-      if(keys.KeyA||keys.ArrowLeft)dx-=1;if(keys.KeyD||keys.ArrowRight)dx+=1;
-      if(keys.KeyW||keys.ArrowUp)dy-=1;if(keys.KeyS||keys.ArrowDown)dy+=1;
-      var m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}
-      if(m>0.05){x+=dx*SPD*cheatSpd()*dt;yy+=dy*SPD*cheatSpd()*dt;if(Math.abs(dx)>0.2)face=dx>0?1:-1;}
-      x=clampN(x,0.3,COLS-0.3);yy=clampN(yy,0.3,ROWS-0.3);
-      var c=paintAt(myKey(),x,yy,now);
-      if(c>=0&&c!==lastCell){lastCell=c;mine.push([c,now]);if(mine.length>60)mine.shift();}
-      if(botsOn()){
+      mv=moveVec();
+      if(mv[2]>0.05){x+=mv[0]*SPD*cheatSpd()*dt;yy+=mv[1]*SPD*cheatSpd()*dt;}
+      x=clampN(x,0.45,COLS-0.45);yy=clampN(yy,0.45,ROWS-0.45);
+      paint(myKey(),cellAt(x,yy),s);
+      {
+        var mk=myKey();
         for(i=0;i<bots.length;i++){
-          var b=bots[i];b.think-=dt;
-          var bc=Math.floor(b.y)*COLS+Math.floor(b.x);
+          var b=bots[i],bk=mk+':b'+b.i;b.think-=dt;
           if(b.think<=0||Math.hypot(b.tx-b.x,b.ty-b.y)<0.3){
             var best=null,bs=-1;
             for(var k=0;k<10;k++){
               var cx=Math.floor(clampN(b.x+(Math.random()*2-1)*4,0,COLS-1)),cy=Math.floor(clampN(b.y+(Math.random()*2-1)*4,0,ROWS-1)),ci=cy*COLS+cx;
-              var sc=(own[ci]===b.k?0:(own[ci]?2:1))+Math.random();
+              var sc=(own[ci]===bk?0:(own[ci]?2:1))+Math.random();
               if(sc>bs){bs=sc;best=[cx+0.5,cy+0.5];}
             }
             b.tx=best[0];b.ty=best[1];b.think=1.2+Math.random();
           }
           var bx=b.tx-b.x,by=b.ty-b.y,bd=Math.hypot(bx,by)||1;
-          b.x+=bx/bd*3.1*dt;b.y+=by/bd*3.1*dt;
-          paintAt(b.k,b.x,b.y,now);
+          b.x+=bx/bd*BSPD*dt;b.y+=by/bd*BSPD*dt;
+          paint(bk,cellAt(b.x,b.y),s,b.i);
         }
       }
-    }else if(done!==rnd){
-      done=rnd;
-      var cn=counts(),top=null,tv=-1;
-      list.forEach(function(p){var v=cn[p.k]||0;if(v>tv){tv=v;top=p;}});
-      if(top&&top.me&&tv>0){lsSet('by.paint',lsGet('by.paint',0)+1);beep(880,0.5,'square',0.06,2);}
     }
-    netSend({x:Math.round(x*100)/100,z:Math.round(yy*100)/100,r:rnd,pl:mine.slice(-60)});
+    netSend({x:Math.round(x*100)/100,z:Math.round(yy*100)/100,st:st,c:cfg,pg:myPing(),ms:amHost()?mStart:0,ba:amHost()?alloc:null,pl:st==='play'?marks.slice(-MK).map(function(m){var r=[m[0],m[1]-mStart];if(m.length>2)r.push(m[2]);return r;}):[],
+      bp:bots.map(function(b){return [b.i,Math.round(b.x*100)/100,Math.round(b.y*100)/100];})});
     netFlush();
   };
-  g.draw=function(){
-    ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
-    var list=players(),cn=counts(),i,j;
-    var cmap={};list.forEach(function(p){cmap[p.k]=colorOf(p.k,list);});
+  function btn(label,cx,y,w,h,a,on,fill){
+    var x0=cx-w/2;
+    ctx.fillStyle=P.ink;ctx.fillRect(x0-2,y-2,w+4,h+4);
+    ctx.fillStyle=on?P.sun:(fill||'#fff');ctx.fillRect(x0,y,w,h);
+    ctx.font='700 '+Math.round(Math.min(16,h*0.48))+'px '+FONTB;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=P.ink;ctx.fillText(label,cx,y+h/2+1);
+    rects.push({x:x0,y:y,w:w,h:h,a:a});
+  }
+  function figure(sx,sy,s,col,name,me){
+    ctx.fillStyle=P.ink;ctx.fillRect(sx-s/2-2,sy-s/2-2,s+4,s+4);
+    ctx.fillStyle=col;ctx.fillRect(sx-s/2,sy-s/2,s,s);
+    ctx.fillStyle='#fff';ctx.fillRect(sx-s*0.28,sy-s*0.2,s*0.18,s*0.24);ctx.fillRect(sx+s*0.1,sy-s*0.2,s*0.18,s*0.24);
+    if(me){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(sx-s/2-4,sy-s/2-4,s+8,s+8);}
+    txt(name,sx,sy-s/2-10,10,'#fff');
+  }
+  function drawLobby(){
+    var i,j;
+    txt('PAINT BATTLE',V.w/2,26,24,P.sun);
+    txt(NET.blocked?netStatus():(NET.room?(netOthers().length?(netOthers().length+1)+' players in the lobby':'Lobby'):(NET.fail?'Offline: you can still play 1 player with bots':'Connecting...')),V.w/2,50,11,'#9fb0d8');
+    for(j=0;j<LH;j++)for(i=0;i<LW;i++){ctx.fillStyle=((i+j)&1)?'#1c2a52':'#22305a';ctx.fillRect(lox+i*lcs,loy+j*lcs,lcs-1,lcs-1);}
+    /* a few paint splats on the floor */
+    [[3,6,'#ff6b5b'],[6.5,5,'#3cc8f0'],[4.5,8.5,'#5ed88a'],[7,8,'#b48cff']].forEach(function(s){ctx.fillStyle=s[2];ctx.globalAlpha=0.35;ctx.beginPath();ctx.arc(lox+s[0]*lcs,loy+s[1]*lcs,lcs*0.7,0,6.283);ctx.fill();ctx.globalAlpha=1;});
+    ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(lox-2,loy-2,lcs*LW+3,lcs*LH+3);
+    LPADS.forEach(function(p){
+      var sx=lox+(p[0]-1)*lcs,sy=loy+(p[1]-1)*lcs;
+      ctx.fillStyle=P.ink;ctx.fillRect(sx-2,sy-2,lcs*2+4,lcs*2+4);
+      ctx.fillStyle=P.sun;ctx.fillRect(sx,sy,lcs*2,lcs*2);
+      txt('PLAY',sx+lcs,sy+lcs,Math.min(16,lcs*0.6),P.ink);
+    });
+    netOthers().forEach(function(p){var q=p.presence;if(q.st!=='lobby')return;figure(lox+netNum(q.x,0,LW,5)*lcs,loy+netNum(q.z,0,LH,6)*lcs,lcs*0.7,rgbCss(netColor(p)),netName(p).slice(0,12),false);});
+    figure(lox+lx*lcs,loy+ly*lcs,lcs*0.7,myCol(),'You',true);
+    if(t<8&&st==='lobby')txt('Walk onto a yellow pad to play',V.w/2,loy+lcs*LH+20,14,'#fff');
+  }
+  function panel(top,h){var pw=Math.min(330,V.w-24);ctx.fillStyle='rgba(16,26,51,0.94)';ctx.fillRect(V.w/2-pw/2,top,pw,h);ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(V.w/2-pw/2,top,pw,h);return pw;}
+  function drawMenu(){
+    var top=Math.max(70,V.h*0.14),pw=panel(top,300),i;
+    txt('Start a match',V.w/2,top+26,22,P.sun);
+    txt('Players',V.w/2,top+58,14,'#fff');
+    var bw=Math.floor((pw-40)/5)-6;
+    for(i=1;i<=5;i++)btn(String(i),V.w/2+(i-3)*(bw+6),top+72,bw,38,{a:'np',n:i},np===i);
+    txt('Bots',V.w/2,top+132,14,'#fff');
+    btn('−',V.w/2-70,top+146,44,38,{a:'nb',d:-1});
+    txt(String(nb),V.w/2,top+165,24,P.sun);
+    btn('+',V.w/2+70,top+146,44,38,{a:'nb',d:1});
+    txt(np===1?'You and '+nb+' bot'+(nb===1?'':'s'):'Starts when '+np+' players pick this setup',V.w/2,top+202,12,'#9fb0d8');
+    btn('Start',V.w/2,top+218,pw-40,40,{a:'go'},true);
+    btn('Back to the lobby',V.w/2,top+264,pw-40,28,{a:'back'});
+    if(msgT>0&&msg)txt(msg,V.w/2,top+316,13,P.brick);
+  }
+  function drawWait(){
+    var pv=makeAlloc(),top=Math.max(80,V.h*0.2),pw=panel(top,184+pv.length*18),k=keyList().length,nm={};
+    groupOthers().forEach(function(p){nm[p.peer]=netName(p);});
+    txt('Waiting for players',V.w/2,top+28,20,P.sun);
+    txt(k+' / '+gsz+' here',V.w/2,top+62,26,'#fff');
+    txt(gbots+' bot'+(gbots===1?'':'s')+'  ·  best ping runs the most',V.w/2,top+92,11,'#9fb0d8');
+    pv.forEach(function(e,n){
+      var me=e[0]===myKey(),pt=e[2]>=999?'--':e[2]+' ms';
+      txt((me?'You':(nm[e[0]]||'Player').slice(0,12))+'  ·  '+pt+'  ·  '+e[1]+' bot'+(e[1]===1?'':'s'),V.w/2,top+116+n*18,12,me?P.sun:'#fff');
+    });
+    txt(netStatus(),V.w/2,top+122+pv.length*18,10,'#9fb0d8');
+    btn('Leave',V.w/2,top+136+pv.length*18,pw-40,36,{a:'leave'});
+  }
+  function drawMatch(){
+    var list=people(),cmap=colorMap(list),cn=counts(),i,j,total=COLS*ROWS;
     for(j=0;j<ROWS;j++)for(i=0;i<COLS;i++){
       var k=own[j*COLS+i];
       ctx.fillStyle=k?(cmap[k]||'#55608c'):(((i+j)&1)?'#1c2a52':'#22305a');
       ctx.fillRect(ox+i*cs,oy+j*cs,cs-1,cs-1);
     }
     ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(ox-2,oy-2,cs*COLS+3,cs*ROWS+3);
-    list.forEach(function(p){
-      var sx=ox+p.x*cs,sy=oy+p.y*cs,s=Math.max(12,cs*0.8);
-      ctx.fillStyle=P.ink;ctx.fillRect(sx-s/2-2,sy-s/2-2,s+4,s+4);
-      ctx.fillStyle=cmap[p.k]||'#fff';ctx.fillRect(sx-s/2,sy-s/2,s,s);
-      ctx.fillStyle='#fff';ctx.fillRect(sx-s*0.28,sy-s*0.2,s*0.18,s*0.24);ctx.fillRect(sx+s*0.1,sy-s*0.2,s*0.18,s*0.24);
-      if(p.me){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(sx-s/2-4,sy-s/2-4,s+8,s+8);}
-      txt(p.me?'You':p.n.slice(0,10),sx,sy-s/2-9,10,'#fff');
-    });
-    var left=Math.max(0,msLeft()-SHOW)/1000,total=COLS*ROWS;
-    var cl=Math.ceil(left),mm=Math.floor(cl/60),ss=cl%60;
-    txt(painting()?(mm+':'+(ss<10?'0':'')+ss):'Round over',12,22,18,P.sun,'left');
-    txt(botsOn()?(NET.room?'Playing with bots until friends join':(NET.blocked?netStatus():'Playing with bots')):netStatus(),12,42,11,'#9fb0d8','left');
+    list.forEach(function(p){figure(ox+p.x*cs,oy+p.y*cs,Math.max(12,cs*0.8),cmap[p.k]||'#fff',p.me?'You':p.n.slice(0,10),p.me);});
+    var left=st==='play'?Math.max(0,mStart+MATCH-now())/1000:0,cl=Math.ceil(left),mm=Math.floor(cl/60),ss=cl%60;
+    txt(st==='play'?(mm+':'+(ss<10?'0':'')+ss):(st==='count'?'Get ready':'Match over'),12,22,18,P.sun,'left');
+    txt((gsz>1?gsz+' players':'1 player')+' · '+gbots+' bot'+(gbots===1?'':'s'),12,42,11,'#9fb0d8','left');
     var rank=list.map(function(p){return {p:p,v:cn[p.k]||0};}).sort(function(a,b){return b.v-a.v;});
     rank.slice(0,3).forEach(function(r,n){
-      var c=cmap[r.p.k];ctx.fillStyle=c;ctx.fillRect(V.w-104,14+n*18,10,10);
+      ctx.fillStyle=cmap[r.p.k];ctx.fillRect(V.w-112,14+n*18,10,10);
       txt((r.p.me?'You':r.p.n.slice(0,10))+' '+Math.round(r.v/total*100)+'%',V.w-10,19+n*18,12,r.p.me?P.sun:'#fff','right');
     });
-    if(!painting()){
-      ctx.fillStyle='rgba(16,26,51,.8)';ctx.fillRect(0,V.h/2-60,V.w,120);
-      var w=rank[0];
-      txt(w&&w.v>0?(w.p.me?'You win!':w.p.n+' wins!'):'Nobody painted',V.w/2,V.h/2-22,28,P.sun);
-      txt('Next round in '+Math.ceil(msLeft()/1000)+'s',V.w/2,V.h/2+16,16,'#fff');
-    }else if(t<5){
-      txt('Paint the floor your colour!',V.w/2,oy+cs*ROWS+22,15,'#fff');
+    if(st==='count'){
+      ctx.fillStyle='rgba(16,26,51,.6)';ctx.fillRect(0,V.h/2-50,V.w,100);
+      txt(String(Math.max(1,Math.ceil((mStart-now())/1000))),V.w/2,V.h/2-8,44,P.sun);
+      txt('Close a loop of your colour to fill it in!',V.w/2,V.h/2+26,13,'#fff');
+      if(gsz>1&&gbots>0)txt('Your device runs '+bots.length+' bot'+(bots.length===1?'':'s')+' (ping '+(myPing()>=999?'--':myPing()+' ms')+')',V.w/2,V.h/2+44,11,'#9fb0d8');
     }
-    if(stick){ctx.globalAlpha=0.5;ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(stick.ox,stick.oy,40,0,6.283);ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(stick.ox+stick.dx*40,stick.oy+stick.dy*40,16,0,6.283);ctx.fill();ctx.globalAlpha=1;}
+    if(st==='results'){
+      var rs=result||rank,w=rs[0];
+      ctx.fillStyle='rgba(16,26,51,.85)';ctx.fillRect(0,V.h/2-80,V.w,160);
+      txt(w&&w.v>0?(w.p.me?'You win!':w.p.n+' wins!'):'Nobody painted',V.w/2,V.h/2-46,28,P.sun);
+      rs.slice(0,3).forEach(function(r,n){txt((n+1)+'. '+(r.p.me?'You':r.p.n)+'  '+Math.round(r.v/total*100)+'%',V.w/2,V.h/2-10+n*20,14,r.p.me?P.sun:'#fff');});
+      txt('Back to the lobby in '+Math.max(0,Math.ceil((mStart+MATCH+SHOW-now())/1000))+'s',V.w/2,V.h/2+60,12,'#9fb0d8');
+    }
+    if(msgT>0&&msg&&st==='play')txt(msg,V.w/2,oy+cs*ROWS+22,15,P.sun);
+  }
+  g.draw=function(){
+    ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
+    rects=[];
+    if(st==='lobby'||st==='menu')drawLobby();
+    if(st==='menu')drawMenu();
+    else if(st==='wait'){drawLobby();drawWait();}
+    else if(inMatch())drawMatch();
+    if(stick&&(st==='lobby'||st==='play')){ctx.globalAlpha=0.5;ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(stick.ox,stick.oy,40,0,6.283);ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(stick.ox+stick.dx*40,stick.oy+stick.dy*40,16,0,6.283);ctx.fill();ctx.globalAlpha=1;}
   };
   return g;
 })();
@@ -12221,7 +12400,7 @@ function openCharts(){
     ['Gem Rush','#3cc8f0','Most gems',String(lsGet('by.gems',0))],
     ['Hill King','#ffd23f','Rounds won',String(lsGet('by.hill',0))],
     ['Sky Hop','#5ed88a','Best height',String(lsGet('by.hop',0))],
-    ['Paint Battle','#ff6b5b','Rounds won',String(lsGet('by.paint',0))]
+    ['Paint Battle','#ff6b5b','Matches won',String(lsGet('by.paint',0))]
   ];
   var h='<div class="sheet"><h3>Your records</h3><p>Your best in every game on this device. You have '+(W?W.coins:0)+' bricks.</p></div>';
   rows.forEach(function(r){
@@ -12234,7 +12413,7 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
 /* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in
