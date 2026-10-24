@@ -17,6 +17,11 @@
 .upd-date{margin:0 0 4px;font:800 14px/1.3 var(--body);color:#5b6286}
 .upd-card ul{margin:4px 0 0;padding-left:20px;font-size:16px;line-height:1.45;display:flex;flex-direction:column;gap:3px}
 .upd-tag{padding:0 8px;border:2px solid var(--ink);border-radius:999px;background:var(--grass);color:var(--ink);font:800 12px/1.5 var(--body)}
+.upd-card h3 .upd-ver{margin-left:auto;padding:2px 10px;border:2px solid var(--ink);border-radius:999px;background:#eef1fb;color:var(--ink);font:800 13px/1.4 var(--body);white-space:nowrap}
+.upd-top{display:flex;justify-content:center;margin:-4px 0 6px}
+.upd-del{display:inline-grid;place-items:center;min-width:44px;height:38px;padding:0 10px;background:var(--brick);color:#fff;border:3px solid var(--ink);border-radius:10px;box-shadow:0 3px 0 var(--ink);font:800 14px/1 var(--body)}
+.upd-del svg{width:22px;height:22px}
+.upd-del.sure{background:#c0392b}
 #pmenu{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:rgba(8,8,24,.66)}
 .pm-card{width:min(420px,100%);max-height:calc(100dvh - 32px);overflow:auto;display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--bg);border:3px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 var(--ink);color:var(--text)}
 .pm-card h3{margin:0 0 2px;text-align:center;font:400 28px/1.1 var(--display);color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill}
@@ -10281,9 +10286,9 @@ if(window.visualViewport){
 }
 /* ===== Owner command panel (only the page owner sees the button) ===== */
 var ADM={},ROLES={},GR={},ANN=[],GSUB={};
-var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['c_speed','Cheat: Speed'],['c_oneshot','Cheat: One shot'],['c_god','Cheat: Immortal'],['c_jump','Cheat: Super jump'],['c_fly','Cheat: Flight'],['c_ammo','Cheat: Infinite ammo'],['c_reload','Cheat: Fast reload'],['c_bullet','Cheat: Fast bullets'],['c_multi','Cheat: 10x shots'],['c_wave','Cheat: Blitz start wave'],['c_cash','Cheat: Balloons cash'],['c_bricks','Cheat: Free bricks'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports']];
-var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:true,c_oneshot:true,c_god:true,c_jump:true,c_fly:true,c_ammo:true,c_reload:true,c_bullet:true,c_multi:true,c_wave:true,c_cash:true,c_bricks:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true};
-var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:false,c_oneshot:false,c_god:false,c_jump:false,c_fly:false,c_ammo:false,c_reload:false,c_bullet:false,c_multi:false,c_wave:true,c_cash:true,c_bricks:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false};
+var PERMS=[['panel','Admin panel'],['banner','Banner'],['gift','Gift bricks'],['players','Player list'],['chats','Clear chats'],['c_speed','Cheat: Speed'],['c_oneshot','Cheat: One shot'],['c_god','Cheat: Immortal'],['c_jump','Cheat: Super jump'],['c_fly','Cheat: Flight'],['c_ammo','Cheat: Infinite ammo'],['c_reload','Cheat: Fast reload'],['c_bullet','Cheat: Fast bullets'],['c_multi','Cheat: 10x shots'],['c_wave','Cheat: Blitz start wave'],['c_cash','Cheat: Balloons cash'],['c_bricks','Cheat: Free bricks'],['requests','Requests'],['verify','Blue checks'],['events','Host events'],['assign','Give roles'],['votes','Vote weights'],['reports','Cheat reports'],['updates','Delete updates']];
+var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:true,c_oneshot:true,c_god:true,c_jump:true,c_fly:true,c_ammo:true,c_reload:true,c_bullet:true,c_multi:true,c_wave:true,c_cash:true,c_bricks:true,requests:true,verify:true,events:true,assign:true,votes:true,reports:true,updates:true};
+var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:false,c_oneshot:false,c_god:false,c_jump:false,c_fly:false,c_ammo:false,c_reload:false,c_bullet:false,c_multi:false,c_wave:true,c_cash:true,c_bricks:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false,updates:false};
 var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evPick:'',evNote:'',vu:'',ann:'',gu:'',ga:'50',adm:'',rn:'',pick:'',sureRole:'',players:null,sure:false,startWave:1,tdCash:false};
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
 function cleanPerms(p){var o={};PERMS.forEach(function(x){o[x[0]]=!!(p&&typeof p==='object'&&p[x[0]]===true);});
@@ -11524,16 +11529,77 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
+/* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in
+   upddel/<their id> as {id:{d:1|0,at}}; a choice only counts when its writer holds the tool, and the newest choice wins. */
+var UPDDEL={raw:{},mine:{},subbed:false,sure:'',busy:false,msg:null};
+function updSync(){
+  if(UPDDEL.subbed||!SOC.db)return;UPDDEL.subbed=true;
+  SOC.db.collection('upddel').onSnapshot(function(s){
+    var raw={};
+    s.docs.forEach(function(d){
+      var x=d.data()||{},l=(x.list&&typeof x.list==='object')?x.list:{},o={};
+      Object.keys(l).slice(0,300).forEach(function(k){var v=l[k];if(v&&typeof v==='object')o[k]={d:v.d===1?1:0,at:+v.at||0};});
+      raw[d.id]=o;
+    });
+    UPDDEL.raw=raw;UPDDEL.mine=raw[SOC.uid]||{};
+    if(!updEl.hidden)updRender();
+  },function(){UPDDEL.subbed=false;});
+}
+function updGone(id){
+  var best=null;
+  Object.keys(UPDDEL.raw).forEach(function(g){
+    var e=UPDDEL.raw[g][id];if(!e)return;
+    if(g===SOC.uid){if(!can('updates'))return;}
+    else{var p=(typeof permsOf==='function')?permsOf(g):null;if(!p||!p.updates)return;}
+    if(!best||e.at>=best.at)best=e;
+  });
+  return !!(best&&best.d===1);
+}
+function updCan(){return can('updates')&&!!SOC.db&&!!SOC.uid;}
+function updRender(){
+  var h='<div class="sheet"><h3>What\'s new</h3><p>Every update to Blockyard Arcade, newest first.</p></div>',tool=updCan(),gone=[],first=true;
+  if(UPDDEL.msg)h+='<p class="note '+UPDDEL.msg.t+'" role="status">'+esc(UPDDEL.msg.s)+'</p>';
+  UPDATES.forEach(function(u,i){
+    var num=UPDATES.length-i;
+    if(updGone(u.id)){gone.push({u:u,num:num});return;}
+    h+='<div class="sheet upd-card">';
+    if(tool){
+      var sure=UPDDEL.sure===u.id;
+      h+='<div class="upd-top"><button class="upd-del'+(sure?' sure':'')+'" type="button" data-upd="del" data-id="'+esc(u.id)+'" aria-label="Delete Update '+num+'"'+(UPDDEL.busy?' disabled':'')+'>'+
+        (sure?'Tap again to delete':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 10.5v6.5M14 10.5v6.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>')+'</button></div>';
+    }
+    h+='<h3><span class="upd-t">'+esc(u.t)+'</span>'+(first?'<span class="upd-tag">NEW</span>':'')+'<span class="upd-ver">Update '+num+'</span></h3><p class="upd-date">'+esc(u.d)+'</p><ul>'+u.x.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ul></div>';
+    first=false;
+  });
+  if(tool&&gone.length){
+    h+='<p class="lbl">Deleted updates</p>';
+    gone.forEach(function(g){h+='<div class="row"><span class="who">'+esc(g.u.t)+'<small>Update '+g.num+' · '+esc(g.u.d)+'</small></span><button class="mini" type="button" data-upd="back" data-id="'+esc(g.u.id)+'"'+(UPDDEL.busy?' disabled':'')+'>Restore</button></div>';});
+  }
+  $('upd-body').innerHTML=h;
+}
+function updSet(id,d){
+  if(!updCan()||UPDDEL.busy)return;
+  var list={};Object.keys(UPDDEL.mine).forEach(function(k){list[k]=UPDDEL.mine[k];});
+  list[id]={d:d,at:Date.now()};
+  UPDDEL.busy=true;UPDDEL.sure='';UPDDEL.msg=null;updRender();
+  SOC.db.doc('upddel/'+SOC.uid).set({list:list,at:Date.now()}).then(function(){
+    UPDDEL.mine=list;UPDDEL.raw[SOC.uid]=list;
+    UPDDEL.msg={t:'good',s:d?'Update deleted for everyone.':'Update restored.'};
+  },function(e){UPDDEL.msg={t:'err',s:failText(e)};}).then(function(){UPDDEL.busy=false;if(!updEl.hidden)updRender();});
+}
+$('upd-body').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('button'):null;if(!b||b.disabled)return;
+  var a=b.getAttribute('data-upd'),id=b.getAttribute('data-id');
+  if(a==='del'){if(UPDDEL.sure===id)updSet(id,1);else{UPDDEL.sure=id;UPDDEL.msg=null;updRender();}}
+  else if(a==='back')updSet(id,0);
+});
 function openUpdates(){
   initAudio();
-  var h='<div class="sheet"><h3>What\'s new</h3><p>Every update to Blockyard Arcade, newest first.</p></div>';
-  UPDATES.forEach(function(u,i){
-    h+='<div class="sheet upd-card"><h3>'+esc(u.t)+(i===0?'<span class="upd-tag">NEW</span>':'')+'</h3><p class="upd-date">'+esc(u.d)+'</p><ul>'+u.x.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ul></div>';
-  });
-  $('upd-body').innerHTML=h;
+  UPDDEL.sure='';UPDDEL.msg=null;updSync();
+  updRender();
   openScreen(updEl);
   lsSet('upd.seen',UPDATES[0].id);updBadge();
 }
