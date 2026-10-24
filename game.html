@@ -3413,10 +3413,11 @@ GAMES.hop=(function(){
 })();
 
 /* ===== Paint Battle (2D, online): walk around the lobby and step on a yellow pad to pick how many players (1 to 5) and
-   bots (0 to 10). Matches last 60 seconds: paint the floor your colour, and close a full loop of your colour to fill in
-   everything inside it. Most tiles wins. Players who pick the same setup are grouped in one room; the group's host (the
-   lowest player id) sets the start time and splits the bots by ping: the device with the best ping runs the most bots,
-   and each slower device runs fewer. ===== */
+   bots (0 to 10). For 2+ players the pad turns green with the player and bot count above it, and its maker stays on it
+   until enough players walk onto the green square; then the group moves to its own match room. Matches last 60 seconds:
+   paint the floor your colour, and close a full loop of your colour to fill in everything inside it. Most tiles wins.
+   The match host (lowest player id) sets the start time and splits the bots by ping: the device with the best ping runs
+   the most bots, and each slower device runs fewer. More players and bots means a bigger map. ===== */
 GAMES.paint=(function(){
   var g={kind:'canvas',title:'Paint Battle',lw:360};
   var COLS=12,ROWS=16,MATCH=60000,SHOW=6000,SPD=4.2,BSPD=3.1,LW=10,LH=13,MAXB=10,MK=240;
@@ -3425,7 +3426,7 @@ GAMES.paint=(function(){
   var SPAWN=[[1.5,1.5],[10.5,14.5],[10.5,1.5],[1.5,14.5],[6,8],[6,1.5],[6,14.5],[1.5,8],[10.5,8],[3.5,4.5],[8.5,11.5],[8.5,4.5],[3.5,11.5],[6,5],[6,11]];
   var FONTB='system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
   var st='lobby',t=0,lx=5,ly=6.5,x=6,yy=8,stick=null,keys={},rects=[],np=1,nb=3,gsz=1,gbots=3,cfg='',mStart=0,initFor=0,saved=false,msg='',msgT=0;
-  var alloc=null,botsFor=0,pingT=-9,own=[],tm=[],marks=[],bots=[],cs=20,ox=0,oy=0,lcs=24,lox=0,loy=0,lastKey='me',result=null;
+  var role='',padI=-1,gid='',jt=0,goT=0,hostSeen=0,alloc=null,botsFor=0,pingT=-9,own=[],tm=[],marks=[],bots=[],cs=20,ox=0,oy=0,lcs=24,lox=0,loy=0,lastKey='me',result=null;
   function now(){return Date.now();}
   function myKey(){return NET.me||'me';}
   function myName(){return SOC.account?SOC.account.username:'You';}
@@ -3508,14 +3509,67 @@ GAMES.paint=(function(){
   }
   function paint(k,c,s,bi){if(c<0||own[c]===k)return;own[c]=k;tm[c]=s;addMark(c,s,bi);fill(k,s,bi);}
   function toLobby(){
-    st='lobby';cfg='';mStart=0;initFor=0;bots=[];alloc=null;botsFor=0;result=null;stick=null;lx=5;ly=6.5;
+    st='lobby';cfg='';role='';gid='';padI=-1;mStart=0;initFor=0;bots=[];alloc=null;botsFor=0;result=null;stick=null;lx=5;ly=6.5;
     netJoin('w2-paint-lobby');
   }
-  function startGroup(){
-    gsz=np;gbots=nb;cfg='p'+gsz+'b'+gbots;mStart=0;initFor=0;alloc=null;botsFor=0;bots=[];result=null;setMap();clear();
-    if(gsz===1){netLeave();mStart=now()+3000;alloc=makeAlloc();st='count';return;}
-    if(typeof amBlocked==='function'&&amBlocked()){msg='Reported: only 1 player games for now';msgT=3;st='menu';cfg='';return;}
-    netJoin('w2-paint-'+cfg);st='wait';
+  function blocked(){return typeof amBlocked==='function'&&amBlocked();}
+  function onPad(){return st==='pad'||st==='go';}
+  function lobbyPeers(){return netOthers().filter(function(p){var q=p.presence;return q.st==='lobby'||q.st==='pad'||q.st==='go';});}
+  /* the game waiting on each pad: its maker (the earliest claim wins if two people make one at once) */
+  function padHosts(){
+    var h=LPADS.map(function(){return [];});
+    if(onPad()&&role==='host'&&padI>=0)h[padI].push({k:myKey(),gid:gid,np:gsz,nb:gbots,jt:jt,me:true,go:st==='go'});
+    lobbyPeers().forEach(function(p){
+      var q=p.presence,i=q.pad|0;
+      if((q.st==='pad'||q.st==='go')&&q.host===1&&i>=0&&i<LPADS.length&&typeof q.gid==='string')
+        h[i].push({k:p.peer,p:p,gid:q.gid.slice(0,16),np:clampN(q.np|0,2,5),nb:clampN(q.nb|0,0,MAXB),jt:+q.jt||0,go:q.st==='go'});
+    });
+    return h.map(function(l){l.sort(function(a,b){return a.jt-b.jt||(a.k<b.k?-1:1);});return l[0]||null;});
+  }
+  /* who is in that game: the maker, then the earliest players to step on, up to the player count */
+  function groupOf(h){
+    var j=[];
+    if(onPad()&&role==='join'&&gid===h.gid)j.push({k:myKey(),jt:jt,me:true,go:st==='go'});
+    lobbyPeers().forEach(function(p){var q=p.presence;if((q.st==='pad'||q.st==='go')&&q.host!==1&&q.gid===h.gid)j.push({k:p.peer,p:p,jt:+q.jt||0,go:q.st==='go'});});
+    j.sort(function(a,b){return a.jt-b.jt||(a.k<b.k?-1:1);});
+    return [{k:h.k,p:h.p,me:!!h.me,go:h.go}].concat(j.slice(0,h.np-1));
+  }
+  var POFF=[[0,0],[-0.55,-0.5],[0.55,-0.5],[-0.55,0.5],[0.55,0.5]];
+  function padSpot(i,n){var p=LPADS[i],o=POFF[n%POFF.length];return [p[0]+o[0],p[1]+o[1]];}
+  function bump(i){if(i<0)return;var p=LPADS[i];lx=p[0]+(p[0]<LW/2?1.7:-1.7);ly=p[1]+(p[1]<LH/2?1.7:-1.7);}
+  function leavePad(){var i=padI;st='lobby';role='';gid='';padI=-1;bump(i);}
+  function tryJoin(i,h){
+    if(blocked()){msg='Reported: only 1 player games for now';msgT=2.5;bump(i);return;}
+    if(groupOf(h).length>=h.np){msg='That game is full';msgT=2;bump(i);return;}
+    role='join';padI=i;gid=h.gid;gsz=h.np;gbots=h.nb;jt=now();hostSeen=now();st='pad';stick=null;keys={};
+    beep(700,0.08,'square',0.04,1.4);
+  }
+  function startSolo(){
+    gsz=1;gbots=nb;cfg='solo';role='';gid='';padI=-1;mStart=0;initFor=0;alloc=null;botsFor=0;bots=[];result=null;setMap();clear();
+    netLeave();mStart=now()+3000;alloc=makeAlloc();st='count';
+  }
+  function makeGame(){
+    if(np===1){startSolo();return;}
+    if(blocked()){msg='Reported: only 1 player games for now';msgT=3;return;}
+    var h=padHosts()[padI];
+    if(h&&!h.me){tryJoin(padI,h);return;}
+    role='host';gid=(now().toString(36)+Math.random().toString(36).slice(2,6)).slice(0,16);gsz=np;gbots=nb;jt=now();st='pad';stick=null;keys={};
+  }
+  /* the green square is full: everyone moves to the game's own room */
+  function enterMatch(){
+    cfg='g'+gid;mStart=0;initFor=0;alloc=null;botsFor=0;bots=[];result=null;setMap();clear();
+    netJoin('w2-paint-'+cfg.replace(/[^A-Za-z0-9]/g,''));st='wait';role='';padI=-1;
+  }
+  function padCheck(hs){
+    var h=hs[padI];
+    if(role==='host'){if(!h||!h.me){msg='Someone made a game on that square first';msgT=2.5;leavePad();return;}}
+    else{
+      if(!h||h.gid!==gid){if(now()-hostSeen>1500){msg='The game maker left';msgT=2.5;leavePad();}return;}
+      hostSeen=now();
+    }
+    var m=groupOf(h),mine=m.some(function(e){return e.me;});
+    if(!mine){msg='That game filled up';msgT=2.5;leavePad();return;}
+    if(m.length>=gsz||m.some(function(e){return e.go;})){st='go';goT=0.8;beep(880,0.15,'square',0.05,1.6);}
   }
   function startMatch(){
     clear();saved=false;
@@ -3534,8 +3588,9 @@ GAMES.paint=(function(){
     if(!a)return;
     if(a.a==='np'){np=a.n;}
     else if(a.a==='nb'){nb=clampN(nb+a.d,0,MAXB);}
-    else if(a.a==='go'){startGroup();}
-    else if(a.a==='back'){st='lobby';lx=5;ly=6.5;}
+    else if(a.a==='go'){makeGame();}
+    else if(a.a==='back'){st='lobby';bump(padI);padI=-1;}
+    else if(a.a==='unpad'){leavePad();}
     else if(a.a==='leave'){toLobby();}
     beep(600,0.04,'square',0.03,1.2);
   }
@@ -3546,7 +3601,7 @@ GAMES.paint=(function(){
   g.resize=function(){layout();};
   g.down=function(px,py,id){
     for(var i=rects.length-1;i>=0;i--){var r=rects[i];if(px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h){act(r.a);return;}}
-    if(st==='menu'||st==='wait')return;
+    if(st==='menu'||st==='wait'||onPad())return;
     if(!stick)stick={id:id,ox:px,oy:py,dx:0,dy:0};
   };
   g.move=function(px,py,id){
@@ -3560,7 +3615,7 @@ GAMES.paint=(function(){
     keys[c]=d;
     if(!d||st!=='menu')return;
     if(c.indexOf('Digit')===0){var n=+c.slice(5);if(n>=1&&n<=5)np=n;}
-    else if(c==='Enter')startGroup();
+    else if(c==='Enter')makeGame();
   };
   function moveVec(){
     var dx=0,dy=0;
@@ -3574,14 +3629,28 @@ GAMES.paint=(function(){
     t+=dt;if(msgT>0)msgT-=dt;
     if(t-pingT>3){pingT=t;perfPing();}
     var mv,i;
-    if(st==='lobby'||st==='menu'){
+    if(st==='lobby'||st==='menu'||onPad()){
+      var hs=padHosts();
       if(st==='lobby'){
         mv=moveVec();
         if(mv[2]>0.05){lx+=mv[0]*SPD*cheatSpd()*dt;ly+=mv[1]*SPD*cheatSpd()*dt;}
         lx=clampN(lx,0.5,LW-0.5);ly=clampN(ly,0.5,LH-0.5);
-        for(i=0;i<LPADS.length;i++)if(Math.abs(lx-LPADS[i][0])<0.9&&Math.abs(ly-LPADS[i][1])<0.9){st='menu';stick=null;keys={};break;}
-      }
-      netSend({x:Math.round(lx*100)/100,z:Math.round(ly*100)/100,st:'lobby',pg:myPing()});netFlush();
+        for(i=0;i<LPADS.length;i++)if(Math.abs(lx-LPADS[i][0])<0.9&&Math.abs(ly-LPADS[i][1])<0.9){
+          if(hs[i]&&!hs[i].me)tryJoin(i,hs[i]);
+          else{st='menu';padI=i;stick=null;keys={};}
+          break;
+        }
+      }else if(st==='menu'){
+        if(padI>=0&&hs[padI]&&!hs[padI].me){msg='Someone made a game on this square. Step back on to join it';msgT=3;st='lobby';bump(padI);padI=-1;}
+      }else if(st==='pad')padCheck(hs);
+      else if(st==='go'){goT-=dt;if(goT<=0){enterMatch();return;}}
+      if(onPad()){
+        var hh=hs[padI],mm2=hh?groupOf(hh):[],mi=0;
+        for(i=0;i<mm2.length;i++)if(mm2[i].me)mi=i;
+        var sp2=padSpot(padI,mi);lx=sp2[0];ly=sp2[1];
+        netSend({x:Math.round(lx*100)/100,z:Math.round(ly*100)/100,st:st,pg:myPing(),pad:padI,gid:gid,host:role==='host'?1:0,np:gsz,nb:gbots,jt:jt});
+      }else netSend({x:Math.round(lx*100)/100,z:Math.round(ly*100)/100,st:'lobby',pg:myPing()});
+      netFlush();
       return;
     }
     if(myKey()!==lastKey){var ok=lastKey,nk=myKey();own=own.map(function(k){return k===ok?nk:(k.indexOf(ok+':')===0?nk+k.slice(ok.length):k);});if(alloc)alloc.forEach(function(e){if(e[0]===ok)e[0]=nk;});lastKey=nk;}
@@ -3663,19 +3732,47 @@ GAMES.paint=(function(){
     /* a few paint splats on the floor */
     [[3,6,'#ff6b5b'],[6.5,5,'#3cc8f0'],[4.5,8.5,'#5ed88a'],[7,8,'#b48cff']].forEach(function(s){ctx.fillStyle=s[2];ctx.globalAlpha=0.35;ctx.beginPath();ctx.arc(lox+s[0]*lcs,loy+s[1]*lcs,lcs*0.7,0,6.283);ctx.fill();ctx.globalAlpha=1;});
     ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(lox-2,loy-2,lcs*LW+3,lcs*LH+3);
-    LPADS.forEach(function(p){
-      var sx=lox+(p[0]-1)*lcs,sy=loy+(p[1]-1)*lcs;
+    var hs=(st==='lobby'||st==='menu'||onPad())?padHosts():LPADS.map(function(){return null;}),groups=[];
+    LPADS.forEach(function(p,i){
+      var sx=lox+(p[0]-1)*lcs,sy=loy+(p[1]-1)*lcs,h=hs[i];
       ctx.fillStyle=P.ink;ctx.fillRect(sx-2,sy-2,lcs*2+4,lcs*2+4);
-      ctx.fillStyle=P.sun;ctx.fillRect(sx,sy,lcs*2,lcs*2);
-      txt('PLAY',sx+lcs,sy+lcs,Math.min(16,lcs*0.6),P.ink);
+      ctx.fillStyle=h?'#5ed88a':P.sun;ctx.fillRect(sx,sy,lcs*2,lcs*2);
+      if(!h){txt('PLAY',sx+lcs,sy+lcs,Math.min(16,lcs*0.6),P.ink);return;}
+      var m=groupOf(h);groups.push([i,m]);
+      ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(sx+3,sy+3,lcs*2-6,lcs*2-6);
     });
     netOthers().forEach(function(p){var q=p.presence;if(q.st!=='lobby')return;figure(lox+netNum(q.x,0,LW,5)*lcs,loy+netNum(q.z,0,LH,6)*lcs,lcs*0.7,rgbCss(netColor(p)),netName(p).slice(0,12),false);});
-    figure(lox+lx*lcs,loy+ly*lcs,lcs*0.7,myCol(),'You',true);
-    if(t<8&&st==='lobby')txt('Walk onto a yellow pad to play',V.w/2,loy+lcs*LH+20,14,'#fff');
+    /* people waiting in a green square, and the player and bot count above it */
+    groups.forEach(function(gm){
+      var i=gm[0],m=gm[1],h=hs[i],p=LPADS[i];
+      m.forEach(function(e,n){var s2=padSpot(i,n);figure(lox+s2[0]*lcs,loy+s2[1]*lcs,lcs*0.5,e.me?myCol():(e.p?rgbCss(netColor(e.p)):'#fff'),'',!!e.me);});
+      var lab=m.length+'/'+h.np+' players · '+h.nb+' bot'+(h.nb===1?'':'s'),fs=Math.max(11,Math.min(14,lcs*0.4));
+      ctx.font='700 '+fs+'px '+FONTB;
+      var tw=ctx.measureText(lab).width+14,bx=clampN(lox+p[0]*lcs-tw/2,lox,lox+lcs*LW-tw),by=loy+(p[1]-1)*lcs-fs-14;
+      ctx.fillStyle=P.ink;ctx.fillRect(bx-2,by-2,tw+4,fs+12);
+      ctx.fillStyle=h.me||m.some(function(e){return e.me;})?P.sun:'#fff';ctx.fillRect(bx,by,tw,fs+8);
+      ctx.fillStyle=P.ink;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lab,bx+tw/2,by+fs/2+4.5);
+    });
+    if(!onPad())figure(lox+lx*lcs,loy+ly*lcs,lcs*0.7,myCol(),'You',true);
+    /* status under the lobby on phones, or in the space beside it on wide screens */
+    var cx=V.w/2,below=loy+lcs*LH+20,wd=wide();
+    if(wd){cx=lox+lcs*LW+(V.w-lox-lcs*LW)/2;below=V.h/2-30;}
+    if(onPad()){
+      var h2=hs[padI],left=h2?h2.np-groupOf(h2).length:0;
+      txt(st==='go'?'Starting!':(left>0?'Waiting for '+left+' more player'+(left===1?'':'s')+'...':'Starting!'),cx,below,wd?18:15,P.sun);
+      if(st==='pad'){
+        if(role==='host')txt(NET.room?'Players walk onto your green square to join':'Offline: nobody can join right now',cx,below+22,11,'#9fb0d8');
+        btn('Leave square',cx,below+(role==='host'?36:18),150,30,{a:'unpad'});
+      }
+    }else if(t<8&&st==='lobby'){
+      if(wd){txt('Walk onto a yellow pad to play,',cx,below,14,'#fff');txt('or a green one to join',cx,below+20,14,'#fff');}
+      else txt('Walk onto a yellow pad to play, or a green one to join',cx,below,13,'#fff');
+    }
+    if(msgT>0&&msg&&st==='lobby')txt(msg,cx,below+(t<8?(wd?44:22):0),12,P.brick);
   }
   function panel(top,h){var pw=Math.min(330,V.w-24);ctx.fillStyle='rgba(16,26,51,0.94)';ctx.fillRect(V.w/2-pw/2,top,pw,h);ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(V.w/2-pw/2,top,pw,h);return pw;}
   function drawMenu(){
-    var top=Math.max(70,V.h*0.14),pw=panel(top,300),i;
+    var top=Math.max(70,V.h*0.14),pw=panel(top,310),i;
     txt('Start a match',V.w/2,top+26,22,P.sun);
     txt('Players',V.w/2,top+58,14,'#fff');
     var bw=Math.floor((pw-40)/5)-6;
@@ -3685,10 +3782,11 @@ GAMES.paint=(function(){
     txt(String(nb),V.w/2,top+165,24,P.sun);
     btn('+',V.w/2+70,top+146,44,38,{a:'nb',d:1});
     var mp=mapFor(np+nb);
-    txt((np===1?'You and '+nb+' bot'+(nb===1?'':'s'):'Starts when '+np+' players pick this')+'  ·  '+mp[0]+'×'+mp[1]+' map',V.w/2,top+202,12,'#9fb0d8');
-    btn('Start',V.w/2,top+218,pw-40,40,{a:'go'},true);
-    btn('Back to the lobby',V.w/2,top+264,pw-40,28,{a:'back'});
-    if(msgT>0&&msg)txt(msg,V.w/2,top+316,13,P.brick);
+    txt(np===1?'You and '+nb+' bot'+(nb===1?'':'s')+', starts right away':'Wait on your green square for '+np+' players',V.w/2,top+198,11,'#9fb0d8');
+    txt(mp[0]+'×'+mp[1]+' map',V.w/2,top+214,11,'#9fb0d8');
+    btn(np===1?'Start':'Make game',V.w/2,top+228,pw-40,40,{a:'go'},true);
+    btn('Back to the lobby',V.w/2,top+274,pw-40,28,{a:'back'});
+    if(msgT>0&&msg)txt(msg,V.w/2,top+326,13,P.brick);
   }
   function drawWait(){
     var pv=makeAlloc(),top=Math.max(80,V.h*0.2),pw=panel(top,184+pv.length*18),k=keyList().length,nm={};
@@ -3753,7 +3851,7 @@ GAMES.paint=(function(){
   g.draw=function(){
     ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
     rects=[];
-    if(st==='lobby'||st==='menu')drawLobby();
+    if(st==='lobby'||st==='menu'||onPad())drawLobby();
     if(st==='menu')drawMenu();
     else if(st==='wait'){drawLobby();drawWait();}
     else if(inMatch())drawMatch();
@@ -12442,7 +12540,7 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
 /* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in
