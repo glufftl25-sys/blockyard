@@ -10305,6 +10305,8 @@ function guestView(){
     h+='<div class="sheet"><h3>Your progress is saved</h3><p>Bricks, avatar items, worlds, tasks and best scores all save to this '+ACCWORD()+'. Sign out and back in from Settings. To carry it to another device, copy your '+(SOLO?'account':'save')+' code in Settings and paste it there.</p></div>';
     if(SOLO)h+='<button class="choice alt" type="button" data-acc="code">Show my account code</button>';
     if(SOLO)h+='<button class="choice alt" type="button" data-acc="email">'+(emOn()?'Email saving is on':'Save my progress to my email')+'</button>';
+  }else if(SOLO&&ACC.mode!=='new'&&ACC.mode!=='pw'){
+    h+=emGateHtml();
   }else if(ACC.mode==='new'||!PLAYERS.length){
     h+='<div class="sheet"><h3>Make your '+ACCWORD()+'</h3><p>Pick a name and a password. Your bricks, avatar, worlds and best scores all save to it'+(SOLO?', and your account code moves them to any other device.':'.')+'</p></div>';
     h+='<label class="lbl" for="acc-name">'+ACCWORD(1)+' name</label><input class="field" id="acc-name" maxlength="16" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="3 to 16 letters, numbers or _" value="'+esc(ACC.name)+'">';
@@ -10312,13 +10314,13 @@ function guestView(){
     h+='<button class="choice" type="button" data-acc="create"'+dis+'>'+(ACC.busy?'Saving...':'Make my '+ACCWORD())+'</button>';
     if(SOLO)h+='<button class="choice alt" type="button" data-acc="emailin">Sign in with email</button>';
     if(SOLO)h+='<button class="choice alt" type="button" data-acc="code">I already have an account code</button>';
-    if(PLAYERS.length)h+='<button class="choice alt" type="button" data-acc="back">Back to sign in</button>';
+    if(PLAYERS.length||SOLO)h+='<button class="choice alt" type="button" data-acc="back">Back to sign in</button>';
   }else if(ACC.mode==='pw'&&findPlayer(ACC.pick)){
     var p=findPlayer(ACC.pick);
     h+='<div class="me"><span class="meav">'+playerAv(p)+'</span><span class="metx"><strong>@'+esc(p.name)+'</strong><span>Type your password to sign in</span></span></div>';
     if(p.pw)h+=pwFields('acc-pw',null,'Password');
     h+='<button class="choice" type="button" data-acc="signin"'+dis+'>'+(ACC.busy?'Checking...':'Sign in')+'</button><button class="choice alt" type="button" data-acc="back">Back</button>';
-    h+='<p class="note">Forgot it? Passwords cannot be shown again. Make a new player, or load a save code.</p>';
+    h+='<p class="note">Forgot it? '+(SOLO?'If this player has an email account, go Back and sign in with your email \u2014 Forgot my password works there. ':'')+'Passwords cannot be shown again. Make a new player, or load a save code.</p>';
   }else{
     h+='<div class="sheet"><h3>Sign in</h3><p>Who is playing?</p></div>';
     PLAYERS.forEach(function(p){h+='<div class="row"><span class="ava">'+playerAv(p)+'</span><span class="who">@'+esc(p.name)+'</span><button class="mini ok" type="button" data-acc="pick" data-id="'+esc(p.id)+'">Sign in</button></div>';});
@@ -10648,7 +10650,11 @@ socBody.addEventListener('click',function(e){
     else if(ac==='code'){closeSocial();setRender();openScreen($('settings'));var sv=$('sv-in')||$('sv-out');if(sv&&sv.scrollIntoView)sv.scrollIntoView({block:'center'});}
     else if(ac==='renamego')accRename();
     else if(ac==='email'){closeSocial();emOpen(emOn()?'in':'new');}
-    else if(ac==='emailin'){closeSocial();emOpen('in');}
+    else if(ac==='emailin'||ac==='emin'){ACC={mode:'',pick:'',name:'',pw:'',pw2:'',msg:null,busy:false};EM.msg=null;render();}
+    else if(ac==='emnew'){ACC={mode:'emnew',pick:'',name:'',pw:'',pw2:'',msg:null,busy:false};EM.msg=null;render();var gn=$('gate-name');if(gn)gn.focus();}
+    else if(ac==='emgo'){if(ACC.mode==='emnew')emMake();else emSignIn();}
+    else if(ac==='emreset')emReset();
+    else if(ac==='guest'){try{sessionStorage.setItem('by.gate','skip');}catch(x){}closeSocial();}
     return;
   }
   if(b.id==='su-go'){doSignup();return;}
@@ -10664,6 +10670,10 @@ socBody.addEventListener('input',function(e){
   else if(e.target.id==='acc-name')ACC.name=e.target.value;
   else if(e.target.id==='acc-pw')ACC.pw=e.target.value;
   else if(e.target.id==='acc-pw2')ACC.pw2=e.target.value;
+  else if(e.target.id==='gate-name')EM.name=e.target.value;
+  else if(e.target.id==='gate-mail')EM.email=e.target.value;
+  else if(e.target.id==='gate-pw')EM.pw=e.target.value;
+  else if(e.target.id==='gate-pw2')EM.pw2=e.target.value;
   else if(e.target.id==='su-pw')SOC.draftPw=e.target.value;
   else if(e.target.id==='su-pw2')SOC.draftPw2=e.target.value;
   else if(e.target.id==='add-name'){SOC.draftAdd=e.target.value;SOC.msg=null;render();}
@@ -10672,6 +10682,7 @@ socBody.addEventListener('keydown',function(e){
   if(e.key!=='Enter')return;
   if(e.target.id==='su-name')doSignup();
   else if(e.target.id==='acc-pw'||e.target.id==='acc-pw2'||e.target.id==='acc-name'){var bt=socBody.querySelector('[data-acc="create"],[data-acc="signin"],[data-acc="cloudin"],[data-acc="renamego"]');if(bt)bt.click();}
+  else if(/^gate-/.test(e.target.id)){var bg=socBody.querySelector('[data-acc="emgo"]');if(bg)bg.click();}
   else if(e.target.id==='su-pw'||e.target.id==='su-pw2')doSignup();
   else if(e.target.id==='add-name'){e.preventDefault();e.target.blur();}
 });
@@ -13613,11 +13624,13 @@ function stSignOut(){
     lsSet('cloudOut',SOC.uid);SOC.lockedAcct=SOC.account;SOC.account=null;
   }else if(GST){
     if(!GST.pw)return stErr('Add a password first, so nobody else can sign in as you.');
+    if(SOLO&&emOn())emOutQuiet();
     switchPlayer('');
   }
   ACC={mode:'',pick:'',name:'',pw:'',pw2:'',msg:null,busy:false};
   STA={old:'',nw:'',nw2:'',msg:{t:'good',s:'You are signed out.'}};
   syncAcct();if(typeof vRefresh==='function')vRefresh();
+  if(SOLO&&!GST&&!SOC.account)setTimeout(function(){toHub();openSocial();},40);
 }
 var SV={msg:null,show:'',draft:'',sure:false,pw:'',need:'',mk:false,nm:''};
 function svHash(str){var h=2166136261>>>0;for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h.toString(36);}
@@ -13791,7 +13804,7 @@ setMode(lsGet('mode','dark'));
    and the database rules only let you read and write your own save. Inside Claude, players already have accounts. ===== */
 var FBCFG={apiKey:'AIzaSyBEWr_ZN0zwyF2HphBnLti3dVePNIqoZSc',authDomain:'blockyard-arcade.firebaseapp.com',projectId:'blockyard-arcade',storageBucket:'blockyard-arcade.firebasestorage.app',messagingSenderId:'1076710444897',appId:'1:1076710444897:web:e89351da0020276401bf20'};
 var FBU='https://www.gstatic.com/firebasejs/13.1.0/';
-var EM={fb:null,load:'',user:null,mode:'in',email:'',pw:'',pw2:'',msg:null,busy:false,lastCode:'',saving:false,savedAt:0,err:'',watching:false};
+var EM={fb:null,load:'',user:null,mode:'in',email:'',name:'',pw:'',pw2:'',msg:null,busy:false,lastCode:'',saving:false,savedAt:0,err:'',watching:false};
 function emLink(){var l=lsGet('emacct',null);return (l&&typeof l==='object'&&typeof l.uid==='string')?l:null;}
 function emSetLink(l){lsSet('emacct',l||null);}
 function emOk(){return SOLO;}
@@ -13820,7 +13833,7 @@ function emWhy(e){
   if(c==='not-found'||c==='failed-precondition')return 'The save database is not set up yet. The owner needs to create the Firestore database.';
   return 'Something went wrong'+(c?' ('+c+')':'')+'. Try again.';
 }
-function emShow(){try{if(!$('settings').hidden)setRender();}catch(e){}}
+function emShow(){try{if(!$('settings').hidden)setRender();}catch(e){}try{if(!social.hidden)render();}catch(e){}}
 function emAgo(t){
   var s=Math.max(0,Math.round((Date.now()-t)/1000));
   if(s<10)return 'just now';if(s<60)return s+' seconds ago';
@@ -13870,6 +13883,7 @@ function emCreate(){
   emFire().then(function(fb){
     return fb.A.createUserWithEmailAndPassword(fb.auth,EM.email,EM.pw).then(function(cr){
       EM.user=cr.user;emSetLink({uid:cr.user.uid,email:cr.user.email,pid:GST.id,rev:0});
+      if(!GST.pw){GST.pw=pwMake(EM.pw);savePlayers();}
       try{fb.A.sendEmailVerification(cr.user).catch(function(){});}catch(e){}
       EM.pw='';EM.pw2='';EM.busy=false;EM.mode='in';
       EM.msg={t:'good',s:'Your email is linked! @'+GST.name+'’s progress now saves online. Sign in with this email on any device.'};
@@ -13882,7 +13896,7 @@ function emSignIn(){
   EM.busy=true;EM.msg=null;emShow();
   emFire().then(function(fb){
     return fb.A.signInWithEmailAndPassword(fb.auth,EM.email,EM.pw).then(function(cr){
-      EM.user=cr.user;EM.pw='';
+      EM.user=cr.user;var pwHold=EM.pw;EM.pw='';
       return fb.F.getDoc(fb.F.doc(fb.db,'saves',cr.user.uid)).then(function(snap){
         var d=snap.exists()?snap.data():null;
         emSetLink({uid:cr.user.uid,email:cr.user.email,pid:'',rev:0});
@@ -13895,9 +13909,15 @@ function emSignIn(){
         }else if(GST){
           emSetLink({uid:cr.user.uid,email:cr.user.email,pid:GST.id,rev:0});
           EM.msg={t:'good',s:'Signed in! @'+GST.name+'’s progress now saves to this email.'};
-          emWatch(fb);EM.busy=false;return emUpload(true);
-        }else EM.msg={t:'good',s:'Signed in! Make a player and its progress will save to this email.'};
-        emWatch(fb);EM.busy=false;
+          if(!GST.pw){GST.pw=pwMake(pwHold);savePlayers();}
+          emWatch(fb);EM.busy=false;return emUpload(true).then(emDone);
+        }else{
+          var np=emNewPlayer(emNameFrom(cr.user.email),pwHold);
+          emSetLink({uid:cr.user.uid,email:cr.user.email,pid:np.id,rev:0});
+          EM.msg={t:'good',s:'Signed in as @'+np.name+'! You can change your name in your account.'};
+          emWatch(fb);EM.busy=false;return emUpload(true).then(emDone);
+        }
+        emWatch(fb);EM.busy=false;emDone();
       });
     });
   }).then(function(){EM.busy=false;emShow();},function(e){
@@ -13932,13 +13952,13 @@ function emUpload(force){
   if(!EM.user||!l||l.uid!==EM.user.uid||!GST)return Promise.resolve();
   if(!l.pid){l.pid=GST.id;emSetLink(l);}
   if(l.pid!==GST.id||EM.saving)return Promise.resolve();
-  var code=svMake();
+  var code=svMake(),nm=GST.name,uid=EM.user.uid;
   if(!force&&code===EM.lastCode)return Promise.resolve();
   if(code.length>=900000){EM.err='Your progress is too big to save online. Delete some Studio worlds, then try again.';emShow();return Promise.resolve();}
   EM.saving=true;
   var rev=(l.rev|0)+1;
   return emFire().then(function(fb){
-    return fb.F.setDoc(fb.F.doc(fb.db,'saves',EM.user.uid),{code:code,name:GST.name,rev:rev,updated:fb.F.serverTimestamp()});
+    return fb.F.setDoc(fb.F.doc(fb.db,'saves',uid),{code:code,name:nm,rev:rev,updated:fb.F.serverTimestamp()});
   }).then(function(){
     var l2=emLink();if(l2){l2.rev=rev;l2.at=Date.now();emSetLink(l2);}
     EM.lastCode=code;EM.savedAt=Date.now();EM.err='';EM.saving=false;emShow();
@@ -13964,7 +13984,7 @@ function emWatch(fb){
   EM.watching=true;
   fb.A.onAuthStateChanged(fb.auth,function(u){
     var l=emLink();
-    if(u&&l&&u.uid===l.uid){var first=!EM.user;EM.user=u;if(first)emPull(fb);}
+    if(u&&l&&u.uid===l.uid){var first=!EM.user;EM.user=u;if(!GST&&l.pid&&findPlayer(l.pid)){switchPlayer(l.pid);emDone();}if(first)emPull(fb);}
     else if(!u&&l){EM.user=null;}
     emShow();
   });
@@ -14007,6 +14027,78 @@ function emOpen(mode){
   var f=$('em-mail');if(f)try{f.focus({preventScroll:true});}catch(e){}
 }
 emStart();
+/* ===== The Sign in screen (copies outside Claude). Opening Blockyard with nobody signed in starts here: sign in with your
+   email, make an account (player name + email + password), pick a player already on this device, or just play. You stay
+   signed in on this device until you sign out, and every device signs in to its own account. ===== */
+function emNameFrom(mail){
+  var n=String(mail||'').split('@')[0].replace(/[^A-Za-z0-9_]/g,'').slice(0,16);
+  if(n.length<3)n='Player'+rndHex(2);
+  var base=n,i=2;
+  while(PLAYERS.some(function(q){return q.name.toLowerCase()===n.toLowerCase();})&&i<100){n=(base.slice(0,14)+i);i++;}
+  return n;
+}
+function emNewPlayer(name,pw){
+  var p={id:'p'+rndHex(5),name:name,pw:pw?pwMake(pw):null,at:Date.now()};
+  PLAYERS.push(p);savePlayers();switchPlayer(p.id);
+  return p;
+}
+function emDone(){try{if(GST&&!social.hidden){ACC={mode:'',pick:'',name:'',pw:'',pw2:'',msg:null,busy:false};closeSocial();}}catch(e){}}
+function emGateHtml(){
+  var make=ACC.mode==='emnew',dis=EM.busy?' disabled':'';
+  var h='<div class="sheet"><h3>'+(make?'Make your account':'Sign in')+'</h3><p>'+(make?'Pick a player name, then your email and a password. Your progress saves to your account, so you can sign in on any device.':'Sign in with your email to play with your own progress. You stay signed in on this device until you sign out.')+'</p></div>';
+  if(EM.msg)h+='<p class="note '+EM.msg.t+'" role="status">'+esc(EM.msg.s)+'</p>';
+  if(EM.load==='fail')h+='<p class="note err">Sign in could not load. Check your internet and try again.</p>';
+  if(make)h+='<label class="lbl" for="gate-name">Player name</label><input class="field" id="gate-name" maxlength="16" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="3 to 16 letters, numbers or _" value="'+esc(EM.name)+'">';
+  h+='<label class="lbl" for="gate-mail">Email</label><input class="field" id="gate-mail" type="email" maxlength="120" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="'+esc(EM.email)+'">';
+  h+='<label class="lbl" for="gate-pw">Password</label><input class="field" id="gate-pw" type="password" maxlength="60" autocomplete="'+(make?'new-password':'current-password')+'" placeholder="At least 6 characters" value="'+esc(EM.pw)+'">';
+  if(make)h+='<label class="lbl" for="gate-pw2">Type the password again</label><input class="field" id="gate-pw2" type="password" maxlength="60" autocomplete="new-password" value="'+esc(EM.pw2)+'">'+PWTIP;
+  h+='<button class="choice" type="button" data-acc="emgo"'+dis+'>'+(EM.busy?'One moment...':(make?'Make my account':'Sign in'))+'</button>';
+  h+='<button class="choice alt" type="button" data-acc="'+(make?'emin':'emnew')+'">'+(make?'I already have an account':'New here? Make an account')+'</button>';
+  if(!make)h+='<button class="choice alt" type="button" data-acc="emreset"'+dis+'>Forgot my password</button>';
+  if(PLAYERS.length){
+    h+='<p class="lbl">Players on this device</p>';
+    PLAYERS.forEach(function(p){h+='<div class="row"><span class="ava">'+playerAv(p)+'</span><span class="who">@'+esc(p.name)+'</span><button class="mini ok" type="button" data-acc="pick" data-id="'+esc(p.id)+'">Sign in</button></div>';});
+  }
+  h+='<button class="choice alt" type="button" data-acc="code">Sign in with an account code</button>';
+  h+='<button class="choice alt" type="button" data-acc="new">Make a player without email</button>';
+  h+='<button class="choice alt" type="button" data-acc="guest">Play without signing in</button>';
+  return h;
+}
+/* make an account: a Firebase account, a player on this device with the same password, linked and saved */
+function emMake(){
+  var nm=String(EM.name||'').trim();
+  if(!NAME_RE.test(nm))return emErr('Pick a player name: 3 to 16 letters, numbers or underscores.');
+  if(isBadName(nm))return emErr('That name is not allowed. Pick a different one.');
+  if(PLAYERS.some(function(q){return q.name.toLowerCase()===nm.toLowerCase();}))return emErr('There is already a player called @'+nm+' on this device. Pick another name, or sign in to that player.');
+  if(!emCheck(true))return;
+  EM.busy=true;EM.msg=null;emShow();
+  var pw=EM.pw;
+  emFire().then(function(fb){
+    return fb.A.createUserWithEmailAndPassword(fb.auth,EM.email,pw).then(function(cr){
+      EM.user=cr.user;
+      var p=emNewPlayer(nm,pw);
+      emSetLink({uid:cr.user.uid,email:cr.user.email,pid:p.id,rev:0});
+      try{fb.A.sendEmailVerification(cr.user).catch(function(){});}catch(e){}
+      EM.pw='';EM.pw2='';EM.name='';EM.busy=false;
+      EM.msg={t:'good',s:'Welcome @'+nm+'! Your account is ready and your progress saves to it. We sent you an email to confirm your address.'};
+      emWatch(fb);return emUpload(true);
+    });
+  }).then(function(){EM.busy=false;emDone();emShow();},function(e){emErr(emWhy(e));});
+}
+/* sign out of email without a message (used when the player signs out): save first, then stop */
+function emOutQuiet(){
+  if(!EM.user)return;
+  var up=emUpload(true);
+  emSetLink(null);EM.user=null;EM.lastCode='';EM.savedAt=0;EM.err='';EM.msg=null;
+  up.then(null,function(){}).then(function(){return emFire();}).then(function(fb){return fb.A.signOut(fb.auth);}).then(null,function(){});
+}
+/* nobody signed in: start at the Sign in screen (once per visit if they chose to just play) */
+(function(){
+  if(!SOLO||GST)return;
+  var skip='';try{skip=sessionStorage.getItem('by.gate')||'';}catch(e){}
+  if(skip==='skip'||emLink())return;
+  setTimeout(function(){if(!GST&&!hub.hidden)openSocial();},60);
+})();
 /* ===== Install as an app. On the GitHub page a service worker (sw.js) keeps a copy of the game for playing offline and
    always fetches the newest version first, so the installed app updates by itself. ===== */
 var INST={ev:null,msg:null,url:'https://glufftl25-sys.github.io/blockyard/game.html'};
@@ -14098,7 +14190,7 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
 /* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in
