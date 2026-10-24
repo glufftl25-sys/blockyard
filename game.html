@@ -10680,7 +10680,7 @@ function cmdRepDecide(uid,id,s){
    allow (moving far too fast, teleporting, staying high in the air) and files a cheat report by itself. A player the owner
    gave the matching cheat is skipped, the owner is never reported, and each device reports a player at most once a day
    per detector. The reports go to the same review list as everyone else's. ===== */
-var MOD_WHY={speed:'Speed hack (auto-detected)',teleport:'Teleport hack (auto-detected)',fly:'Fly hack (auto-detected)'};
+var MOD_WHY={auto_speed:'Speed hack (auto-detected)',auto_teleport:'Teleport hack (auto-detected)',auto_fly:'Fly hack (auto-detected)'};
 var MODREADY=0; /* 1 admins, 2 roles, 4 grants: detectors only run once everyone's cheat permissions are known */
 var MODW={p:{},sent:(function(){var s=lsGet('modsent',{});return (s&&typeof s==='object'&&!Array.isArray(s))?s:{};})()};
 function modAllowed(by,ks){var p=(typeof permsOf==='function')?permsOf(by):null;return !!p&&ks.some(function(k){return !!p['c_'+k];});}
@@ -10722,7 +10722,7 @@ function modFlag(p,k,note){
   var ks=Object.keys(MODW.sent);if(ks.length>200)ks.sort(function(a,b){return MODW.sent[a]-MODW.sent[b];}).slice(0,ks.length-200).forEach(function(x){delete MODW.sent[x];});
   lsSet('modsent',MODW.sent);
   var id=now.toString(36)+Math.random().toString(36).slice(2,6),ref=SOC.db.doc('reports/'+SOC.uid);
-  var entry={at:now,who:p.by,name:netName(p).slice(0,40),game:(cur&&cur.title)||'',why:k,auto:1,note:note.slice(0,80)};
+  var entry={at:now,who:p.by,name:netName(p).slice(0,40),game:(cur&&cur.title)||'',why:'auto_'+k,auto:1,note:note.slice(0,80)};
   ref.get().then(function(s){
     var x=s.exists?(s.data()||{}):null,list={};
     if(x&&x.list&&typeof x.list==='object'){Object.keys(x.list).sort().slice(-40).forEach(function(j){list[j]=x.list[j];});}
