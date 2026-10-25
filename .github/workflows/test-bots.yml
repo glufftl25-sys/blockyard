@@ -1,0 +1,50 @@
+# Test bots: every day (and after every game update) GitHub's computers let the bots play every Blockyard game
+# at laptop and phone sizes. The report and pictures go to the "bots" branch, and bots.html on the website shows them.
+# Free for public repos. No keys or secrets needed.
+name: Test bots
+
+on:
+  schedule:
+    - cron: '17 13 * * *'   # every day around 6:17 AM Pacific (GitHub can start scheduled runs a bit late)
+  push:
+    branches: [main]
+    paths: [game.html]
+  workflow_dispatch:        # "Run workflow" button on the Actions page
+
+permissions:
+  contents: write           # only to save the report to the bots branch
+
+concurrency:
+  group: test-bots
+  cancel-in-progress: true
+
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Get a headless browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: Let the bots play every game
+        run: node tools/playtest.js game.html bots-out
+      - name: Save the report to the bots branch
+        run: |
+          cd bots-out
+          git init -q -b bots
+          git config user.name "Blockyard Test Bots"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Bot report $(date -u +%F)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" bots
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f bots-out/report.json ]; then
+            node -e "const r=require('./bots-out/report.json');let s='## Test bots\n\nVersion '+r.ver+'\n\n';for(const x of r.runs){s+='**'+x.size+'**: '+x.results.length+' games, '+(x.problems.length?x.problems.length+' problems':'no problems')+'\n\n';x.problems.forEach(p=>s+='- '+p+'\n');s+='\n';}require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,s);"
+          fi

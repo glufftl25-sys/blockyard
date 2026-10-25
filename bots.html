@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Blockyard Test Bots</title>
+<meta name="description" content="Bots play every Blockyard game every day and show what looks broken.">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800&family=Press+Start+2P&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --ink:#14213d; --bg:#15152b; --panel:#0e0e1f; --raise:#222243; --raise2:#2d2d55;
+  --text:#f3f4ff; --muted:#9ea3c9; --sun:#ffd23f; --brick:#ff5a4d; --grass:#3fd58a; --cyan:#3cc8f0;
+  --pixel:'Press Start 2P','Courier New',monospace;
+  --display:'Lilita One','Arial Rounded MT Bold','Trebuchet MS',system-ui,sans-serif;
+  --body:'Nunito','Trebuchet MS',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:700 16px/1.45 var(--body);
+  padding:16px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:1040px;margin:0 auto}
+a{color:var(--cyan)}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 18px}
+.brand{font:12px var(--pixel);color:var(--sun);letter-spacing:1px}
+h1{font:400 clamp(34px,7vw,52px)/1 var(--display);margin:6px 0 0;text-shadow:0 4px 0 var(--ink)}
+h2{font:400 26px/1.1 var(--display);margin:0 0 10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 16px;border:3px solid var(--ink);border-radius:12px;
+  background:var(--sun);color:var(--ink);font:800 16px/1.2 var(--body);text-decoration:none;box-shadow:0 4px 0 var(--ink);cursor:pointer}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn.alt{background:var(--raise2);color:var(--text)}
+.btn:disabled{opacity:.5;cursor:default;transform:none;box-shadow:0 4px 0 var(--ink)}
+.card{background:var(--panel);border:3px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 #07070f;padding:18px;margin:0 0 22px}
+.note{color:var(--muted);margin:6px 0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.chip{display:inline-block;padding:4px 12px;border-radius:999px;border:2px solid var(--ink);font:800 15px/1.3 var(--body);color:var(--ink)}
+.chip.ok{background:var(--grass)}.chip.bad{background:var(--brick);color:#fff}.chip.wait{background:var(--raise2);color:var(--text)}
+.big{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.big .chip{font-size:19px;padding:6px 16px}
+ul.probs{margin:8px 0 0;padding-left:20px}
+ul.probs li{margin:3px 0}
+.tag{font:10px var(--pixel);color:var(--sun);margin-right:6px}
+.tabs{display:flex;gap:8px;margin:0 0 12px}
+.tabs button{min-height:40px;padding:6px 14px;border:3px solid var(--ink);border-radius:10px;background:var(--raise);color:var(--text);font:800 15px var(--body);cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--sun);color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.g{background:var(--raise);border:3px solid var(--ink);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.g.bad{border-color:var(--brick)}
+.g .pic{aspect-ratio:16/9;background:#0a0a18;display:grid;place-items:center;color:var(--muted);font-size:13px}
+.g.phone .pic{aspect-ratio:844/390}
+.g img{width:100%;height:100%;object-fit:cover;display:block}
+.g .t{padding:8px 10px 10px;display:flex;flex-direction:column;gap:3px}
+.g .t b{font:400 18px/1.15 var(--display)}
+.g .t span{font-size:13px;color:var(--muted)}
+.g .t span.why{color:#ffb1aa}
+.frame{width:100%;aspect-ratio:16/9;border:3px solid var(--ink);border-radius:12px;background:#000;display:block;margin:12px 0}
+.bar{height:14px;border:3px solid var(--ink);border-radius:999px;background:var(--raise);overflow:hidden;margin:10px 0 4px}
+.bar i{display:block;height:100%;width:0;background:var(--grass);transition:width .3s}
+select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radius:10px;background:var(--raise2);color:var(--text);font:800 15px var(--body)}
+.err{color:#ffb1aa}
+@media (max-width:520px){.grid{grid-template-columns:repeat(2,1fr)}.g .t b{font-size:16px}.card{padding:14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="brand">BLOCKYARD ARCADE</div>
+      <h1>Test Bots</h1>
+    </div>
+    <a class="btn alt" href="game.html">Play Blockyard</a>
+  </header>
+
+  <section class="card" aria-labelledby="dt">
+    <h2 id="dt">Daily test</h2>
+    <p class="note">Every day, and after every game update, bots play every game on GitHub's computers at laptop and phone sizes. They look for errors, frozen games, blank screens and lag. ClaudeBot posts any problems to Requests in the game.</p>
+    <div id="daily" aria-live="polite"><p class="note">Loading the latest report...</p></div>
+    <div class="row" style="margin-top:12px">
+      <a class="btn alt" id="gh" href="https://github.com/glufftl25-sys/blockyard/actions/workflows/test-bots.yml" target="_blank" rel="noopener">Run now or see past runs on GitHub</a>
+    </div>
+    <p class="note" style="font-size:14px">To run it now: open that link while signed in to GitHub, press <b>Run workflow</b>, then come back here in about 10 minutes.</p>
+  </section>
+
+  <section class="card" id="gamesCard" hidden aria-labelledby="gt">
+    <h2 id="gt">Every game, last frame</h2>
+    <div class="tabs" role="group" aria-label="Screen size">
+      <button type="button" data-size="laptop" aria-pressed="true">Laptop</button>
+      <button type="button" data-size="phone" aria-pressed="false">Phone</button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="card" aria-labelledby="rt">
+    <h2 id="rt">Run the bots here</h2>
+    <p class="note">Watch the bots play every game right now, in this browser. The yellow dot shows every tap and the white box shows every key they press. Your saves are not changed and nothing is posted.</p>
+    <div class="row">
+      <label for="secs">Time per game</label>
+      <select id="secs"><option value="2000">2 seconds</option><option value="3000" selected>3 seconds</option><option value="5000">5 seconds</option></select>
+      <button class="btn" type="button" id="go">Start the bots</button>
+      <button class="btn alt" type="button" id="stop" hidden>Stop</button>
+    </div>
+    <div id="live" aria-live="polite"></div>
+    <iframe class="frame" id="frame" title="Blockyard, played by the test bots" hidden></iframe>
+    <div class="grid" id="liveGrid"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var qs=new URLSearchParams(location.search);
+  var BASES=qs.get('report')?[qs.get('report').replace(/\/?$/,'/')]:[
+    'https://raw.githubusercontent.com/glufftl25-sys/blockyard/bots/',
+    'https://cdn.jsdelivr.net/gh/glufftl25-sys/blockyard@bots/'
+  ];
+  var REP=null,BASE='',SIZE='laptop';
+  function $(id){return document.getElementById(id);}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function when(t){try{return new Date(t).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return String(t);}}
+  function why(r){
+    var b=[],em=Object.keys(r.err||{});
+    if(em.length)b.push('error: '+em[0]);
+    if(r.stalled)b.push('stopped drawing');
+    if(r.blank)b.push('screen looked blank');
+    if(r.fps&&r.fps<15)b.push('slow');
+    return b.join(', ');
+  }
+  function card(r,src,size){
+    var w=r.ok?'':why(r);
+    return '<div class="g '+size+(r.ok?'':' bad')+'"><div class="pic">'+(src?'<img loading="lazy" alt="'+esc(r.t)+', last frame" src="'+esc(src)+'">':'Page game')+'</div>'+
+      '<div class="t"><b>'+esc(r.t)+'</b><span>'+(r.ok?'OK':'Problem')+(r.fps?' · '+r.fps+' fps':'')+'</span>'+(w?'<span class="why">'+esc(w)+'</span>':'')+'</div></div>';
+  }
+
+  /* daily report */
+  function load(i){
+    if(i>=BASES.length){$('daily').innerHTML='<p class="note">No daily report yet. The first one appears here a few minutes after the next game update, or after you press Run workflow on GitHub.</p>';return;}
+    fetch(BASES[i]+'report.json?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();})
+      .then(function(j){REP=j;BASE=BASES[i];showDaily();},function(){load(i+1);});
+  }
+  function showDaily(){
+    var probs=0,games=0,h='';
+    REP.runs.forEach(function(x){probs+=x.problems.length;games=Math.max(games,x.results.length);});
+    h+='<div class="big">'+(probs?'<span class="chip bad">'+probs+(probs===1?' problem':' problems')+'</span>':'<span class="chip ok">All '+games+' games OK</span>')+
+      '<span>Last run '+esc(when(REP.at))+'</span></div>';
+    h+='<p class="note">Version tested: '+esc(REP.ver||'unknown')+(REP.secs?' · took '+Math.round(REP.secs/60)+' min':'')+'</p>';
+    if(Date.now()-new Date(REP.at).getTime()>36*3600e3)h+='<p class="note err">The daily test hasn\'t run for over a day. Open the GitHub link below to check on it.</p>';
+    REP.runs.forEach(function(x){
+      if(!x.problems.length)return;
+      h+='<ul class="probs">'+x.problems.map(function(p){return '<li><span class="tag">'+esc(x.size.toUpperCase())+'</span>'+esc(p)+'</li>';}).join('')+'</ul>';
+    });
+    $('daily').innerHTML=h;
+    $('gamesCard').hidden=false;
+    showGrid();
+  }
+  function showGrid(){
+    var run=REP.runs.filter(function(x){return x.size===SIZE;})[0];
+    if(!run){$('grid').innerHTML='<p class="note">No '+esc(SIZE)+' run in this report.</p>';return;}
+    var list=run.results.slice().sort(function(a,b){return (a.ok?1:0)-(b.ok?1:0);});
+    $('grid').innerHTML=list.map(function(r){return card(r,r.shot?BASE+r.shot:'',SIZE);}).join('');
+  }
+  document.querySelectorAll('.tabs button').forEach(function(b){
+    b.addEventListener('click',function(){
+      SIZE=b.getAttribute('data-size');
+      document.querySelectorAll('.tabs button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+      if(REP)showGrid();
+    });
+  });
+  load(0);
+
+  /* run the bots in this browser */
+  var running=false,stopped=false,fr=$('frame');
+  function live(h){$('live').innerHTML=h;}
+  function done(){running=false;$('go').disabled=false;$('go').textContent='Start again';$('stop').hidden=true;$('secs').disabled=false;}
+  $('go').addEventListener('click',function(){
+    if(running)return;
+    running=true;stopped=false;$('go').disabled=true;$('stop').hidden=false;$('secs').disabled=true;$('liveGrid').innerHTML='';
+    live('<p class="note">Opening Blockyard...</p>');
+    var old=null;
+    try{old=sessionStorage.getItem('by.gate');sessionStorage.setItem('by.gate','skip');}catch(e){}
+    fr.hidden=false;
+    fr.onload=function(){
+      setTimeout(function(){
+        try{if(old==null)sessionStorage.removeItem('by.gate');else sessionStorage.setItem('by.gate',old);}catch(e){}
+        var w;
+        try{w=fr.contentWindow;if(!w.BY_TESTBOTS)throw new Error('no bots');}
+        catch(e){live('<p class="note err">The bots could not start here. Open this page from the Blockyard website and try again.</p>');done();return;}
+        var probs=0;
+        live('<div class="bar"><i id="pbar"></i></div><p class="note" id="ptxt">Starting...</p>');
+        w.BY_TESTBOTS({ms:+$('secs').value,shots:true,show:true,each:function(r,i,n){
+          if(!r.ok)probs++;
+          var pb=$('pbar'),pt=$('ptxt');
+          if(pb)pb.style.width=Math.round((i+1)/n*100)+'%';
+          if(pt)pt.textContent=(i+1)+' of '+n+' games played · '+(probs?probs+(probs===1?' problem':' problems'):'no problems so far');
+          $('liveGrid').insertAdjacentHTML('beforeend',card(r,r.shot||'',''));
+        }}).then(function(res){
+          if(!res){live('<p class="note err">The bots are already running in that game window.</p>');done();return;}
+          var p=res.problems,n=res.results.length;
+          live('<div class="big">'+(p.length?'<span class="chip bad">'+p.length+(p.length===1?' problem':' problems')+'</span>':'<span class="chip ok">'+(stopped?'No problems':'All '+n+' games OK')+'</span>')+'<span>'+(stopped?'Stopped after '+n+(n===1?' game':' games'):n+' games played')+'</span></div>'+
+            (p.length?'<ul class="probs">'+p.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>':''));
+          done();
+        },function(e){live('<p class="note err">The bots stopped with an error: '+esc(e&&e.message||e)+'</p>');done();});
+      },1500);
+    };
+    fr.src='game.html?bots='+Date.now();
+  });
+  $('stop').addEventListener('click',function(){
+    stopped=true;
+    try{fr.contentWindow.BY_TESTBOTS.stop();}catch(e){}
+    $('stop').hidden=true;
+    var pt=$('ptxt');if(pt)pt.textContent='Stopping after this game...';
+  });
+})();
+</script>
+</body>
+</html>
