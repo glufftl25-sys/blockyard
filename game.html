@@ -459,7 +459,7 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
 .fr:active .fc{transform:scale(.94)}
 .bottag{position:absolute;top:-5px;left:-7px;padding:0 5px;border-radius:7px;background:var(--cyan);color:#14213d;border:2px solid var(--bg);font:800 9px/14px var(--body)}
 .botbadge{display:inline-block;vertical-align:2px;margin-left:4px;padding:0 6px;border-radius:7px;background:var(--cyan);color:#14213d;font:800 10px/16px var(--body)}
-.botmsgs{gap:10px;overflow:visible}
+.botmsgs{gap:10px;overflow:visible;flex:none!important}
 .msg.bot{background:#e8f6ff;max-width:94%}
 .msg.bot ul{margin:6px 0 0;padding-left:20px;font-weight:600;font-size:15px}
 .msg.bot li{margin:3px 0}
@@ -481,6 +481,15 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
 .bwfh{align-items:center;gap:10px;flex-wrap:wrap}.bwfh b{font:800 20px/1.2 var(--body);color:var(--text)}.bwfh span{color:var(--sun);font-weight:800}
 #bw-big{position:relative;flex:none;border:3px solid var(--ink);border-radius:14px;overflow:hidden;background:#15152b}
 .bwbigf{position:absolute;left:0;top:0;width:100%;height:100%;border:0;pointer-events:none}
+.invcard{display:flex;flex-direction:column;gap:8px;padding:10px;border:3px solid var(--sun);border-radius:14px;background:var(--raise);flex:none}
+.invhd{display:flex;align-items:center;gap:10px}.invhd b{flex:1;color:var(--text);font:800 14px/1.3 var(--body)}
+.invscr{position:relative;align-self:center;flex:none;overflow:hidden;border-radius:10px;border:3px solid var(--ink);background:#15152b}
+.invf{position:absolute;left:0;top:0;border:0;transform-origin:0 0;pointer-events:none}
+#inv-txt{max-width:100%;white-space:pre-wrap}
+.invpics{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;margin-top:8px}
+.invpics figure{margin:0}.invpics img{display:block;width:100%;border-radius:6px;border:2px solid var(--ink)}
+.invpics figcaption{font-size:11px;font-weight:700;opacity:.75;margin-top:2px}
+.botask{flex:none}
 .botday{align-self:center;margin:6px 0 0;padding:2px 12px;border-radius:10px;background:var(--raise);color:var(--muted);font:800 12px/1.5 var(--body)}
 .frw{flex:none;width:76px;display:flex;flex-direction:column;align-items:center;gap:5px}
 .fgame{max-width:76px;display:block;padding:3px 8px;border:0;border-radius:999px;background:#3cc8f0;color:#14213d;font:800 10px/1.2 var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
@@ -12649,35 +12658,78 @@ function cmdCheatsHtml(){
   return h;
 }
 /* ===== Owner on the website and app: those copies cannot see who owns the Claude page, so the owner unlocks their tools
-   there with an owner key. Only its fingerprint is in this code; the key itself is kept in the owner's private data on the
-   Claude page (data/users/<owner>/ownerkey), which the owner's Commands can show. Outside Claude the tools only change
-   that one device, and the key travels with the player's progress (and their email account). ===== */
-var OWNER_FP='93eb87674caf8b5a09e7694cd9cdcc298a7433576651005d147e082ffd7f9a5d';
-var OK={key:'',busy:false,shown:false,draft:'',msg:null};
+   there with an owner key. The key changes every 5 minutes: the owner's Commands in Claude signs the current 5 minutes with
+   the owner's private signing key (kept in their private data on the Claude page, data/users/<owner>/ownerkey), and this
+   code only has the matching public key to check it. A device unlocked once stays unlocked: the key it used is kept with
+   the player's progress (and their email account) and checked again on every load. Outside Claude the tools only change
+   that one device. ===== */
+var OWNER_FP='93eb87674caf8b5a09e7694cd9cdcc298a7433576651005d147e082ffd7f9a5d';   /* the first, fixed owner key: devices it unlocked stay unlocked */
+var OWNER_PUB={"kty":"EC","crv":"P-256","x":"N7Ze6ZIePlnbefLS76LEHGsZ5FkhtbKhRi7doKDJZCI","y":"a0elsAp0smBCQ6nhl3bBEPLGosaynvln87qDpuJa2SQ"};
+var OK={jwk:null,code:'',w:0,busy:false,shown:false,draft:'',msg:null,tick:0,gen:0};
 function ownerFp(k){return sha256('blockyard-owner|'+String(k||'').trim());}
+function okWin(){return Math.floor(Date.now()/300000);}
+function okB64(buf){var b=new Uint8Array(buf),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function okUnB64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var r=atob(s),b=new Uint8Array(r.length);for(var i=0;i<r.length;i++)b[i]=r.charCodeAt(i);return b;}
+function okMsg(w){return new TextEncoder().encode('blockyard-owner|'+w);}
+function okSubtle(){try{return (window.crypto&&window.crypto.subtle)||null;}catch(e){return null;}}
+/* check a 5-minute owner key. fresh: it must be from these 5 minutes (or the ones just before or after) */
+function okCheck(code,fresh){
+  var m=/^BYO-([0-9A-Z]{1,12})-([A-Za-z0-9_-]{60,120})$/.exec(String(code||'').replace(/\s+/g,'')),cs=okSubtle();
+  if(!m)return Promise.resolve('bad');
+  if(!cs)return Promise.resolve('nocrypto');
+  var w=parseInt(m[1],36);
+  if(fresh&&Math.abs(w-okWin())>1)return Promise.resolve('old');
+  return cs.importKey('jwk',OWNER_PUB,{name:'ECDSA',namedCurve:'P-256'},false,['verify']).then(function(k){
+    return cs.verify({name:'ECDSA',hash:'SHA-256'},k,okUnB64(m[2]),okMsg(w));
+  }).then(function(ok){return ok?'ok':'bad';},function(){return 'bad';});
+}
 function ownerKeyOK(){var k=lsGet('ownerkey','');return typeof k==='string'&&!!k&&ownerFp(k)===OWNER_FP;}
-function ownerSync(){if(!SOLO||WALL)return;var o=ownerKeyOK();if(o!==CMD.owner){CMD.owner=o;syncAdmin();}}
-/* the owner's Commands in Claude: show the key */
+function ownerSync(){
+  if(!SOLO||WALL)return;
+  var g=++OK.gen,set=function(o){if(g!==OK.gen)return;if(o!==CMD.owner){CMD.owner=o;syncAdmin();try{if(!$('settings').hidden)setRender();}catch(e){}}};
+  if(ownerKeyOK()){set(true);return;}
+  var p=lsGet('ownerpass','');
+  if(!p){set(false);return;}
+  okCheck(p,false).then(function(r){set(r==='ok');});
+}
+/* the owner's Commands in Claude: the key for these 5 minutes, with a countdown */
+function okLeft(){var s=Math.max(0,Math.ceil(((OK.w+1)*300000-Date.now())/1000));return 'This key changes in '+Math.floor(s/60)+':'+('0'+(s%60)).slice(-2)+'.';}
 function okHtml(dis){
-  var h='<p class="lbl">Owner on the website and app</p><p class="note">The website, the app and itch.io can\u2019t see that you own this page. Paste your owner key there in Settings \u2192 Owner, and Commands shows up on that device with Test bots, Watch the bots play and Cheats. Keep it secret: anyone who has it gets those tools on their own device.</p>';
+  var h='<p class="lbl">Owner on the website and app</p><p class="note">The website, the app and itch.io can’t see that you own this page. Your owner key changes every 5 minutes: copy it and paste it on the website or app in Settings → Owner before it changes. A device you unlock keeps Commands (Test bots, Watch the bots play and Cheats), even after the key changes.</p>';
   if(OK.msg)h+='<p class="note '+OK.msg.t+'" role="status">'+esc(OK.msg.s)+'</p>';
-  if(OK.shown&&OK.key)h+='<div class="sendrow"><input class="field" id="cmd-okey" readonly value="'+esc(OK.key)+'" onclick="this.select()" aria-label="Your owner key"><button class="mini ok" type="button" data-cmd="okcopy">Copy</button></div><button class="mini" type="button" data-cmd="okhide">Hide</button>';
+  if(OK.shown&&OK.code)h+='<div class="sendrow"><input class="field" id="cmd-okey" readonly value="'+esc(OK.code)+'" onclick="this.select()" aria-label="Your owner key for the next few minutes"><button class="mini ok" type="button" data-cmd="okcopy">Copy</button></div><p class="note" id="cmd-okt">'+esc(okLeft())+'</p><button class="mini" type="button" data-cmd="okhide">Hide</button>';
   else h+='<button class="choice" type="button" data-cmd="okshow"'+(OK.busy?' disabled':dis)+'>'+(OK.busy?'Loading...':'Show my owner key')+'</button>';
   return h;
 }
+function okMake(){
+  var cs=okSubtle();if(!cs||!OK.jwk)return Promise.reject(new Error('no crypto'));
+  var w=okWin();
+  return cs.importKey('jwk',OK.jwk,{name:'ECDSA',namedCurve:'P-256'},false,['sign']).then(function(k){
+    return cs.sign({name:'ECDSA',hash:'SHA-256'},k,okMsg(w));
+  }).then(function(sig){OK.w=w;OK.code='BYO-'+w.toString(36).toUpperCase()+'-'+okB64(sig);});
+}
+/* while the key is shown: a new key every 5 minutes and a ticking countdown */
+function okTick(){
+  clearInterval(OK.tick);
+  OK.tick=setInterval(function(){
+    if(!OK.shown||cmdEl.hidden){clearInterval(OK.tick);OK.tick=0;return;}
+    if(okWin()!==OK.w)okMake().then(function(){var f=$('cmd-okey');if(f)f.value=OK.code;},function(){});
+    var t=$('cmd-okt');if(t)t.textContent=okLeft();
+  },1000);
+}
 function okShow(){
   if(!CMD.owner||!SOC.db||!SOC.uid||OK.busy)return;
-  if(OK.key){OK.shown=true;cmdRender();return;}
+  var go=function(){return okMake().then(function(){OK.shown=true;okTick();});};
   OK.busy=true;OK.msg=null;cmdRender();
-  SOC.db.doc('data/users/'+SOC.uid+'/ownerkey').get().then(function(sn){
-    var d=sn.exists?sn.data():null,k=d&&typeof d.k==='string'?d.k:'';
-    if(k&&ownerFp(k)===OWNER_FP){OK.key=k;OK.shown=true;}
-    else OK.msg={t:'err',s:'Your owner key is not set up yet. Ask Claude to make one.'};
-  },function(e){OK.msg={t:'err',s:failText(e)};}).then(function(){OK.busy=false;cmdRender();});
+  (OK.jwk?go():SOC.db.doc('data/users/'+SOC.uid+'/ownerkey').get().then(function(sn){
+    var d=sn.exists?sn.data():null;
+    if(!d||!d.jwk||typeof d.jwk!=='object'){OK.msg={t:'err',s:'Your owner key is not set up yet. Ask Claude to make one.'};return;}
+    OK.jwk=d.jwk;return go();
+  })).then(null,function(e){OK.msg={t:'err',s:(e&&e.code)?failText(e):'Your owner key could not be made in this browser.'};}).then(function(){OK.busy=false;cmdRender();});
 }
 function okCopy(){
-  var k=OK.key;if(!k)return;
-  var done=function(ok){OK.msg={t:'good',s:ok?'Copied. Paste it on the website or app in Settings \u2192 Owner.':'Tap the key, then copy it.'};cmdRender();if(!ok){var f=$('cmd-okey');if(f){f.focus();f.select();}}};
+  var k=OK.code;if(!k)return;
+  var done=function(ok){OK.msg={t:'good',s:ok?'Copied. Paste it on the website or app in Settings → Owner within 5 minutes.':'Tap the key, then copy it.'};cmdRender();if(!ok){var f=$('cmd-okey');if(f){f.focus();f.select();}}};
   try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(k).then(function(){done(true);},function(){done(false);});return;}}catch(e){}
   done(false);
 }
@@ -12686,21 +12738,30 @@ function ownerSetHtml(){
   if(!SOLO||WALL)return '';
   var h='<p class="lbl" id="own-sec">Owner</p>';
   if(OK.msg)h+='<p class="note '+OK.msg.t+'" role="status">'+esc(OK.msg.s)+'</p>';
-  if(CMD.owner)return h+'<div class="sheet"><p>You are the owner on this device. Commands is at the top of the hub.</p></div><button class="choice alt" type="button" data-own="off">Remove my owner key from this player</button>';
-  h+='<p class="note">Own Blockyard? Paste your owner key to get your Commands here. You can find it in the Claude version: Commands \u2192 Owner on the website and app.</p>';
-  h+='<div class="sendrow"><input class="field" id="own-key" maxlength="60" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Owner key" value="'+esc(OK.draft)+'"><button class="mini ok" type="button" data-own="go">Unlock</button></div>';
+  if(CMD.owner)return h+'<div class="sheet"><p>You are the owner on this device. Commands is at the top of the hub, and it stays even when the owner key changes.</p></div><button class="choice alt" type="button" data-own="off">Remove owner from this player</button>';
+  h+='<p class="note">Own Blockyard? Paste your owner key to get your Commands here. Find it in the Claude version: Commands → Owner on the website and app. It changes every 5 minutes, so copy a fresh one.</p>';
+  h+='<div class="sendrow"><input class="field" id="own-key" maxlength="160" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Owner key (starts with BYO-)" value="'+esc(OK.draft)+'"><button class="mini ok" type="button" data-own="go"'+(OK.busy?' disabled':'')+'>'+(OK.busy?'Checking...':'Unlock')+'</button></div>';
   return h;
 }
 $('set-body').addEventListener('input',function(e){if(e.target&&e.target.id==='own-key')OK.draft=e.target.value;});
 $('set-body').addEventListener('click',function(e){
-  var b=e.target.closest?e.target.closest('button'):null;if(!b)return;
+  var b=e.target.closest?e.target.closest('button'):null;if(!b||b.disabled)return;
   var a=b.getAttribute('data-own');if(!a||!SOLO)return;
   if(a==='go'){
-    var k=String(OK.draft||'').trim().toUpperCase();
-    if(!k)OK.msg={t:'err',s:'Paste your owner key first.'};
-    else if(ownerFp(k)!==OWNER_FP){OK.msg={t:'err',s:'That owner key is not right.'};}
-    else{lsSet('ownerkey',k);OK.draft='';ownerSync();OK.msg={t:'good',s:'You are the owner on this device! Commands is at the top of the hub.'};}
-  }else if(a==='off'){lsSet('ownerkey','');ownerSync();OK.msg={t:'good',s:'Owner key removed from this player.'};}
+    var k=String(OK.draft||'').replace(/\s+/g,'');
+    if(!k){OK.msg={t:'err',s:'Paste your owner key first.'};setRender();return;}
+    OK.busy=true;OK.msg=null;setRender();
+    okCheck(k,true).then(function(r){
+      OK.busy=false;
+      if(r==='ok'){lsSet('ownerpass',k);OK.draft='';OK.msg={t:'good',s:'You are the owner on this device! Commands is at the top of the hub, and it stays here.'};ownerSync();}
+      else if(r==='old')OK.msg={t:'err',s:'That owner key is too old. It changes every 5 minutes, so copy the newest one.'};
+      else if(r==='nocrypto')OK.msg={t:'err',s:'This browser can’t check owner keys here. Open Blockyard from its https:// address.'};
+      else OK.msg={t:'err',s:'That owner key is not right.'};
+      setRender();
+    });
+    return;
+  }
+  if(a==='off'){lsSet('ownerkey','');lsSet('ownerpass','');ownerSync();OK.msg={t:'good',s:'Owner removed from this player.'};}
   setRender();
 });
 function cmdDone(){CMD.busy=false;cmdRender();}
@@ -13358,7 +13419,7 @@ function tbSummary(res,kind,stopped){
 }
 /* the same problem, even when the error count or the frame rate is a little different this time */
 function tbSame(t){return String(t).replace(/\s*\(x\d+\)/g,'').replace(/\(\d+ fps\)/g,'(fps)');}
-function tbReport(res,kind,stopped){
+function tbReport(res,kind,stopped,noDay){
   var now=Date.now(),probs=[],tested={},ref=SOC.db.doc('asks/bot-testbots');
   res.forEach(function(r){tested[r.id]=1;var w=tbProblems([r])[0];if(w)probs.push({g:r.id,t:('[Test bots] '+w).slice(0,200),s:w.slice(0,220)});});
   return ref.get().then(function(sn){
@@ -13380,9 +13441,9 @@ function tbReport(res,kind,stopped){
       out['more.'+now.toString(36)]={t:'[Test bots] '+(ks.length-11)+' more games have problems too. Open TestBot in your friends to see them all.',at:list[ks[10]].at-1,g:'_more'};
       list=out;
     }
-    var days=Array.isArray(d.days)?d.days.filter(function(x){return x&&typeof x==='object'&&+x.at;}).slice(-19):[];
-    days.push({at:now,k:kind,n:res.length,t:tbSummary(res,kind,stopped),p:probs.slice(0,12).map(function(p){return p.s;})});
-    return ref.set({name:'TestBot',list:list,at:now,days:days});
+    var days=Array.isArray(d.days)?d.days.filter(function(x){return x&&typeof x==='object'&&+x.at;}).slice(noDay?-40:-39):[];
+    if(!noDay)days.push({at:now,k:kind,n:res.length,t:tbSummary(res,kind,stopped),p:probs.slice(0,12).map(function(p){return p.s;})});
+    return ref.set({name:'TestBot',list:list,at:noDay?(+d.at||now):now,days:days});
   });
 }
 function tbSection(dis){
@@ -13489,19 +13550,19 @@ function bvLoad(){
    Bot viewer tool. Tap one to open its chat: every report it sent, oldest at the top, newest at the bottom. TestBot
    reports after every Test bots run and every Bot viewer run; ClaudeBot (and TestBot, with the daily GitHub run) report
    every morning. The reports live in asks/bot-testbots and asks/bot-claude (days), which only the owner can write. ===== */
-var BOTS={sub:false,d:{},cur:'',list:[['bot-testbots','TestBot'],['bot-claude','ClaudeBot']]};
+var BOTS={sub:false,d:{},cur:'',skel:'',local:{},q:{},list:[['bot-testbots','TestBot'],['bot-claude','ClaudeBot']]};
 var BOTINFO={
-  'bot-testbots':{n:'TestBot',c:'#3cc8f0',d:'I play every game, press keys and tap around, and tell you about errors, freezes, blank screens and lag. I report after every test run and every morning.'},
-  'bot-claude':{n:'ClaudeBot',c:'#ff9a3c',d:'Every morning I look at pictures of every game from the daily bot test, on a laptop and on a phone, and tell you what looks broken.'}
+  'bot-testbots':{n:'TestBot',c:'#3cc8f0',ph:'Tell TestBot what to check, like: check Block Golf on a phone',d:'I play every game, press keys and tap around, and tell you about errors, freezes, blank screens and lag. I report after every test run and every morning, and I check anything you tell me to.'},
+  'bot-claude':{n:'ClaudeBot',c:'#ff9a3c',ph:'Ask ClaudeBot to look into something',d:'Every morning I look at pictures of every game from the daily bot test and tell you what looks broken. Ask me to look into anything: I play the games, look at them and answer you.'}
 };
 function botOn(){return typeof BOTS!=='undefined'&&!!(SOC.db&&SOC.account&&(can('testbots')||can('botview')));}
 function botClean(d){
   d=d||{};
   var out=[];
-  (Array.isArray(d.days)?d.days:[]).slice(-30).forEach(function(x){
+  (Array.isArray(d.days)?d.days:[]).slice(-60).forEach(function(x){
     if(!x||typeof x!=='object'||!(+x.at))return;
     out.push({at:+x.at,k:typeof x.k==='string'?x.k.slice(0,12):'',n:Math.max(0,Math.floor(+x.n||0)),
-      t:typeof x.t==='string'?x.t.replace(CTRL,' ').slice(0,700):'',
+      t:typeof x.t==='string'?x.t.replace(CTRL,' ').slice(0,1600):'',
       p:Array.isArray(x.p)?x.p.filter(function(s){return typeof s==='string'&&s;}).slice(0,14).map(function(s){return s.replace(CTRL,' ').slice(0,240);}):[]});
   });
   out.sort(function(a,b){return a.at-b.at;});
@@ -13534,6 +13595,7 @@ function botAv(id){
 var botEl=$('botc'),botBody=$('bot-body');SCR.push(botEl);
 function openBot(id){
   if(!BOTINFO[id])return;
+  if(INV.busy&&INV.busy!==id)invStop('left');
   initAudio();BOTS.cur=id;botSync();openScreen(botEl);botRender(true);
 }
 function botDayName(t){
@@ -13544,39 +13606,275 @@ function botDayName(t){
 }
 function botRender(first){
   if(botEl.hidden)return;
-  var id=BOTS.cur,info=BOTINFO[id],d=BOTS.d[id],days=d?d.days:[],sc=botEl.querySelector('.scr-body');
-  var near=first||!sc||(sc.scrollHeight-sc.scrollTop-sc.clientHeight<120);
-  $('bot-title').textContent=info.n;
-  var h='<div class="pfcard"><span class="pfav">'+botAv(id)+stDot('on')+'</span><div class="pftx"><strong>'+info.n+'<span class="botbadge">BOT</span></strong><span class="at">Your friend \u00b7 always online</span><span class="pfst">'+esc(info.d)+'</span></div></div>';
-  h+='<div class="msgs botmsgs" aria-live="polite">';
-  if(!d)h+='<p class="note">'+(SOC.db?'Loading...':'Bot reports need this page opened in Claude.')+'</p>';
-  else if(!days.length)h+='<div class="msg bot"><small>'+info.n+'</small>Hi! I have not sent a report yet. '+(id==='bot-claude'?'My first one comes after the next daily bot test.':'Run the test bots, or watch them in the Bot viewer, and I will tell you what I found.')+'</div>';
+  var id=BOTS.cur,info=BOTINFO[id],d=BOTS.d[id],sc=botBody;
+  var near=first||(sc.scrollHeight-sc.scrollTop-sc.clientHeight<140);
+  /* the frame: built once per chat, so a running investigation (its little game screen) is never thrown away */
+  if(first||BOTS.skel!==id||!$('bot-msgs')){
+    BOTS.skel=id;
+    $('bot-title').textContent=info.n;
+    botBody.innerHTML='<div class="pfcard"><span class="pfav">'+botAv(id)+stDot('on')+'</span><div class="pftx"><strong>'+info.n+'<span class="botbadge">BOT</span></strong><span class="at">Your friend · always online</span><span class="pfst">'+esc(info.d)+'</span></div></div>'+
+      '<div class="msgs botmsgs" id="bot-msgs" aria-live="polite"></div><div id="inv-card" class="invcard" hidden></div>'+
+      '<form class="sendrow botask" id="bot-ask"><input class="field" id="bot-in" maxlength="300" autocomplete="off" enterkeyhint="send" placeholder="'+esc(info.ph)+'" aria-label="Message to '+info.n+'"><button class="mini ok" type="submit">Send</button></form><div id="bot-acts"></div>';
+  }
+  var all=(d?d.days:[]).concat(BOTS.local[id]||[]).sort(function(a,b){return a.at-b.at;});
+  var h='';
+  if(!d&&!all.length)h+='<p class="note">'+(SOC.db?'Loading...':'Bot reports need this page opened in Claude.')+'</p>';
+  else if(!all.length)h+='<div class="msg bot"><small>'+info.n+'</small>Hi! I have not sent a report yet. '+(id==='bot-claude'?'My first one comes after the next daily bot test. You can also ask me to look into something right now.':'Run the test bots, watch them in the Bot viewer, or tell me what to check.')+'</div>';
   var dayKey='';
-  days.forEach(function(x){
-    var k=new Date(x.at).toDateString();
+  all.forEach(function(x){
+    var k=new Date(x.at).toDateString(),tm=esc(new Date(x.at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}));
     if(k!==dayKey){dayKey=k;h+='<p class="botday">'+esc(botDayName(x.at))+'</p>';}
-    var kind=x.k==='daily'?'Daily report':(x.k==='watch'?'Bot viewer':(x.k==='run'?'Test run':'Report'));
-    h+='<div class="msg bot"><small>'+info.n+' \u00b7 '+esc(kind)+' \u00b7 '+esc(new Date(x.at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}))+'</small>'+esc(x.t||(x.p.length?'I found '+x.p.length+(x.p.length===1?' problem:':' problems:'):'Everything worked.'));
+    if(x.k==='you'){h+='<div class="msg me"><small>You · '+tm+'</small>'+cleanHtml(x.t)+'</div>';return;}
+    var kind=x.k==='daily'?'Daily report':(x.k==='watch'?'Bot viewer':(x.k==='run'?'Test run':(x.k==='answer'?'Answer':'Report')));
+    h+='<div class="msg bot"><small>'+info.n+' · '+esc(kind)+' · '+tm+'</small>'+esc(x.t||(x.p.length?'I found '+x.p.length+(x.p.length===1?' problem:':' problems:'):'Everything worked.')).replace(/\n/g,'<br>');
     if(x.p.length)h+='<ul>'+x.p.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ul>';
+    var pics=INV.pics[id+'@'+x.at];
+    if(pics&&pics.length)h+='<div class="invpics">'+pics.map(function(p){return '<figure><img alt="" src="'+p.src+'"><figcaption>'+esc(p.label)+'</figcaption></figure>';}).join('')+'</div>';
     h+='</div>';
   });
-  h+='</div>';
-  if(id==='bot-testbots'&&TB.msg)h+='<p class="note '+TB.msg.t+'" role="status">'+esc(TB.msg.s)+'</p>';
-  if(id==='bot-testbots'&&can('testbots'))h+='<button class="choice" type="button" data-bot="run"'+(TB.on?' disabled':'')+'>'+(TB.on?'Testing...':'Run the test bots now (about 2 minutes)')+'</button>';
-  if(can('botview'))h+='<button class="choice alt" type="button" data-bot="view">Watch the bots play</button>';
-  h+='<p class="note">Bots cannot read messages, so there is no reply box. Anything broken also goes to Requests in the admin panel. Pictures of every game: <a href="https://glufftl25-sys.github.io/blockyard/bots.html" target="_blank" rel="noopener" style="color:var(--cyan)">Bots page</a></p>';
-  botBody.innerHTML=h;
-  if(near&&sc)sc.scrollTop=sc.scrollHeight;
+  $('bot-msgs').innerHTML=h;
+  var a='';
+  if(id==='bot-testbots'&&TB.msg)a+='<p class="note '+TB.msg.t+'" role="status">'+esc(TB.msg.s)+'</p>';
+  if(id==='bot-testbots'&&can('testbots'))a+='<button class="choice" type="button" data-bot="run"'+(TB.on||INV.busy?' disabled':'')+'>'+(TB.on?'Testing...':'Run the test bots now (about 2 minutes)')+'</button>';
+  if(can('botview'))a+='<button class="choice alt" type="button" data-bot="view"'+(INV.busy?' disabled':'')+'>Watch the bots play</button>';
+  a+='<p class="note">'+(id==='bot-claude'?'Ask me about any game, like: does Four in a Row fit on phones? I play it, look at it and tell you. I use your Claude account to think, so the first time Claude asks you to allow it.':'Tell me what to check, like: check Block Golf on a phone, or: test every game for 10 seconds. Say laptop, phone, sideways or tablet for the screen.')+' Anything broken also goes to Requests. Pictures of every game: <a href="https://glufftl25-sys.github.io/blockyard/bots.html" target="_blank" rel="noopener" style="color:var(--cyan)">Bots page</a></p>';
+  $('bot-acts').innerHTML=a;
+  var inp=$('bot-in');if(inp){inp.disabled=!!INV.busy;inp.placeholder=INV.busy?(BOTINFO[INV.busy].n+' is busy checking...'):info.ph;}
+  if(near)sc.scrollTop=sc.scrollHeight;
   var last=botLast(id);
   if(last&&last>(+lsGet('botseen.'+id,0)||0)){lsSet('botseen.'+id,last);renderFrow();}
 }
-$('bot-back').addEventListener('click',toHub);
+$('bot-back').addEventListener('click',function(){invStop('left');toHub();});
 botBody.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;if(!b||b.disabled)return;
   var a=b.getAttribute('data-bot');
-  if(a==='run'&&can('testbots')&&!TB.on){TB.from='bot';TB.msg=null;cmdTestBots();}
-  else if(a==='view'&&can('botview'))openBotWall('bot');
+  if(a==='run'&&can('testbots')&&!TB.on&&!INV.busy){TB.from='bot';TB.msg=null;cmdTestBots();}
+  else if(a==='view'&&can('botview')&&!INV.busy)openBotWall('bot');
+  else if(a==='stop')invStop('stop');
 });
+botBody.addEventListener('submit',function(e){
+  if(!e.target||e.target.id!=='bot-ask')return;
+  e.preventDefault();
+  var i=$('bot-in');if(!i||INV.busy)return;
+  var t=i.value;if(!t.trim())return;
+  i.value='';invStart(BOTS.cur,t);
+});
+/* ===== Investigations: tell TestBot or ClaudeBot what to look into, in their chat. TestBot reads the game names, screen
+   sizes (laptop, phone, sideways, tablet) and seconds in your message, plays those games in a copy of the game at those
+   sizes (you can watch it in the chat), and tells you what it found, with pictures. ClaudeBot does the same, then looks at
+   the pictures and answers you in its own words: it asks Claude, on the viewer's Claude account (the first time, Claude
+   asks to allow it). If it cannot think, it tells you what the bots found instead. Your messages and the answers are kept
+   with the bot's reports (only the owner's are saved; other people's stay on their screen). Anything broken also goes to
+   Requests, like other bot runs. ===== */
+var INV={busy:'',gen:0,f:null,w:null,ctl:null,pics:{},al:null};
+var INV_SIZES={laptop:{n:'a laptop',w:1280,h:720},phone:{n:'a phone held upright',w:390,h:844},side:{n:'a phone held sideways',w:844,h:390},tablet:{n:'a tablet',w:1024,h:768},big:{n:'a big PC screen',w:1920,h:1040}};
+function invNorm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+function invAliases(){
+  if(INV.al)return INV.al;
+  var ids=bvIds(),cnt={},al=[];
+  ids.forEach(function(id){invNorm(bwName(id)).split(' ').forEach(function(x){cnt[x]=(cnt[x]||0)+1;});});
+  ids.forEach(function(id){
+    var t=invNorm(bwName(id)),w=t.split(' '),a=[t,invNorm(id)];
+    if(w[0]==='block'&&w.length>1)a.push(w.slice(1).join(' '));
+    w.forEach(function(x){if(x.length>=4&&cnt[x]===1&&!/^(block|blocks|game|games|with|from|your)$/.test(x))a.push(x);});
+    al.push({id:id,a:a.filter(function(x,i,s){return x&&x.length>=3&&s.indexOf(x)===i;})});
+  });
+  return INV.al=al;
+}
+function invParse(text){
+  var s=' '+invNorm(text)+' ',all=/ (every|all|each) (the |of the )?(game|games) | everything /.test(s),games=[],sizes=[];
+  if(all)games=bvIds();
+  else invAliases().forEach(function(g){if(g.a.some(function(a){return s.indexOf(' '+a+' ')>=0;}))games.push(g.id);});
+  if(/ (sideways|landscape|turned|rotated|horizontal) /.test(s))sizes.push('side');
+  else if(/ (phone|phones|mobile|iphone|android|cell) /.test(s))sizes.push('phone');
+  if(/ (laptop|laptops|computer|computers|pc|pcs|desktop|mac|chromebook) /.test(s))sizes.push('laptop');
+  if(/ (tablet|tablets|ipad|ipads) /.test(s))sizes.push('tablet');
+  if(/ (big screen|monitor|tv|large screen) /.test(s))sizes.push('big');
+  if(/ (every|all) (the )?(screen|screens|size|sizes|device|devices) /.test(s))sizes=['laptop','phone','side','tablet'];
+  var secs=6,m=/ (\d{1,3}) ?(s|sec|secs|second|seconds) /.exec(s),mm=/ (\d{1,2}) ?(m|min|mins|minute|minutes) /.exec(s);
+  if(m)secs=+m[1];else if(mm)secs=+mm[1]*60;
+  return invPlan(games,sizes,secs,all);
+}
+function invPlan(games,sizes,secs,all){
+  var ids=bvIds();
+  games=games.filter(function(g,i,s){return ids.indexOf(g)>=0&&s.indexOf(g)===i;});
+  sizes=sizes.filter(function(z,i,s){return INV_SIZES[z]&&s.indexOf(z)===i;});
+  if(!sizes.length)sizes=games.length<=3?['laptop','phone','side']:['laptop'];
+  while(games.length*sizes.length>60&&sizes.length>1)sizes.pop();
+  return {games:games,sizes:sizes,ms:clampN(Math.round(+secs||6),3,120)*1000,all:!!all};
+}
+function invList(a){return a.length<=1?(a[0]||''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];}
+function invWhat(pl){
+  var g=pl.all?'every game':(pl.games.length>4?pl.games.length+' games':invList(pl.games.map(bwName)));
+  return g+' on '+invList(pl.sizes.map(function(z){return INV_SIZES[z].n;}))+', '+(pl.ms/1000)+' seconds each';
+}
+function invStatus(s){var el=$('inv-st');if(el)el.textContent=s;}
+function invCardOpen(id){
+  var c=$('inv-card');if(!c)return;
+  c.hidden=false;
+  c.innerHTML='<div class="invhd"><b id="inv-st">'+esc(BOTINFO[id].n)+' is getting ready...</b><button class="mini" type="button" data-bot="stop">Stop</button></div><div id="inv-scr" class="invscr" hidden></div><div id="inv-txt" class="msg bot" hidden></div>';
+  botBody.scrollTop=botBody.scrollHeight;
+}
+function invCardClose(){var c=$('inv-card');if(c){c.hidden=true;c.innerHTML='';}}
+function invDropFrame(){if(INV.f){try{INV.w&&INV.w.BY_TESTBOTS.stop();}catch(e){}if(INV.f.parentNode)INV.f.parentNode.removeChild(INV.f);}INV.f=null;INV.w=null;}
+/* a copy of the game at one screen size, shrunk to fit the chat */
+function invFrame(S){
+  invDropFrame();
+  var box=$('inv-scr');if(!box)return null;
+  box.hidden=false;
+  var maxW=Math.min(460,(botBody.clientWidth||360)-40),k=Math.min(maxW/S.w,300/S.h);
+  box.style.width=Math.round(S.w*k)+'px';box.style.height=Math.round(S.h*k)+'px';
+  var f=bwFrame(2);f.className='invf';f.style.width=S.w+'px';f.style.height=S.h+'px';f.style.transform='scale('+k+')';
+  box.appendChild(f);INV.f=f;
+  return f;
+}
+function invRun(pl,gen){
+  var out=[],live=function(){return INV.gen===gen;};
+  return pl.sizes.reduce(function(p,z){
+    return p.then(function(){
+      if(!live())return;
+      var S=INV_SIZES[z],f=invFrame(S);if(!f)throw new Error('closed');
+      invStatus('Starting a copy of the game on '+S.n+'...');
+      return bwReady(f,live).then(function(w){
+        if(!live())return;
+        INV.w=w;
+        return w.BY_TESTBOTS({ids:pl.games,ms:pl.ms,shots:true,show:true,each:function(r,i,n){
+          if(live()&&i+1<n)invStatus('Checking '+bwName(pl.games[i+1])+' on '+S.n+' ('+(i+2)+' of '+n+')');
+        }}).then(function(r){
+          (r&&r.results||[]).forEach(function(x){x.size=z;out.push(x);});
+        });
+      }).then(function(){if(live())invStatus('Checked '+S.n+'.');},function(e){if(live())throw e;});
+    });
+  },Promise.resolve().then(function(){if(live()&&pl.games.length)invStatus('Checking '+bwName(pl.games[0])+' on '+INV_SIZES[pl.sizes[0]].n+(pl.games.length>1?' (1 of '+pl.games.length+')':''));})).then(function(){invDropFrame();return out;});
+}
+function invLine(x){var p=tbProblems([x])[0];return bwName(x.id)+' on '+INV_SIZES[x.size].n+': '+(p?p.slice(p.indexOf(':')+1).trim():'working'+(x.fps?', '+x.fps+' frames a second':''));}
+function invProblems(res){return res.filter(function(x){return tbProblems([x]).length;}).map(invLine);}
+/* pictures of the tests: problems first */
+function invPics(res,n){
+  var a=res.filter(function(x){return x.shot&&tbProblems([x]).length;}).concat(res.filter(function(x){return x.shot&&!tbProblems([x]).length;}));
+  return a.slice(0,n).map(function(x){return {src:x.shot,label:bwName(x.id)+' · '+INV_SIZES[x.size].n.replace(/^a /,''),x:x};});
+}
+function invBlob(src){var i=src.indexOf(','),b=atob(src.slice(i+1)),u=new Uint8Array(b.length);for(var j=0;j<b.length;j++)u[j]=b.charCodeAt(j);return new Blob([u],{type:'image/jpeg'});}
+/* one write at a time to each bot's document, so a message and its answer never overwrite each other */
+function botQ(id,fn){var p=(BOTS.q[id]||Promise.resolve()).then(fn,fn);BOTS.q[id]=p.then(null,function(){});return p;}
+function botAdd(id,e){
+  if(SOC.db&&CMD.owner){
+    var ref=SOC.db.doc('asks/'+id);
+    return botQ(id,function(){return ref.get().then(function(sn){
+      var d=sn.exists?(sn.data()||{}):{},o={};
+      Object.keys(d).forEach(function(k){o[k]=d[k];});
+      var days=Array.isArray(d.days)?d.days.filter(function(x){return x&&typeof x==='object'&&+x.at;}).slice(-39):[];
+      days.push(e);o.days=days;o.name=o.name||BOTINFO[id].n;if(!o.list||typeof o.list!=='object')o.list={};
+      return ref.set(o);
+    });}).then(null,function(){(BOTS.local[id]=BOTS.local[id]||[]).push(e);if(!botEl.hidden)botRender();});
+  }
+  (BOTS.local[id]=BOTS.local[id]||[]).push(e);if(!botEl.hidden)botRender();
+  return Promise.resolve();
+}
+function invDone(id,gen,e,pics){
+  if(INV.gen!==gen)return;
+  if(pics&&pics.length)INV.pics[id+'@'+e.at]=pics.map(function(p){return {src:p.src,label:p.label};});
+  INV.busy='';invDropFrame();invCardClose();
+  botAdd(id,e);
+  if(!botEl.hidden)botRender();
+}
+function invStop(why){
+  if(!INV.busy)return;
+  var id=INV.busy;INV.gen++;INV.busy='';
+  try{if(INV.ctl)INV.ctl.abort();}catch(e){}
+  invDropFrame();invCardClose();
+  botAdd(id,{at:Date.now(),k:'answer',t:why==='left'?'I stopped checking because you left the chat.':'OK, I stopped.',p:[]});
+}
+/* send what the bots found to Requests (owner only), like other bot runs */
+function invRequests(res){
+  if(!res.length||!SOC.db||!CMD.owner)return;
+  var copy=res.map(function(x){var o={};Object.keys(x).forEach(function(k){if(k!=='shot')o[k]=x[k];});o.t=bwName(x.id)+' ('+INV_SIZES[x.size].n.replace(/^a /,'on a ')+')';return o;});
+  botQ('bot-testbots',function(){return tbReport(copy,'ask',false,true);});
+}
+function invStart(id,text){
+  text=String(text||'').replace(CTRL,' ').replace(/\s+/g,' ').trim().slice(0,300);
+  if(!text||INV.busy||!BOTINFO[id])return;
+  var gen=++INV.gen,now=Date.now();
+  botAdd(id,{at:now,k:'you',t:text,p:[]});
+  if(BW.on||TB.on){botAdd(id,{at:now+1,k:'answer',t:'I am busy testing right now. Ask me again when the test bots finish.',p:[]});return;}
+  if(!SELF){botAdd(id,{at:now+1,k:'answer',t:'I can’t start a copy of the game in this browser, so I can’t check things here.',p:[]});return;}
+  INV.busy=id;invCardOpen(id);botRender();
+  if(id==='bot-claude')invClaude(id,text,gen);else invTest(id,text,gen);
+}
+function invTest(id,text,gen){
+  var pl=invParse(text);
+  if(!pl.games.length){invDone(id,gen,{at:Date.now(),k:'answer',t:'Which game should I check? Say a game name, like: check Block Golf on a phone. Or say: check every game.',p:[]});return;}
+  invStatus('I will check '+invWhat(pl)+'.');
+  invRun(pl,gen).then(function(res){
+    if(INV.gen!==gen)return;
+    invRequests(res);
+    var probs=invProblems(res),games=pl.all?'every game':(pl.games.length>4?pl.games.length+' games':invList(pl.games.map(bwName)));
+    var t='I checked '+games+' on '+invList(pl.sizes.map(function(z){return INV_SIZES[z].n;}))+', '+(pl.ms/1000)+' seconds each. '+(probs.length?(probs.length===1?'1 test had a problem:':probs.length+' tests had problems:'):'Everything worked: no errors, freezes, blank screens or lag.');
+    invDone(id,gen,{at:Date.now(),k:'answer',n:res.length,t:t,p:probs.slice(0,12)},invPics(res,12));
+  },function(){invDone(id,gen,{at:Date.now(),k:'answer',t:'Something went wrong while I was checking. Try again.',p:[]});});
+}
+/* ClaudeBot: work out what to test (from the message, or by asking Claude), test it, then look at the pictures and answer */
+function invClaude(id,text,gen){
+  var smp=null,lim=null;
+  var cant=function(why,res){
+    var probs=res?invProblems(res):[];
+    var t=(why==='rate'?'I have used up my thinking for a little while, so I can’t look at the pictures right now.':(why==='err'?'Something went wrong while I was thinking.':'I can’t think right now because Claude isn’t allowed for this page (or not on this account).'))+
+      (res?(' Here is what the bots found: '+(probs.length?probs.length+(probs.length===1?' problem:':' problems:'):'no errors, freezes, blank screens or lag.')):' Ask TestBot to check a game instead.');
+    invDone(id,gen,{at:Date.now(),k:'answer',n:res?res.length:0,t:t,p:probs.slice(0,12)},res?invPics(res,8):null);
+  };
+  var whyOf=function(e){var c=e&&e.code;return c==='rate_limited'?'rate':(/^(not_granted|sampling_disabled|not_declared|capability_disabled|capability_removed)$/.test(c||'')?'off':'err');};
+  invStatus('ClaudeBot is reading your message...');
+  Promise.resolve(window.claude&&window.claude.use?window.claude.use('sample'):null).then(function(s){
+    smp=s;
+    if(!smp)return null;
+    return smp.limits().then(function(l){lim=l;},function(){});
+  }).then(function(){
+    if(INV.gen!==gen)return;
+    var pl=invParse(text);
+    if(pl.games.length||!smp)return pl;
+    /* no game named: ask Claude which games (if any) to test */
+    var list=bvIds().map(function(g){return g+': '+bwName(g);}).join('; ');
+    INV.ctl=new AbortController();
+    return smp.json('You help ClaudeBot, a test bot inside the game hub Blockyard Arcade, decide what to test before it answers its owner.\nThe owner wrote: "'+text+'"\nThe games (id: name): '+list+'\nScreen sizes: laptop, phone (held upright), side (phone held sideways), tablet.\nReply with only JSON like {"games":["golf"],"sizes":["laptop","phone"],"seconds":6}. Use at most 6 games, the ones the message is about. If the message does not need any game tested, use "games":[].',{modelTier:'quick',cache:false,signal:INV.ctl.signal}).then(function(j){
+      j=j&&typeof j==='object'?j:{};
+      return invPlan((Array.isArray(j.games)?j.games:[]).map(String).slice(0,6),Array.isArray(j.sizes)?j.sizes.map(String):[],j.seconds,false);
+    });
+  }).then(function(pl){
+    if(INV.gen!==gen||!pl)return;
+    if(!pl.games.length){
+      if(!smp){invDone(id,gen,{at:Date.now(),k:'answer',t:'Which game should I look at? Say a game name, like: does Four in a Row fit on phones?',p:[]});return;}
+      return invAnswer(id,text,gen,smp,lim,null,pl);
+    }
+    invStatus('I will check '+invWhat(pl)+'.');
+    return invRun(pl,gen).then(function(res){
+      if(INV.gen!==gen)return;
+      invRequests(res);
+      if(!smp){cant('off',res);return;}
+      return invAnswer(id,text,gen,smp,lim,res,pl).then(null,function(e){if(INV.gen===gen&&!(e&&e.code==='cancelled'))cant(whyOf(e),res);});
+    });
+  }).then(null,function(e){if(INV.gen===gen&&!(e&&e.code==='cancelled'))cant(whyOf(e),null);});
+}
+function invAnswer(id,text,gen,smp,lim,res,pl){
+  var pics=res?invPics(res,Math.min(8,(lim&&lim.images&&lim.images.maxCount)||0)):[];
+  var q='You are ClaudeBot, a friendly robot friend inside Blockyard Arcade, a game hub with '+bvIds().length+' games. You test the games and tell the owner what you see.\nThe owner just wrote to you: "'+text+'"\n';
+  if(res){
+    q+='You just played these games with the test bots, '+(pl.ms/1000)+' seconds each, pressing random keys and tapping around (each line is one test):\n'+res.map(function(x){return '- '+invLine(x);}).join('\n')+'\n';
+    if(pics.length)q+='The '+pics.length+' pictures are the last frame of these tests, in this order: '+pics.map(function(p,i){return (i+1)+') '+p.label;}).join('; ')+'. Look closely at them for things that are tiny, cut off, off the screen, overlapping, blank or hard to read.\n';
+  }else{
+    var rep=[];['bot-claude','bot-testbots'].forEach(function(b){var d=BOTS.d[b];if(d)d.days.filter(function(x){return x.k!=='you'&&x.k!=='answer';}).slice(-2).forEach(function(x){rep.push(BOTINFO[b].n+' ('+new Date(x.at).toDateString()+'): '+x.t+(x.p.length?' '+x.p.join('; '):''));});});
+    if(rep.length)q+='Your latest bot reports:\n'+rep.join('\n')+'\n';
+  }
+  q+='Reply to the owner in simple, friendly words: answer what they asked, say what works and what looks broken, and what should be fixed. At most 150 words. Plain text only; you may use a few short lines that start with "- ".';
+  invStatus('ClaudeBot is looking'+(pics.length?' at the pictures':'')+' and thinking...');
+  var tx=$('inv-txt');
+  INV.ctl=new AbortController();
+  var opts={cache:false,signal:INV.ctl.signal,onText:function(u){var el=$('inv-txt');if(el&&INV.gen===gen){el.hidden=false;el.textContent=u.text;}}};
+  if(pics.length)opts.images=pics.map(function(p){return invBlob(p.src);});
+  return smp(q,opts).then(function(r){
+    if(INV.gen!==gen)return;
+    invDone(id,gen,{at:Date.now(),k:'answer',n:res?res.length:0,t:String(r.text||'').slice(0,1500),p:[]},pics);
+  });
+}
 /* ===== Watch the bots play: a wall with a little screen for every game, each with its own bot. A few bots test at the same
    time, each in its own copy of the game (a frame), then hand over to the next game, round after round. Tap a game to watch
    just that bot, big. When you leave, anything broken goes to Requests and TestBot reports it (owner only). If this browser
@@ -13596,13 +13894,13 @@ function bwFrame(mode){
   return f;
 }
 /* resolves with the copy's window once its bots are ready */
-function bwReady(f){
+function bwReady(f,alive){
   return new Promise(function(ok,no){
     var t0=Date.now();
     (function wait(){
       var w=null;
       try{w=f.contentWindow;if(w&&w.BY_TESTBOTS)return ok(w);}catch(e){return no(e);}
-      if(!BW.on)return no(new Error('closed'));
+      if(alive?!alive():!BW.on)return no(new Error('closed'));
       if(Date.now()-t0>20000)return no(new Error('timeout'));
       setTimeout(wait,200);
     })();
@@ -15008,7 +15306,7 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u41", "d": "Oct 25, 2026", "t": "Owner tools on the website and app", "x": ["The owner can now get Commands on the website, the app and itch.io too.", "In the Claude version, open Commands and tap Show my owner key under Owner on the website and app. Copy it.", "On the website or app, open Settings, paste it under Owner and tap Unlock. Commands shows up at the top of the hub.", "There you get Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements stay in the Claude version, because they need everyone's shared data.", "The key stays with your player, so it follows your email account to your other devices."]}, {"id": "u40", "d": "Oct 25, 2026", "t": "Watch every bot at once", "x": ["Watch the bots play now opens a wall with a screen for every game, each with its own bot.", "A few bots test at the same time, then hand over to the next game, round after round, so you can see every bot testing.", "Each screen shows Bot testing now, Working or the problem it found, with a picture of the game.", "Tap a game to watch just that bot, big, with every tap and key press shown. Tap All bots to go back.", "When you leave, anything broken goes to Requests and TestBot sends you a report.", "The bots' copies of the games have no sound and never change anyone's saves."]}, {"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u42", "d": "Oct 25, 2026", "t": "Owner key changes and bots that investigate", "x": ["Your owner key for the website and app now changes every 5 minutes. Commands shows it with a countdown and makes a new one by itself.", "A device you unlock keeps Commands, even after the key changes. Devices you already unlocked stay unlocked.", "You can now tell the bots what to look into in their chats. TestBot checks the games you name, on the screens you name (laptop, phone, sideways or tablet), and you can watch it play right in the chat.", "ClaudeBot does the same, then looks at the pictures and answers you in its own words. It uses your Claude account to think, so the first time Claude asks you to allow it.", "Your messages and their answers stay in the chat, and anything broken also goes to Requests."]}, {"id": "u41", "d": "Oct 25, 2026", "t": "Owner tools on the website and app", "x": ["The owner can now get Commands on the website, the app and itch.io too.", "In the Claude version, open Commands and tap Show my owner key under Owner on the website and app. Copy it.", "On the website or app, open Settings, paste it under Owner and tap Unlock. Commands shows up at the top of the hub.", "There you get Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements stay in the Claude version, because they need everyone's shared data.", "The key stays with your player, so it follows your email account to your other devices."]}, {"id": "u40", "d": "Oct 25, 2026", "t": "Watch every bot at once", "x": ["Watch the bots play now opens a wall with a screen for every game, each with its own bot.", "A few bots test at the same time, then hand over to the next game, round after round, so you can see every bot testing.", "Each screen shows Bot testing now, Working or the problem it found, with a picture of the game.", "Tap a game to watch just that bot, big, with every tap and key press shown. Tap All bots to go back.", "When you leave, anything broken goes to Requests and TestBot sends you a report.", "The bots' copies of the games have no sound and never change anyone's saves."]}, {"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
 /* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in
