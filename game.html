@@ -5744,9 +5744,9 @@ GAMES.duel=(function(){
     if(ov==='play')drawPlayOv();else if(ov==='practice')drawPracOv();else if(ov==='weap')drawWeapOv();else if(ov==='set')drawSetOv();
   }
   /* ---------- the secret room: you drop in, Jrnix talks, then you pick a fight ---------- */
-  var SECL=['Whoa! You found my secret room!','Nobody gets down here unless they touch every pumpkin.','Want to fight? Coleytblox is the Easy, Normal and Hard bots in one. Jrnix Bot is ClaudeBot and ClaudeBot Pro in one.','Pick who you want to face!'];
+  var SECL=['Whoa! You found my secret room!','Who do you want to fight?'];
   function secretEnter(){PH='secret';PK.fall=false;SEC={t:0,line:0,ch:0,thud:0};ov='';stick=null;lookP=null;netLeave();}
-  function secretTick(dt){SEC.t+=dt;if(SEC.t>1.1)SEC.ch+=dt*40;}
+  function secretTick(dt){SEC.t+=dt;if(SEC.t>1.1)SEC.ch+=dt*55;}
   function secTap(){
     if(SEC.t<1.1)return;
     var L=SECL[SEC.line];
@@ -5771,17 +5771,19 @@ GAMES.duel=(function(){
     R3.flush();
     [[0,2.35,4,'Jrnix','#ffd23f'],[-3.2,2.35,7,'Coleytblox','#6fe3d6'],[3.2,2.35,7,'Jrnix Bot','#c3a6ff']].forEach(function(n){var p=R3.project(n[0],n[1],n[2]);if(p&&p[2]<40)plain(n[3],p[0],p[1],Math.max(12,Math.min(16,160/p[2])),n[4]);});
     if(SEC.t<1.1)return;
-    var short=V.h<420,w=Math.min(640,V.w-24),x0=V.w/2-w/2,fs=short?14:16,L=SECL[SEC.line],shown=L.slice(0,Math.floor(SEC.ch));
-    ctx.font='700 '+fs+'px '+FONT;var lines=wrapText(L,w-36),h=Math.max(short?64:78,30+lines.length*(fs+6)+8),y0=V.h-h-10;
-    var lastOne=SEC.line===SECL.length-1&&SEC.ch>=L.length;
-    pnl(x0,y0,w,h,0.92);ctx.fillStyle='#ffd23f';rr(x0,y0,7,h,3);ctx.fill();
-    plain('Jrnix',x0+18,y0+16,13,'#ffd23f','left',800);
-    var used=0;lines.forEach(function(ln,k){var part=shown.slice(used,used+ln.length);used+=ln.length+1;plain(part,x0+18,y0+38+k*(fs+6),fs,'#fff','left',600);});
-    if(!lastOne&&SEC.ch>=L.length)plain(touch?'Tap to keep going':'Click or press Space',x0+w-14,y0+h-12,11,'#9fb0d8','right');
+    /* one short line at a time, big and easy to read */
+    var short=V.h<420,w=Math.min(560,V.w-24),x0=V.w/2-w/2,fs=short?19:24,L=SECL[SEC.line],shown=L.slice(0,Math.floor(SEC.ch));
+    var h=short?62:78,y0=V.h-h-10,lastOne=SEC.line===SECL.length-1&&SEC.ch>=L.length;
+    ctx.fillStyle='rgba(10,8,22,.97)';rr(x0,y0,w,h,12);ctx.fill();ctx.strokeStyle='#ffd23f';ctx.lineWidth=2;rr(x0,y0,w,h,12);ctx.stroke();
+    plain('Jrnix',x0+16,y0+(short?14:17),short?13:15,'#ffd23f','left',800);
+    plain(shown,x0+16,y0+(short?40:50),fs,'#fff','left',800);
+    if(!lastOne&&SEC.ch>=L.length)plain(touch?'Tap ▶':'Space ▶',x0+w-14,y0+h-14,12,'#cfd6f0','right',700);
     if(lastOne){
-      var bw=Math.min(250,(w-16)/2),by=y0-(short?50:58),bh=short?42:48;
-      btn('Fight Coleytblox',V.w/2-bw-6,by,bw,bh,{a:'secgo',n:5},'teal',short?15:17);
-      btn('Fight Jrnix Bot',V.w/2+6,by,bw,bh,{a:'secgo',n:6},'purple',short?15:17);
+      var bw=Math.min(240,(w-16)/2),bh=short?42:50,by=y0-bh-(short?30:36),cs=short?12:14;
+      btn('Fight Coleytblox',V.w/2-bw-6,by,bw,bh,{a:'secgo',n:5},'teal',short?16:18);
+      btn('Fight Jrnix Bot',V.w/2+6,by,bw,bh,{a:'secgo',n:6},'purple',short?16:18);
+      plain('Easy → Normal → Hard',V.w/2-bw/2-6,by+bh+(short?13:16),cs,'#9ff0e6','center',700);
+      plain('ClaudeBot → Pro',V.w/2+bw/2+6,by+bh+(short?13:16),cs,'#d4c2ff','center',700);
     }
     btn('Go back up',V.w-138,short?10:14,124,34,{a:'secup'},'dark',13);
   }
