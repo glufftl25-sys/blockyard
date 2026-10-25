@@ -1,0 +1,41 @@
+# Requests from the website, the app and itch.io: every two hours GitHub copies the requests players sent with the Ask
+# button (locked with the owner's public key) from Firebase to the "asks" branch, where Claude picks them up and adds
+# them to Requests in the Claude version. Free for public repos. No keys or secrets needed.
+name: Web requests
+
+on:
+  schedule:
+    - cron: '41 */2 * * *'
+  workflow_dispatch:        # "Run workflow" button on the Actions page
+
+permissions:
+  contents: write           # only to save the requests to the asks branch
+
+concurrency:
+  group: web-asks
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Copy the locked requests from Firebase
+        run: node tools/askrelay.js asks-out
+      - name: Save them to the asks branch (only when something changed)
+        run: |
+          if [ ! -f asks-out/inbox.json ]; then echo "Nothing to save"; exit 0; fi
+          if git fetch -q origin asks 2>/dev/null && git show origin/asks:inbox.json > old.json 2>/dev/null && cmp -s old.json asks-out/inbox.json; then
+            echo "No new requests"; exit 0
+          fi
+          cd asks-out
+          git init -q -b asks
+          git config user.name "Blockyard Requests"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Requests $(date -u +%FT%H:%MZ)"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" asks
