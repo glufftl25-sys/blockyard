@@ -1903,6 +1903,11 @@ GAMES.story=(function(){
 /* ===== 3D: a tiny block renderer and touch pad shared by the 3D games ===== */
 function hex2rgb(h){h=String(h).replace('#','');if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];var n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
 function clampN(v,a,b){return v<a?a:(v>b?b:v);}
+/* games drawn for a phone held upright: on wide or short screens (laptops, PCs, phones held sideways) their world gets
+   wider instead, so it stays 440 to 600 units tall and the board can fill the screen. Phones held upright do not change. */
+function tallLw(w,h){return Math.max(400,Math.ceil(clampN(h,440,600)*w/h));}
+/* a wide screen: games put their buttons and messages beside the board instead of above and below it */
+function vWide(){return V.w>V.h*1.4;}
 var R3=(function(){
   var r={},items=[],cnt=0,gradKey='',grad=null;
   var C={x:0,y:0,z:0,sy:0,cy:1,sp:0,cp:1},F=400,CXs=200,CYs=260,NEAR=0.3;
@@ -6863,7 +6868,10 @@ GAMES.snake=(function(){
     sn=[{x:7,y:8},{x:6,y:8},{x:5,y:8}];dir={x:1,y:0};nd=dir;grow=0;score=0;spd=6.5;acc=0;
     food=free();gold=null;st='ready';overT=0;newBest=false;pop=[];
   }
-  g.start=function(){cell=Math.floor(V.w/GW);best=lsGet('by.snake',0);reset();};
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function size(rows){cell=Math.max(10,Math.min(Math.floor(V.w/GW),Math.floor((V.h-84)/rows)));}
+  g.start=function(){size(12);best=lsGet('by.snake',0);reset();};
+  g.resize=function(){size(GH||12);};
   g.stop=function(){sw=null;};
   function turn(d){
     if(st==='over'){if(overT>0.6)reset();return;}
@@ -6993,7 +7001,11 @@ GAMES.stack=(function(){
     st='run';acc=0;spd=1.6;score=0;lines=0;level=1;overT=0;newBest=false;nx=undefined;flashRows=[];flashT=0;
     newPiece();
   }
-  g.start=function(){cell=Math.min(Math.floor(V.w*0.78/GW),Math.floor((V.h-150)/GH));best=lsGet('by.stack',0);reset();};
+  var oy=64;
+  function size(){var w=vWide();oy=w?22:64;cell=Math.max(8,Math.min(Math.floor(V.w*0.78/GW),Math.floor((V.h-oy-(w?34:86))/GH)));}
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  g.start=function(){size();best=lsGet('by.stack',0);reset();};
+  g.resize=function(){size();};
   g.stop=function(){sw=null;};
   function move(d){if(st!=='run')return;if(!hit(px+d,py,rot)){px+=d;beep(420,0.03,'square',0.025,1.2);}}
   function spin(){if(st!=='run')return;var r=(rot+1)%4;if(!hit(px,py,r))rot=r;else if(!hit(px-1,py,r)){px--;rot=r;}else if(!hit(px+1,py,r)){px++;rot=r;}beep(600,0.04,'square',0.03,1.4);}
@@ -7025,7 +7037,7 @@ GAMES.stack=(function(){
     while(acc>=1){acc-=1;if(!hit(px,py+1,rot))py++;else lock();}
   };
   g.draw=function(){
-    var bw=GW*cell,ox=(V.w-bw)/2,oy=64;
+    var bw=GW*cell,ox=(V.w-bw)/2;
     ctx.fillStyle='#0f1526';ctx.fillRect(0,0,V.w,V.h);
     ctx.fillStyle='#151d33';ctx.fillRect(ox-4,oy-4,bw+8,GH*cell+8);
     var x,y;
@@ -7077,7 +7089,10 @@ GAMES.merge=(function(){
     grid=[];for(var y=0;y<N;y++)grid.push(new Array(N).fill(0));
     score=0;st='run';overT=0;newBest=false;won=false;msg='';msgT=0;add();add();
   }
-  g.start=function(){cell=Math.floor(Math.min(V.w-40,V.h-220)/N);best=lsGet('by.merge',0);reset();};
+  function size(){cell=Math.max(30,Math.floor(Math.min(V.w-40,V.h-(vWide()?110:220))/N));}
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  g.start=function(){size();best=lsGet('by.merge',0);reset();};
+  g.resize=function(){size();};
   g.stop=function(){sw=null;};
   function slide(dx,dy){
     var moved=false,order=[],x,y;
@@ -8354,7 +8369,8 @@ GAMES.drop=(function(){
     grid=[];for(var j=0;j<CH;j++)grid.push(new Array(CW).fill(0));
     score=0;lines=0;lv=1;st='run';t=0;fall=0;nextP=null;newBest=false;hold=0;newPiece();
   }
-  function metrics(){S=Math.min(Math.floor((V.w-20)/CW),Math.floor((V.h-150)/CH));ox=(V.w-S*CW)/2;oy=70;}
+  function metrics(){var w=vWide();oy=w?34:70;S=Math.max(8,Math.min(Math.floor((V.w-20)/CW),Math.floor((V.h-oy-(w?30:80))/CH)));ox=(V.w-S*CW)/2;}
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
   g.start=function(){best=lsGet('by.drop',0);metrics();reset();};
   g.resize=function(){metrics();};
   g.stop=function(){hold=0;};
@@ -8456,7 +8472,8 @@ GAMES.maze=(function(){
     }
     cx=0;cy=0;metrics();
   }
-  function metrics(){S=Math.min(Math.floor((V.w-24)/W2),Math.floor((V.h-130)/H2));ox=(V.w-S*W2)/2;oy=80;}
+  function metrics(){S=Math.max(6,Math.min(Math.floor((V.w-24)/W2),Math.floor((V.h-130)/H2)));ox=(V.w-S*W2)/2;oy=80;}
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
   function reset(hard){
     if(hard){level=1;score=0;newBest=false;}
     st='run';t=0;left=30+level*6;msg='';msgT=0;drag=null;build();
@@ -8520,9 +8537,9 @@ GAMES.maze=(function(){
     txt('Score '+score,10,22,16,'#fff','left');
     txt('Level '+level,V.w/2,22,16,P.sun);
     txt('Best '+best,V.w-10,22,15,P.sun,'right');
-    var fr=clampN(left/(30+level*6),0,1);
-    box(20,46,V.w-40,14,'#2a3558');
-    box(20,46,(V.w-40)*fr,14,fr<0.25?P.brick:P.grass);
+    var fr=clampN(left/(30+level*6),0,1),bw=Math.min(V.w-40,Math.max(S*W2,360)),bx=(V.w-bw)/2;
+    box(bx,46,bw,14,'#2a3558');
+    box(bx,46,bw*fr,14,fr<0.25?P.brick:P.grass);
     txt(Math.ceil(left)+'s',V.w/2,53,11,'#fff');
     if(msgT>0)txt(msg,V.w/2,V.h-30,22,P.sun);
     else txt('Swipe to move',V.w/2,V.h-20,14,'#9fb0d8');
@@ -8540,10 +8557,11 @@ GAMES.maze=(function(){
 /* ===== Color Echo: watch the pattern, then copy it ===== */
 GAMES.echo=(function(){
   var g={kind:'canvas',title:'Color Echo',lw:400};
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
   var seq,at,st,t,flash,flashT,round,best,newBest,showI,showT,lit,msg;
   var PADS=[[P.brick,330],[P.grass,392],[P.sky,440],[P.sun,523]];
   function pos(i){
-    var s=Math.min(V.w-60,V.h-220)/2,cxx=V.w/2,cyy=V.h*0.52;
+    var s=Math.max(30,Math.min(V.w-60,V.h-(vWide()?150:220))/2),cxx=V.w/2,cyy=V.h*0.52;
     return {x:cxx+(i%2?6:-s-6),y:cyy+(i>1?6:-s-6),s:s};
   }
   function reset(){seq=[];at=0;round=0;st='show';t=0;showI=-1;showT=0.6;lit=-1;flash=-1;flashT=0;newBest=false;msg='';grow();}
@@ -8610,7 +8628,12 @@ GAMES.echo=(function(){
 GAMES.slide=(function(){
   var g={kind:'canvas',title:'Slide Puzzle',lw:400};
   var N,tiles,S,ox,oy,moves,best,st,t,secs,newBest,size;
-  function metrics(){S=Math.floor(Math.min(V.w-40,V.h-200)/N);ox=(V.w-S*N)/2;oy=100;}
+  function metrics(){var w=vWide();oy=w?44:100;S=Math.max(20,Math.floor(Math.min(V.w-40,V.h-(w?84:200))/N));ox=(V.w-S*N)/2;}
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function btn(i){
+    if(vWide()){var bw=clampN(ox-36,70,150);return {x:ox-bw-24,y:V.h/2-62+i*48,w:bw,h:36};}
+    var w=V.w/3;return {x:i*w+6,y:44,w:w-12,h:28};
+  }
   function solved(){for(var i=0;i<N*N-1;i++)if(tiles[i]!==i+1)return false;return true;}
   function shuffle(){
     tiles=[];for(var i=1;i<N*N;i++)tiles.push(i);tiles.push(0);
@@ -8633,9 +8656,11 @@ GAMES.slide=(function(){
   g.stop=function(){};
   g.down=function(x,y){
     if(st==='over'){if(t>0.7)reset(N);return;}
-    if(y<76){
-      var n=x<V.w/3?3:(x<V.w*2/3?4:5);
-      N=n;lsSet('slide.n',N);best=lsGet('by.slide.'+N,0);reset(N);return;
+    var pick=-1;
+    if(vWide()){for(var q=0;q<3;q++){var r=btn(q);if(x>=r.x&&x<=r.x+r.w&&y>=r.y-6&&y<=r.y+r.h+6)pick=q;}}
+    else if(y<76)pick=x<V.w/3?0:(x<V.w*2/3?1:2);
+    if(pick>=0){
+      N=[3,4,5][pick];lsSet('slide.n',N);best=lsGet('by.slide.'+N,0);reset(N);return;
     }
     var i=Math.floor((x-ox)/S),j=Math.floor((y-oy)/S);
     if(i<0||j<0||i>=N||j>=N)return;
@@ -8653,15 +8678,16 @@ GAMES.slide=(function(){
   g.draw=function(){
     ctx.fillStyle='#16203c';ctx.fillRect(0,0,V.w,V.h);
     [3,4,5].forEach(function(n,i){
-      var w=V.w/3,on=N===n;
-      box(i*w+6,44,w-12,28,on?P.sun:'#2a3558');
-      txt(n+'x'+n,i*w+w/2,58,16,on?P.ink:'#dbe4ff');
+      var r=btn(i),on=N===n;
+      box(r.x,r.y,r.w,r.h,on?P.sun:'#2a3558');
+      txt(n+'x'+n,r.x+r.w/2,r.y+r.h/2,16,on?P.ink:'#dbe4ff');
     });
+    if(vWide()){var r0=btn(0);txt('Size',r0.x+r0.w/2,r0.y-18,13,'#9fb0d8');}
     for(var k=0;k<N*N;k++){
       var v=tiles[k];if(!v)continue;
       var x=ox+(k%N)*S,y=oy+Math.floor(k/N)*S;
       box(x+2,y+2,S-4,S-4,v===k+1?P.grass:P.sky);
-      txt(String(v),x+S/2,y+S/2,Math.min(30,S*0.44),'#fff');
+      txt(String(v),x+S/2,y+S/2,Math.min(S>140?S*0.36:30,S*0.44),'#fff');
     }
     ctx.strokeStyle=P.ink;ctx.lineWidth=4;ctx.strokeRect(ox-2,oy-2,S*N+4,S*N+4);
     txt('Moves '+moves,10,22,16,'#fff','left');
@@ -8683,7 +8709,8 @@ GAMES.slide=(function(){
 GAMES.lights=(function(){
   var g={kind:'canvas',title:'Lights Out',lw:400};
   var N=5,gr,S,ox,oy,moves,level,score,best,st,t,newBest,msg,msgT;
-  function metrics(){S=Math.floor(Math.min(V.w-40,V.h-200)/N);ox=(V.w-S*N)/2;oy=110;}
+  function metrics(){var w=vWide();oy=w?44:110;S=Math.max(20,Math.floor(Math.min(V.w-40,V.h-(w?80:200))/N));ox=(V.w-S*N)/2;}
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
   function flip(i,j){
     if(i<0||j<0||i>=N||j>=N)return;
     gr[j][i]=gr[j][i]?0:1;
@@ -8728,9 +8755,10 @@ GAMES.lights=(function(){
     txt('Score '+score,10,22,16,'#fff','left');
     txt('Level '+level+'/8',V.w/2,22,16,P.sun);
     txt('Best '+best,V.w-10,22,15,P.sun,'right');
-    txt('Moves '+moves,V.w/2,56,15,'#9fb0d8');
+    var wd=vWide();
+    txt('Moves '+moves,wd?ox/2:V.w/2,wd?V.h/2:56,wd?20:15,'#9fb0d8');
     txt('A tap flips that light and its neighbours',V.w/2,V.h-20,13,'#9fb0d8');
-    if(msgT>0)txt(msg,V.w/2,84,20,P.grass);
+    if(msgT>0)txt(msg,wd?V.w-ox/2:V.w/2,wd?V.h/2:84,20,P.grass);
     if(st==='over'){
       ctx.fillStyle='rgba(14,23,48,.86)';ctx.fillRect(0,0,V.w,V.h);
       txt('ALL CLEAR!',V.w/2,V.h*0.4,32,P.grass);
@@ -8747,7 +8775,14 @@ GAMES.tictac=(function(){
   var g={kind:'canvas',title:'Block Tac Toe',lw:400};
   var b,turn,st,t,S,ox,oy,bot,wins,losses,line,msg;
   var LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  function metrics(){S=Math.floor(Math.min(V.w-50,V.h-230)/3);ox=(V.w-S*3)/2;oy=120;}
+  function metrics(){
+    if(vWide()){S=Math.max(30,Math.floor(Math.min(V.w-50,V.h-60)/3));oy=Math.round((V.h-S*3)/2)+8;}
+    else{S=Math.max(30,Math.floor(Math.min(V.w-50,V.h-230)/3));oy=120;}
+    ox=(V.w-S*3)/2;
+  }
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  /* the vs Bot / 2 Players switch */
+  function sw(){if(vWide()){var bw=Math.min(160,ox-16);return {x:ox/2-bw/2,y:V.h/2-40,w:bw,h:30};}return {x:V.w/2-80,y:62,w:160,h:30};}
   function winner(bd){
     for(var i=0;i<8;i++){var L=LINES[i];if(bd[L[0]]&&bd[L[0]]===bd[L[1]]&&bd[L[1]]===bd[L[2]])return {p:bd[L[0]],L:L};}
     return bd.indexOf(0)<0?{p:'draw'}:null;
@@ -8799,7 +8834,8 @@ GAMES.tictac=(function(){
   }
   g.down=function(x,y){
     if(st==='over'){if(t>0.5)reset();return;}
-    if(y<100){bot=!bot;lsSet('tic.bot',bot);reset();return;}
+    var s=sw(),onSw=vWide()?(x>=s.x-8&&x<=s.x+s.w+8&&y>=s.y-10&&y<=s.y+s.h+26):y<100;
+    if(onSw){bot=!bot;lsSet('tic.bot',bot);reset();return;}
     if(bot&&turn!==1)return;
     var i=Math.floor((x-ox)/S),j=Math.floor((y-oy)/S);
     if(i<0||j<0||i>=3||j>=3)return;
@@ -8819,9 +8855,10 @@ GAMES.tictac=(function(){
   }
   g.draw=function(){
     ctx.fillStyle='#17203d';ctx.fillRect(0,0,V.w,V.h);
-    ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(V.w/2-80,62,160,30);
-    txt(bot?'vs Bot':'2 Players',V.w/2,77,16,'#fff');
-    txt('Tap here to switch',V.w/2,104,12,'#9fb0d8');
+    var wd=vWide(),s=sw(),lx=s.x+s.w/2,rx=wd?V.w-ox/2:V.w/2,ry=wd?V.h/2:oy+S*3+34;
+    ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(s.x,s.y,s.w,s.h);
+    txt(bot?'vs Bot':'2 Players',lx,s.y+15,16,'#fff');
+    txt('Tap here to switch',lx,s.y+42,12,'#9fb0d8');
     ctx.fillStyle='#223059';ctx.fillRect(ox,oy,S*3,S*3);
     ctx.strokeStyle='#5f72a8';ctx.lineWidth=5;
     for(var k=1;k<3;k++){
@@ -8837,11 +8874,11 @@ GAMES.tictac=(function(){
       ctx.lineTo(ox+(z%3)*S+S/2,oy+Math.floor(z/3)*S+S/2);
       ctx.stroke();ctx.lineCap='butt';
     }
-    txt(bot?('Wins '+wins+' · Losses '+losses):'Blue goes first',V.w/2,30,16,P.sun);
-    if(st==='run')txt(bot?(turn===1?'Your turn':'Bot thinking...'):(turn===1?'Blue turn':'Red turn'),V.w/2,oy+S*3+34,20,turn===1?P.sky:P.brick);
+    txt(bot?('Wins '+wins+' · Losses '+losses):'Blue goes first',lx,wd?s.y-34:30,16,P.sun);
+    if(st==='run')txt(bot?(turn===1?'Your turn':'Bot thinking...'):(turn===1?'Blue turn':'Red turn'),rx,ry,20,turn===1?P.sky:P.brick);
     if(st==='over'){
-      txt(msg,V.w/2,oy+S*3+34,26,msg.indexOf('YOU')===0||msg.indexOf('BLUE')===0?P.grass:(msg==='DRAW'?'#fff':P.brick));
-      if(t>0.5)txt('Tap to play again',V.w/2,oy+S*3+66,15,'#fff');
+      txt(msg,rx,ry,26,msg.indexOf('YOU')===0||msg.indexOf('BLUE')===0?P.grass:(msg==='DRAW'?'#fff':P.brick));
+      if(t>0.5)txt('Tap to play again',rx,ry+32,15,'#fff');
     }
   };
   return g;
@@ -8854,7 +8891,14 @@ GAMES.four=(function(){
   /* opened from Yard Escape: you play the Fog King (the bot); a win sends you back to the story's ending */
   var fromYard=false,yWon=false,yLost=false,leaving=false;
   function leaveToYard(){if(leaving)return;leaving=true;setTimeout(function(){if(cur===g)closeGame();},0);}
-  function metrics(){S=Math.max(14,Math.floor(Math.min((V.w-30)/CW,(V.h-220)/CH))||14);ox=(V.w-S*CW)/2;oy=116;}
+  function metrics(){
+    if(vWide()){S=Math.max(14,Math.floor(Math.min((V.w-30)/CW,(V.h-50)/CH))||14);oy=Math.round((V.h-S*CH)/2)+6;}
+    else{S=Math.max(14,Math.floor(Math.min((V.w-30)/CW,(V.h-220)/CH))||14);oy=116;}
+    ox=(V.w-S*CW)/2;
+  }
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  /* the vs Bot / 2 Players switch */
+  function sw(){if(vWide()){var bw=Math.min(160,ox-16);return {x:ox/2-bw/2,y:V.h/2-40,w:bw,h:30};}return {x:V.w/2-80,y:58,w:160,h:30};}
   function at(x,y){return (x<0||y<0||x>=CW||y>=CH)?-1:b[y*CW+x];}
   function findWin(){
     var dirs=[[1,0],[0,1],[1,1],[1,-1]];
@@ -8915,7 +8959,8 @@ GAMES.four=(function(){
   }
   g.down=function(x,y){
     if(st==='over'){if(t>0.5){if(yWon||yLost)leaveToYard();else reset();}return;}
-    if(y<100){if(fromYard)return;bot=!bot;lsSet('four.bot',bot);reset();return;}
+    var s=sw(),onSw=vWide()?(x>=s.x-8&&x<=s.x+s.w+8&&y>=s.y-10&&y<=s.y+s.h+26):y<100;
+    if(onSw){if(fromYard)return;bot=!bot;lsSet('four.bot',bot);reset();return;}
     if(bot&&turn!==1)return;
     var c=Math.floor((x-ox)/S);
     if(c<0||c>=CW)return;
@@ -8929,9 +8974,10 @@ GAMES.four=(function(){
   g.update=function(dt){t+=dt;if(dropA){dropA.t-=dt;if(dropA.t<=0)dropA=null;}if((yWon||yLost)&&st==='over'&&t>(yLost?3:2.6))leaveToYard();};
   g.draw=function(){
     ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
-    ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(V.w/2-80,58,160,30);
-    txt(fromYard?'vs the Fog King':(bot?'vs Bot':'2 Players'),V.w/2,73,16,'#fff');
-    txt(fromYard?'Win to take the last lantern':'Tap here to switch',V.w/2,100,12,'#9fb0d8');
+    var wd=vWide(),s=sw(),lx=s.x+s.w/2,rx=wd?V.w-ox/2:V.w/2,pw=wd?ox-16:V.w;
+    ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(s.x,s.y,s.w,s.h);
+    txt(fromYard?'vs the Fog King':(bot?'vs Bot':'2 Players'),lx,s.y+15,16,'#fff');
+    txt(fromYard?'Win to take the last lantern':'Tap here to switch',lx,s.y+42,Math.min(12,Math.floor(pw*1.9/28)),'#9fb0d8');
     box(ox-6,oy-6,S*CW+12,S*CH+12,'#2d4a96');
     for(var y=0;y<CH;y++)for(var x=0;x<CW;x++){
       var v=at(x,y),cxp=ox+x*S+S/2,cyp=oy+y*S+S/2,r=Math.max(2,(S||14)*0.38);
@@ -8947,13 +8993,15 @@ GAMES.four=(function(){
       ctx.lineTo(ox+line[1][0]*S+S/2,oy+line[1][1]*S+S/2);
       ctx.stroke();ctx.lineCap='butt';
     }
-    txt(fromYard?'Yard Escape: final challenge':(bot?('Wins vs bot: '+wins):'Yellow goes first'),V.w/2,28,16,P.sun);
-    if(st==='run')txt(bot?(turn===1?'Tap a column':(fromYard?'The Fog King is thinking...':'Bot thinking...')):(turn===1?'Yellow turn':'Red turn'),V.w/2,oy+S*CH+32,19,turn===1?P.sun:P.brick);
+    var tl=fromYard?'Yard Escape: final challenge':(bot?('Wins vs bot: '+wins):'Yellow goes first');
+    txt(tl,lx,wd?s.y-34:28,Math.min(16,Math.floor(pw*1.9/tl.length)),P.sun);
+    if(st==='run'){var tt=bot?(turn===1?'Tap a column':(fromYard?'The Fog King is thinking...':'Bot thinking...')):(turn===1?'Yellow turn':'Red turn');txt(tt,rx,wd?V.h/2:oy+S*CH+32,Math.min(19,Math.floor(pw*1.9/tt.length)),turn===1?P.sun:P.brick);}
     else{
-      var my=oy+S*CH+32;
-      if(my+40>V.h){my=V.h/2-14;ctx.fillStyle='rgba(16,26,51,0.9)';ctx.fillRect(0,my-24,V.w,72);}
-      txt(msg,V.w/2,my,24,msg.indexOf('YOU')===0||msg.indexOf('YELLOW')===0?P.grass:(msg==='FULL BOARD'?'#fff':P.brick));
-      if(t>0.5||yLost)txt(yWon?'Back to Yard Escape...':(yLost?'The story starts over...':(fromYard?'Tap to try again':'Tap to play again')),V.w/2,my+30,15,'#fff');
+      var my=wd?V.h/2:oy+S*CH+32;
+      if(!wd&&my+40>V.h){my=V.h/2-14;ctx.fillStyle='rgba(16,26,51,0.9)';ctx.fillRect(0,my-24,V.w,72);}
+      txt(msg,rx,my,Math.min(24,Math.floor(pw*1.9/msg.length)),msg.indexOf('YOU')===0||msg.indexOf('YELLOW')===0?P.grass:(msg==='FULL BOARD'?'#fff':P.brick));
+      var sub=yWon?'Back to Yard Escape...':(yLost?'The story starts over...':(fromYard?'Tap to try again':'Tap to play again'));
+      if(t>0.5||yLost)txt(sub,rx,my+30,Math.min(15,Math.floor(pw*1.9/sub.length)),'#fff');
     }
   };
   return g;
@@ -9185,7 +9233,15 @@ GAMES.rocks=(function(){
 GAMES.sweep=(function(){
   var g={kind:'canvas',title:'Brick Sweeper',lw:400};
   var CW,CH,MINES,cell,S,ox,oy,st,t,first,secs,left,best,newBest,flagMode,won;
-  function metrics(){S=Math.floor(Math.min((V.w-20)/CW,(V.h-190)/CH));ox=(V.w-S*CW)/2;oy=116;}
+  function metrics(){var w=vWide();oy=w?40:116;S=Math.max(10,Math.floor(Math.min((V.w-20)/CW,(V.h-(w?52:190))/CH)));ox=(V.w-S*CW)/2;}
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function rects(){
+    if(vWide()){var bw=clampN(ox-36,70,150),x=ox-bw-24,y0=V.h/2-96;
+      return {sz:[0,1,2].map(function(i){return {x:x,y:y0+i*44,w:bw,h:34};}),fl:{x:x,y:y0+150,w:bw,h:42}};}
+    var w=V.w/3;
+    return {sz:[0,1,2].map(function(i){return {x:i*w+6,y:34,w:w-12,h:26};}),fl:{x:V.w/2-80,y:72,w:160,h:28}};
+  }
+  function inR(r,x,y){return x>=r.x-4&&x<=r.x+r.w+4&&y>=r.y-4&&y<=r.y+r.h+4;}
   function at(x,y){return (x<0||y<0||x>=CW||y>=CH)?null:cell[y*CW+x];}
   function around(x,y,fn){for(var j=-1;j<2;j++)for(var i=-1;i<2;i++)if(i||j){var c=at(x+i,y+j);if(c)fn(c,x+i,y+j);}}
   function build(sx,sy){
@@ -9217,11 +9273,14 @@ GAMES.sweep=(function(){
   function flags(){var n=0;cell.forEach(function(c){if(c.f)n++;});return n;}
   g.down=function(x,y){
     if(st!=='run'){if(t>0.7)reset(CW);return;}
-    if(y<64){
-      var n=x<V.w/3?6:(x<V.w*2/3?8:10);
-      CW=n;lsSet('sweep.w',CW);best=lsGet('by.sweep.'+CW,0);reset(CW);return;
+    var Rc=rects(),pick=-1,flg=false;
+    if(vWide()){for(var q=0;q<3;q++)if(inR(Rc.sz[q],x,y))pick=q;flg=inR(Rc.fl,x,y);}
+    else if(y<64)pick=x<V.w/3?0:(x<V.w*2/3?1:2);
+    else if(y<104)flg=true;
+    if(pick>=0){
+      CW=[6,8,10][pick];lsSet('sweep.w',CW);best=lsGet('by.sweep.'+CW,0);reset(CW);return;
     }
-    if(y<104){flagMode=!flagMode;beep(flagMode?620:420,0.06,'square',0.035,1.2);return;}
+    if(flg){flagMode=!flagMode;beep(flagMode?620:420,0.06,'square',0.035,1.2);return;}
     var i=Math.floor((x-ox)/S),j=Math.floor((y-oy)/S),c=at(i,j);
     if(!c)return;
     if(first){build(i,j);first=false;}
@@ -9242,13 +9301,15 @@ GAMES.sweep=(function(){
   g.update=function(dt){t+=dt;if(st==='run'&&!first)secs+=dt;};
   g.draw=function(){
     ctx.fillStyle='#17213d';ctx.fillRect(0,0,V.w,V.h);
+    var Rc=rects();
     [6,8,10].forEach(function(n,i){
-      var w=V.w/3,on=CW===n;
-      box(i*w+6,34,w-12,26,on?P.sun:'#2a3558');
-      txt(n+' wide',i*w+w/2,47,14,on?P.ink:'#dbe4ff');
+      var r=Rc.sz[i],on=CW===n;
+      box(r.x,r.y,r.w,r.h,on?P.sun:'#2a3558');
+      txt(n+' wide',r.x+r.w/2,r.y+r.h/2,14,on?P.ink:'#dbe4ff');
     });
-    box(V.w/2-80,72,160,28,flagMode?P.brick:'#2a3558');
-    txt(flagMode?'FLAG mode':'DIG mode',V.w/2,86,16,flagMode?'#fff':'#dbe4ff');
+    box(Rc.fl.x,Rc.fl.y,Rc.fl.w,Rc.fl.h,flagMode?P.brick:'#2a3558');
+    txt(flagMode?'FLAG mode':'DIG mode',Rc.fl.x+Rc.fl.w/2,Rc.fl.y+Rc.fl.h/2,16,flagMode?'#fff':'#dbe4ff');
+    if(vWide())txt('Tap to switch',Rc.fl.x+Rc.fl.w/2,Rc.fl.y+Rc.fl.h+16,12,'#9fb0d8');
     for(var j=0;j<CH;j++)for(var i=0;i<CW;i++){
       var c=at(i,j),x=ox+i*S,y=oy+j*S;
       if(!c.o){
@@ -9279,11 +9340,13 @@ GAMES.sweep=(function(){
 GAMES.bubble=(function(){
   var g={kind:'canvas',title:'Bubble Pop',lw:400};
   var COLS=[P.brick,P.sky,P.grass,P.sun,P.lilac];
-  var CW=8,R,gridRows,grid,shooter,ang,fly,score,best,st,t,newBest,shotsLeft,msg,msgT,drop;
-  function metrics(){R=Math.floor((V.w-20)/CW/2);}
+  var CW=8,R,FX=0,gridRows,grid,shooter,ang,fly,score,best,st,t,newBest,shotsLeft,msg,msgT,drop;
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function metrics(){R=Math.max(8,Math.min(Math.floor((V.w-20)/CW/2),Math.floor((V.h-166)/(13*1.74))));FX=Math.max(0,(V.w-(CW*R*2+20))/2);}
+  function fieldW(){return Math.min(V.w,CW*R*2+20);}
   function cellPos(r,c){
     var off=(r%2)?R:0;
-    return {x:10+R+off+c*R*2,y:70+R+r*R*1.74};
+    return {x:FX+10+R+off+c*R*2,y:70+R+r*R*1.74};
   }
   function addRow(){
     grid.unshift([]);
@@ -9371,8 +9434,8 @@ GAMES.bubble=(function(){
     var steps=4,i;
     for(i=0;i<steps;i++){
       fly.x+=fly.vx*dt/steps;fly.y+=fly.vy*dt/steps;
-      if(fly.x<10+R){fly.x=10+R;fly.vx=-fly.vx;beep(420,0.03,'square',0.02,1.1);}
-      if(fly.x>V.w-10-R){fly.x=V.w-10-R;fly.vx=-fly.vx;beep(420,0.03,'square',0.02,1.1);}
+      if(fly.x<FX+10+R){fly.x=FX+10+R;fly.vx=-fly.vx;beep(420,0.03,'square',0.02,1.1);}
+      if(fly.x>FX+fieldW()-10-R){fly.x=FX+fieldW()-10-R;fly.vx=-fly.vx;beep(420,0.03,'square',0.02,1.1);}
       if(fly.y<70+R){settle();return;}
       var hit2=false;
       for(var r=0;r<grid.length&&!hit2;r++)for(var c=0;c<grid[r].length;c++){
@@ -9390,13 +9453,13 @@ GAMES.bubble=(function(){
   }
   g.draw=function(){
     ctx.fillStyle='#161f3c';ctx.fillRect(0,0,V.w,V.h);
-    ctx.fillStyle='#101733';ctx.fillRect(0,64,V.w,V.h-110);
+    ctx.fillStyle='#101733';ctx.fillRect(FX,64,fieldW(),V.h-110);
     for(var r=0;r<grid.length;r++)for(var c=0;c<grid[r].length;c++){
       if(!grid[r][c])continue;
       var p=cellPos(r,c);ball2(p.x,p.y,grid[r][c]);
     }
     ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=3;ctx.setLineDash([8,8]);
-    ctx.beginPath();ctx.moveTo(0,V.h-96);ctx.lineTo(V.w,V.h-96);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(FX,V.h-96);ctx.lineTo(FX+fieldW(),V.h-96);ctx.stroke();ctx.setLineDash([]);
     if(st==='run'&&!fly){
       ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=3;ctx.setLineDash([6,8]);
       ctx.beginPath();ctx.moveTo(V.w/2,V.h-46);ctx.lineTo(V.w/2+Math.cos(ang)*150,V.h-46+Math.sin(ang)*150);ctx.stroke();ctx.setLineDash([]);
@@ -13110,11 +13173,13 @@ function tbOne(id,ms,shots){
         if(!storyEl.hidden&&Math.random()<0.3){var bs=storyEl.querySelectorAll('button');if(bs.length){var sb=bs[Math.random()*bs.length|0];if(TB.show)tbTapEl(sb);sb.click();}}
       }catch(e){onErr(e);}
     },TB.show?320:160);
-    setTimeout(function(){mid=r.draws;},ms/2);
+    var midBlank=false;
+    setTimeout(function(){mid=r.draws;if(g.kind==='canvas')midBlank=tbBlank();},ms/2);
     setTimeout(function(){
       clearInterval(iv);up();
       var secs=Math.max(0.5,(performance.now()-t0)/1000),canvas=g.kind==='canvas';
-      if(canvas){r.fps=Math.round(r.draws/secs);r.blank=tbBlank();r.stalled=r.draws===mid;}
+      /* blank only counts when the screen was blank halfway through too, so a game-over screen does not count */
+      if(canvas){r.fps=Math.round(r.draws/secs);r.blank=midBlank&&tbBlank();r.stalled=r.draws===mid;}
       if(shots&&canvas){try{r.shot=cv.toDataURL('image/jpeg',0.5);}catch(e){}}
       try{if(PM.open)pmClose(true);}catch(e){}
       try{closeGame();}catch(e){onErr(e);}
@@ -14655,7 +14720,7 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
 /* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in
