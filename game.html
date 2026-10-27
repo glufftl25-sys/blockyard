@@ -1178,8 +1178,8 @@ function openGame(id){
   cancelAnimationFrame(raf);
   perfShow();
   if(isCv){gfxAvg=0;gfxN=0;fit();g.start();lastT=performance.now();raf=requestAnimationFrame(loop);}
+  else g.start(storyEl);
   if(typeof mkUiSync==='function'&&id!=='maker')mkUiHide();
-  else{g.start(storyEl);}
   if(typeof bioSoon==='function')bioSoon();
   if(typeof gchGameStart==='function')gchGameStart();
 }
@@ -1428,6 +1428,24 @@ GAMES.runner=(function(){
       if(dn){if(st==='run'&&duckPtr===null){ducking=true;duckPtr='kd';}}
       else if(duckPtr==='kd'){ducking=false;duckPtr=null;}
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.only([]);if(overT>0.5&&!m.o){m.o=1;tb.tap(V.w*0.7,V.h*0.5);}return [score(),'points'];}
+    m.o=0;
+    if(st==='ready'){tb.k('Space');return [0,'points'];}
+    var ah=null;obs.forEach(function(o){if(o.x+o.w>PX-4&&(!ah||o.x<ah.x))ah=o;});
+    var on=[];
+    if(ah){
+      var tt=(ah.x-(PX+PW))/(speed+(ah.fly?70:0));
+      if(ah.fly&&ah.b>=58){}
+      else if(ah.fly&&ah.b>=20){if(tt<0.3&&py===0)on.push('ArrowDown');}
+      else if(py===0&&tt<0.13&&tt>-0.25)on.push('Space');
+      else if(py>0&&vy>0)on.push('Space');
+    }
+    tb.only(on);
+    return [score(),'points'];
   };
   return g;
 })();
@@ -1844,6 +1862,21 @@ GAMES.arena=(function(){
   };
   g.up=function(x,y,id){if(stick&&stick.id===id)stick=null;};
   g.key=function(code,dn){keys[code]=dn;if(dn)tap();};
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st!=='run'){tb.only([]);m.c=(m.c||0)+dt;if(m.c>0.8&&st!=='won'){m.c=0;tb.tap(V.w/2,V.h*0.5);}return [wave,'waves'];}
+    var av=[];
+    foes.forEach(function(f){if(!f.dead)av.push([f.x,f.y,f.type==='boss'?150:95]);});
+    ebul.forEach(function(b){av.push([b.x+b.vx*0.15,b.y+b.vy*0.15,45]);});
+    var tx=V.w/2,ty=V.h*0.6,gm=null;
+    gems.forEach(function(q){if(!gm||Math.hypot(q.x-pl.x,q.y-pl.y)<Math.hypot(gm.x-pl.x,gm.y-pl.y))gm=q;});
+    if(gm&&pl.hp<5){tx=gm.x;ty=gm.y;}
+    var d=tbSteer(pl.x,pl.y,tx,ty,av);
+    if(pl.x<40)d[0]+=1;if(pl.x>V.w-40)d[0]-=1;if(pl.y<90)d[1]+=1;if(pl.y>V.h-40)d[1]-=1;
+    tbWalk2(tb,d[0],d[1]);
+    return [wave,'waves'];
+  };
   return g;
 })();
 /* ===== Lantern Quest (story adventure) ===== */
@@ -1941,6 +1974,13 @@ GAMES.story=(function(){
 
   g.start=function(el){root=el;fresh();root.onclick=onClick;show('start');};
   g.stop=function(){if(root){root.onclick=null;root.innerHTML='';}};
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;m.c=(m.c||0)+dt;if(m.c<0.6)return [m.e||0,'endings'];m.c=0;
+    if(root&&root.querySelector('[data-act="again"]')){m.e=(m.e||0)+1;tb.btn(function(b){return b.getAttribute('data-act')==='again';});}
+    else if(!tb.btn(function(b){return b.hasAttribute('data-to');}))tb.btn(function(b){return b.getAttribute('data-act')!=='back';});
+    return [m.e||0,'endings'];
+  };
   return g;
 })();
 
@@ -2580,6 +2620,37 @@ GAMES.obby=(function(){
     if(st!=='win')PAD.draw();
     CAM3.draw(st==='ready');
   }
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='win'){tb.only([]);tb.up();if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [S.sec,'sections'];}
+    m.o=0;
+    if(m.dd!==deaths){m.dd=deaths;m.on=S.cp;}
+    if(S.g)m.on=S.g.idx;
+    var ci=Math.max(m.on||0,S.cp),cp=L[ci],tg=L[Math.min(L.length-1,ci+1)];
+    var tx=tg.cx,tz=tg.cz,top=tg.cy+tg.fo;
+    if(tg.k==='m')tx=tg.x0+Math.sin((t+0.55)*tg.sp+tg.ph)*tg.amp;
+    var dx=tx-S.x,dz=tz-S.z,dist=Math.hypot(dx,dz)||1,jump=false;
+    if(S.g){
+      if(m.sp){m.sp=false;}
+      else{
+        /* a moving platform: wait near the edge until it lines up */
+        if(tg.k==='m'&&Math.abs(tx-S.x)>tg.w/2-0.7&&S.g===cp){var ez=cp.cz+cp.d/2-1.3;dx=0;dz=ez-S.z;if(Math.abs(dz)<0.3)dz=0;}
+        else{
+          var ax=S.x+dx/dist*0.6,az=S.z+dz/dist*0.6;
+          if(Math.abs(ax-S.g.cx)>S.g.w/2||Math.abs(az-S.g.cz)>S.g.d/2||(top>S.y+0.3&&dist<3.4))jump=true;
+        }
+      }
+    }else{
+      var tl=(S.vy+Math.sqrt(Math.max(0,S.vy*S.vy+2*OB.G*(S.y-top))))/OB.G;
+      var lx=S.x+S.vx*tl,lz=S.z+S.vz*tl,over=((lz-tz)*dz+(lx-tx)*dx)>0;
+      if(m.sp&&!over)jump=true;
+      if(over){dx=-S.vx*0.3;dz=-S.vz*0.3;}
+    }
+    if(jump)m.sp=true;else if(!S.g)m.sp=false;
+    tbStick(tb,dx,dz,jump?['Space']:[]);
+    return [S.sec,'sections'];
+  };
   return g;
 })();
 
@@ -2788,6 +2859,25 @@ GAMES.dash=(function(){
     }
     CAM3.draw(false);
   }
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(overT>0.7&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.65);}return [score_(),'points'];}
+    m.o=0;
+    if(st==='ready'){tb.k('ArrowUp');return [0,'points'];}
+    var nr=null;rows.forEach(function(r){var d=r.z-z;if(d>-0.6&&(!nr||r.z<nr.z))nr=r;});
+    if(!nr)return [score_(),'points'];
+    var d=nr.z-z,inv=CAM3.mode===1,bestL=lane,bs=-99,i;
+    m.cd=(m.cd||0)-dt;
+    for(i=0;i<3;i++){var c=nr.cells[i],s=c==='none'?3:(c==='tall'?0:2);s-=Math.abs(i-lane)*0.6;if(s>bs){bs=s;bestL=i;}}
+    if(bestL!==lane){if(m.cd<=0&&d<speed*1.3){tb.k((bestL<lane)!==inv?'ArrowLeft':'ArrowRight');m.cd=0.16;}}
+    else if(Math.abs(px-laneX(lane))<0.4){
+      var cell=nr.cells[lane];
+      if(cell==='low'&&py===0&&d<speed*0.16+0.6)tb.k('ArrowUp');
+      if(cell==='bar'&&slideT<=0&&d<speed*0.16+0.8)tb.k('ArrowDown');
+    }
+    return [score_(),'points'];
+  };
   return g;
 })();
 
@@ -2960,6 +3050,18 @@ GAMES.stars=(function(){
     if(st!=='over')PAD.draw();
     CAM3.draw(st==='ready');
   }
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.only([]);if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [got,'stars'];}
+    m.o=0;
+    if(!star){tb.only([]);return [got,'stars'];}
+    var d=tbSteer(x,z,star.x,star.z,foes.map(function(f){return [f.x,f.z,3.2];}));
+    d=tbAround(x,z,d,PIL.map(function(p){return [p[0],p[1],PS,PS];}));
+    var near=foes.some(function(f){return Math.hypot(f.x-x,f.z-z)<1.7;});
+    tbWalk(tb,d[0],d[1],tbJump(tb,dt,near&&y===0)?['Space']:[]);
+    return [got,'stars'];
+  };
   return g;
 })();
 
@@ -3224,6 +3326,18 @@ GAMES.gems=(function(){
     if(st!=='over')PAD.draw();
     CAM3.draw(st==='ready');
   }
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.only([]);if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [got,'gems'];}
+    m.o=0;
+    var tg=null;gems.forEach(function(q){var d=Math.hypot(q.x-x,q.z-z)*(q.gold?0.6:1);if(!tg||d<tg.d)tg={x:q.x,z:q.z,d:d};});
+    if(!tg){tb.only([]);return [got,'gems'];}
+    var d=tbSteer(x,z,tg.x,tg.z,bots.map(function(b){var p=botPos(b);return [p.x,p.z,2.6];})),l=Math.hypot(d[0],d[1])||1;
+    var ahead=blocked(x+d[0]/l*1.0,z+d[1]/l*1.0,0.4);
+    tbWalk(tb,d[0],d[1],tbJump(tb,dt,ahead&&y===0,0.4)?['Space']:[]);
+    return [got,'gems'];
+  };
   return g;
 })();
 
@@ -3389,6 +3503,17 @@ GAMES.hill=(function(){
     PAD.draw();
     CAM3.draw(false);
   }
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var d=tbSteer(S.x,S.z,0,0,[]),j=false;
+    if(!onHill(S.x,S.z,S.y)){var l=Math.hypot(d[0],d[1])||1;if(S.y<HH-0.05&&inFoot(S.x+d[0]/l*0.9,S.z+d[1]/l*0.9,BR))j=true;}
+    else{
+      var bb=null;if(botsOn())bots.forEach(function(b){if(onHill(b.x,b.z,b.y))bb=b;});
+      if(bb)d=[bb.x-S.x,bb.z-S.z];else if(Math.hypot(S.x,S.z)<0.7)d=[0,0];
+    }
+    tbWalk(tb,d[0],d[1],tbJump(tb,dt,j)?['Space']:[]);
+    return [Math.floor(pts),'points'];
+  };
   return g;
 })();
 
@@ -3512,6 +3637,25 @@ GAMES.hop=(function(){
       txt(newBest?'New best!':'Best '+best,V.w/2,V.h*0.28+94,16,P.sun);
       if(overT>0.6)txt('Tap to play again',V.w/2,V.h*0.28+120,15,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.only([]);if(overT>0.7&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'height'];}
+    m.o=0;
+    if(st==='ready'){tb.k('ArrowUp');return [0,'height'];}
+    var apex=pvy<0?py-pvy*pvy/(2*GRAV):py,tg=null;
+    plats.forEach(function(p){
+      if(p.gone||p.k==='b'||p.y<apex+6||p.y>py+V.h)return;
+      if(pvy>0&&p.y<py-2)return;
+      var w=p.k==='base'?V.w:PW,cx=p.x+w/2,tt=(-pvy+Math.sqrt(Math.max(0,pvy*pvy+2*GRAV*(p.y-py))))/GRAV;
+      if(p.k!=='base'&&Math.abs(cx-px)>300*tt+w/2+10)return;
+      if(!tg||p.y<tg.p.y)tg={p:p,cx:cx+(p.vx||0)*Math.min(0.4,tt)};
+    });
+    var on=[];
+    if(tg&&tg.p.k!=='base'){if(tg.cx>px+8)on.push('ArrowRight');else if(tg.cx<px-8)on.push('ArrowLeft');}
+    tb.only(on);
+    return [score,'height'];
   };
   return g;
 })();
@@ -3961,6 +4105,25 @@ GAMES.paint=(function(){
     else if(inMatch())drawMatch();
     if(stick&&(st==='lobby'||st==='play')){ctx.globalAlpha=0.5;ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(stick.ox,stick.oy,40,0,6.283);ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(stick.ox+stick.dx*40,stick.oy+stick.dy*40,16,0,6.283);ctx.fill();ctx.globalAlpha=1;}
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='lobby'){
+      var bp=null;LPADS.forEach(function(p){if(!bp||Math.hypot(p[0]-lx,p[1]-ly)<Math.hypot(bp[0]-lx,bp[1]-ly))bp=p;});
+      tbWalk2(tb,bp[0]-lx,bp[1]-ly);return [m.top||0,'cells'];
+    }
+    if(st==='menu'){tb.only([]);m.c=(m.c||0)+dt;if(m.c>0.4){m.c=0;if(np!==1)tb.k('Digit1');else tb.k('Enter');}return [m.top||0,'cells'];}
+    if(st!=='play'){tb.only([]);return [m.top||0,'cells'];}
+    var mk=myKey();
+    if(m.tg===undefined||m.tg<0||own[m.tg]===mk||Math.random()<0.02){
+      var bc=-1,bd=1e9;
+      for(var c=0;c<own.length;c++){if(own[c]===mk)continue;var d=Math.hypot(c%COLS+0.5-x,Math.floor(c/COLS)+0.5-yy)-(own[c]?0.5:0);if(d<bd){bd=d;bc=c;}}
+      m.tg=bc;
+    }
+    if(m.tg>=0)tbWalk2(tb,m.tg%COLS+0.5-x,Math.floor(m.tg/COLS)+0.5-yy);else tb.only([]);
+    var n=0;own.forEach(function(k){if(k===mk)n++;});m.top=Math.max(m.top||0,n);
+    return [n,'cells'];
+  };
   return g;
 })();
 
@@ -4149,6 +4312,15 @@ GAMES.party=(function(){
     PAD.draw();
     CAM3.draw(false);
   }
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var S2=curH(),tg=null;
+    if(S2&&S2.ph==='play')S2.ss.forEach(function(s){if(gone[s[0]])return;var d=Math.hypot(s[1]-x,s[2]-z);if(!tg||d<tg.d)tg={x:s[1],z:s[2],d:d};});
+    var d=tg?tbSteer(x,z,tg.x,tg.z,[]):[0,0];
+    d=tbAround(x,z,d,PIL.map(function(p){return [p[0],p[1],PS,PS];}));
+    tbWalk(tb,d[0],d[1]);
+    return [(S2&&S2.sc[me()])||0,'stars'];
+  };
   return g;
 })();
 
@@ -4586,6 +4758,25 @@ GAMES.yard=(function(){
     cam.x=x*0.6;cam.y=6.2;cam.z=z-8.8;
   };
   g.stop=function(){PAD.reset();netLeave();};
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    function hit(f){for(var i=rects.length-1;i>=0;i--){var r=rects[i];if(r.a&&f(r.a)){tb.tap(r.x+r.w/2,r.y+r.h/2);return true;}}return false;}
+    if(st==='lobby'){
+      var bp=null;PADS.forEach(function(p){if(!bp||Math.hypot(p[0]-x,p[1]-z)<Math.hypot(bp[0]-x,bp[1]-z))bp=p;});
+      var d=tbAround(x,z,tbSteer(x,z,bp[0],bp[1],[]),SOLID.map(function(b){return [b[0],b[1],b[2]/2,b[3]/2];}));
+      tbWalk(tb,d[0],d[1]);return [m.n||0,'story steps'];
+    }
+    tb.only([]);
+    m.c=(m.c||0)+dt;if(m.c<0.7)return [m.n||0,'story steps'];m.c=0;
+    if(st==='menu')hit(function(a){return a.a==='pick'&&a.n===1;});
+    else if(st==='story'){
+      var nd=NODES[node];
+      if(nd&&nd.c)for(var k=0;k<nd.c.length;k++){var c=nd.c[k];if(c[2]&&c[2].game)continue;var kk=k;if(hit(function(a){return a.a==='choice'&&a.i===kk;}))m.n=(m.n||0)+1;break;}
+    }
+    else if(st==='win'&&winT>0.7)tb.tap(V.w/2,V.h/2);
+    return [m.n||0,'story steps'];
+  };
   return g;
 })();
 
@@ -6295,6 +6486,107 @@ GAMES.duel=(function(){
     if(gpFocusOn()){var fr=rects[gpF];ctx.strokeStyle='#ffd23f';ctx.lineWidth=4;rr(fr.x-5,fr.y-5,fr.w+10,fr.h+10,13);ctx.stroke();}
     if(PH==='lobby'&&msgT>0&&msg){ctx.font='700 15px '+FONT;var mw=ctx.measureText(msg).width+28;pnl(V.w/2-mw/2,V.h*0.32,mw,32,0.85);plain(msg,V.w/2,V.h*0.32+16,15,'#fff');}
   };
+  /* ---------- test bots: play a practice duel for real, and the extra checks ---------- */
+  /* a button on screen, found by what it does, pressed with a real tap */
+  function tbR(a,f){for(var i=rects.length-1;i>=0;i--){var r=rects[i];if(r.a&&r.a.a===a&&(!f||f(r.a)))return r;}return null;}
+  function tbC(a,f){var r=tbR(a,f);if(!r)return false;var cx=r.x+r.w/2,cy=r.y+r.h/2;tbPt('pointerdown',cx,cy,5);tbPt('pointerup',cx,cy,5);return true;}
+  function tbF(){return tbWait(TB.show?320:110);}
+  function tbN(n){return function(a){return a.n===n;};}
+  /* in a match: face the nearest enemy (with a little wobble, like a person), strafe, shoot, reload */
+  function tbFight(B,dt){
+    var m=B.m,tg=null,bd=1e9;
+    E.forEach(function(e){if(e.team!==myTeam&&!e.dead&&!e.gone){var d=Math.hypot(e.x-x,e.z-z);if(d<bd){bd=d;tg=e;}}});
+    if(!tg||dead||rs!=='fight'){B.only([]);return;}
+    m.e=(m.e||0)*0.85+(Math.random()-0.5)*0.05;
+    yaw=Math.atan2(tg.x-x,tg.z-z)+m.e;pitch=-Math.atan2((tg.y+1.2)-(y+eyeH()),bd);
+    m.s=(m.s||0)-dt;if(m.s<=0){m.s=0.4+Math.random()*0.8;m.d=Math.random()<0.5?'KeyA':'KeyD';}
+    var on=['KeyF',m.d];if(bd>16)on.push('KeyW');else if(bd<4)on.push('KeyS');
+    B.only(on);
+    var w=RVW[cur()];if(w.mag&&ammo[ws]<=0&&relT<=0)B.k('KeyR');
+    if(Math.random()<dt*0.4)B.k('Space');
+  }
+  g.tbp=function(B,dt){
+    var m=B.m;
+    if(PH==='lobby'||PH==='secret'){
+      B.only([]);m.c=(m.c||0)+dt;if(m.c<0.35)return [0,'rounds won'];m.c=0;
+      if(PH==='secret')tbC('secup');
+      else if(!ov)tbC('prac');
+      else if(ov==='practice'){if(RV.diff!==1)tbC('pdiff',tbN(1));else if(pmode!==1)tbC('pmode',tbN(1));else tbC('pstart');}
+      else tbC('close');
+      return [0,'rounds won'];
+    }
+    if(PH==='match')tbFight(B,dt);else B.only([]);
+    return [sc[myTeam]||0,'rounds won'];
+  };
+  function tbBossOk(kind,hp){return PH==='match'&&rs==='fight'&&bots.length>0&&bots[0].boss===kind&&botHp(bots[0])===hp;}
+  function tbTalk(){
+    return tbUntil(function(){if(PH!=='secret')return false;if(SEC.t>1.15)tbKd('Space',true),tbKd('Space',false);return SEC.line===SECL.length-1&&SEC.ch>=SECL[SEC.line].length&&!!tbR('secgo');},9000);
+  }
+  g.tbm=function(name,cmd){
+    if(name==='mp')return tbMp(cmd);
+    W.coins=Math.max(W.coins|0,99999);
+    if(name==='menus')return tbSteps([
+      ['the lobby did not show',function(){toLobby();return tbF().then(function(){return PH==='lobby'&&!!tbR('play');});}],
+      ['Play did not open',function(){return tbSeq([function(){return tbC('play');},tbF,function(){return ov==='play'&&!!tbR('mode');},function(){return tbC('close');},tbF,function(){return !ov;}]);}],
+      ['Practice did not work',function(){
+        var s=[function(){return tbC('prac');},tbF,function(){return ov==='practice';}];
+        [0,1,2,3,4].forEach(function(n){s.push(function(){return tbC('pdiff',tbN(n));},tbF,function(){return RV.diff===n;});});
+        s.push(function(){return tbC('pmode',tbN(2));},tbF,function(){return pmode===2;},function(){return tbC('pmode',tbN(1));},tbF,function(){return tbC('close');},tbF,function(){return !ov;});
+        return tbSeq(s);
+      }],
+      ['Weapons did not work',function(){
+        var s=[function(){return tbC('weap');},tbF,function(){return ov==='weap';}];
+        [0,1,2,3].forEach(function(n){s.push(function(){return tbC('wcat',tbN(n));},tbF,function(){return wcat===n;});});
+        s.push(function(){return tbC('wcat',tbN(0));},tbF,
+          function(){if(tbR('wpg'))tbC('wpg',function(a){return a.d>0;});return true;},tbF,
+          function(){return tbC('wpick',function(a){return !rvOwned(a.id);})||tbC('wpick');},tbF,
+          function(){if(rvOwned(wsel))return true;tbC('buyw');return tbF().then(function(){return rvOwned(wsel)&&RV.load[RVW[wsel].s]===wsel;});},
+          function(){return tbC('wpick',function(a){return rvOwned(a.id)&&RV.load.indexOf(a.id)<0;})||true;},tbF,
+          function(){if(RV.load.indexOf(wsel)>=0)return true;tbC('equip');return tbF().then(function(){return RV.load.indexOf(wsel)>=0;});},
+          function(){return tbC('close');},tbF,function(){return !ov;});
+        return tbSeq(s);
+      }],
+      ['Settings or the button editor did not work',function(){
+        var s0=0,f0=null;
+        return tbSeq([function(){return tbC('set');},tbF,function(){s0=RV.sens;return ov==='set';},
+          function(){return tbC('sens',function(a){return a.d>0;});},tbF,function(){return RV.sens>s0||s0>=3;},function(){return tbC('sens',function(a){return a.d<0;});},tbF,
+          function(){return tbC('lay');},tbF,function(){return ov==='lay';},
+          function(){var b=tbtns(true).filter(function(q){return q[0]==='fire';})[0];if(!b)return false;f0=[b[1],b[2]];tbPt('pointerdown',b[1],b[2],6);tbPt('pointermove',b[1]-70,b[2]-50,6);tbPt('pointerup',b[1]-70,b[2]-50,6);return true;},tbF,
+          function(){var b=tbtns(true).filter(function(q){return q[0]==='fire';})[0];return !!b&&Math.hypot(b[1]-f0[0],b[2]-f0[1])>30;},
+          function(){return tbC('lsz',function(a){return a.d>0;});},tbF,function(){return (RV.lay[LAY.sel].s||1)>1;},
+          function(){return tbC('lhide');},tbF,function(){return !!RV.lay[LAY.sel].h;},function(){return tbC('lhide');},tbF,function(){return !RV.lay[LAY.sel].h;},
+          function(){return tbC('lreset');},tbF,function(){return !Object.keys(RV.lay).length;},
+          function(){return tbC('ldone');},tbF,function(){return ov==='set';},function(){return tbC('close');},tbF,function(){return !ov;}]);
+      }]
+    ]);
+    if(name==='x')return tbSteps([
+      ['step 1 did not work',function(){toLobby();return tbF().then(function(){return PH==='lobby'&&!PK.open;});}],
+      ['step 2 did not work',function(){
+        return tbSeq(PUMPS.map(function(p,k){return function(){lx=p[0]+0.5;lz=p[1]+0.3;ly=0;return tbWait(110).then(function(){return !!PK.hit[k]&&(PK.open===(k===PUMPS.length-1));});};}));
+      }],
+      ['step 3 did not work',function(){lx=RVL.pads[1].x;lz=RVL.pads[1].z;return tbUntil(function(){return PH==='secret';},4000);}],
+      ['step 4 did not work',function(){return tbTalk().then(function(ok){return ok&&!!tbR('secgo',tbN(5))&&!!tbR('secgo',tbN(6));});}],
+      ['step 5 did not work',function(){tbC('secgo',tbN(5));return tbUntil(function(){return tbBossOk('coley',150);},12000);}],
+      ['step 6 did not work',function(){toLobby();secretEnter();return tbTalk().then(function(ok){if(!ok)return false;tbC('secgo',tbN(6));return tbUntil(function(){return tbBossOk('jrnix',200);},12000);});}],
+      ['step 7 did not work',function(){toLobby();secretEnter();return tbTalk().then(function(ok){if(!ok||!SECB)return false;var hx=SECB[0]+SECB[2]/2,hy=SECB[1]+SECB[3]*0.3;tbPt('pointerdown',hx,hy,5);tbPt('pointerup',hx,hy,5);
+        return tbUntil(function(){return tbBossOk('jn',1000);},14000);});}],
+      ['step 8 did not work',function(){var b=bots[0];addDmg(b.k,300,null,false);addBotDmg(b.k,myKey(),150);
+        return tbUntil(function(){return rs==='count'&&rn===2;},9000).then(function(ok){return ok&&botHp(bots[0])===700&&sc[1-myTeam]===1;});}],
+      ['step 9 did not work',function(){toLobby();return tbF().then(function(){return PH==='lobby';});}]
+    ]);
+    return Promise.resolve({n:0,fail:'no check called '+name});
+  };
+  /* two players on two computers: the daily test opens two copies of the game and joins them in one 1v1 match */
+  var TBMP=null;
+  function tbMp(cmd){
+    if(cmd==='state')return {ph:PH,ov:ov,room:!!NET.room,lobby:lobbyPeers().length,mid:mid,rs:rs,rn:rn,sc:sc.slice(),team:myTeam,me:myKey(),
+      humans:ro?ro.filter(function(r){return !r[2];}).length:0,bots:ro?ro.filter(function(r){return r[2];}).length:0,hp:myHp(),going:!!going,pad:!!padJ};
+    if(cmd==='go'){ov='';return tbF().then(function(){return tbC('play');}).then(tbF).then(function(){return tbC('mode',tbN(1));});}
+    if(cmd==='fight'){if(TBMP)return true;var B=tbBot(),lt=performance.now();TBMP={B:B,iv:setInterval(function(){var n=performance.now(),dt=Math.min(0.25,(n-lt)/1000);lt=n;B.next();if(PH==='match')tbFight(B,dt);else B.only([]);},50)};return true;}
+    if(cmd==='stop'){if(TBMP){clearInterval(TBMP.iv);TBMP.B.end();TBMP=null;}return true;}
+    if(cmd==='lobby'){tbMp('stop');toLobby();return true;}
+    return null;
+  }
   return g;
 })();
 var CBDUEL=0;
@@ -6488,6 +6780,40 @@ GAMES.pac=(function(){
       ctx.moveTo(ax+v[0]*k,ay+v[1]*k);ctx.lineTo(ax-v[0]*k*0.5+v[1]*k*0.8,ay-v[1]*k*0.5+v[0]*k*0.8);ctx.lineTo(ax-v[0]*k*0.5-v[1]*k*0.8,ay-v[1]*k*0.5-v[0]*k*0.8);ctx.closePath();ctx.fill();
     });
     if(flashT>0){ctx.fillStyle='rgba(255,90,77,'+(flashT)+')';ctx.fillRect(0,0,V.w,V.h);}
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    if(st==='ready'){m.c=(m.c||0)+dt;if(m.c>0.5){m.c=0;tb.k(Math.random()<0.5?'ArrowLeft':'ArrowRight');}return [score,'points'];}
+    if(st!=='run')return [score,'points'];
+    function key(x,y){return ((x+GW)%GW)+','+y;}
+    var gh=bots.filter(function(b){return !b.inBase&&!b.zap;}).map(function(b){var p=pos(b);return {x:Math.round(p[0]),y:Math.round(p[1]),sc:!!b.scared};});
+    var danger={},scared={};
+    gh.forEach(function(q){if(q.sc){scared[key(q.x,q.y)]=1;return;}for(var a=-2;a<=2;a++)for(var b=-2;b<=2;b++)if(Math.abs(a)+Math.abs(b)<=2)danger[key(q.x+a,q.y+b)]=1;});
+    var sx=pl.moving?((pl.tx+GW)%GW):pl.x,sy=pl.moving?pl.ty:pl.y,start=[sx,sy],q=[start],prev={},seen={},goal=null;
+    seen[key(sx,sy)]=1;
+    while(q.length&&!goal){
+      var c=q.shift();
+      ['L','R','U','D'].forEach(function(d){
+        if(goal)return;
+        var v=DIRS[d],nx=(c[0]+v[0]+GW)%GW,ny=c[1]+v[1],k=key(nx,ny);
+        if(seen[k]||wall(nx,ny)||gate(nx,ny)||danger[k])return;
+        seen[k]=1;prev[k]={c:c,d:d};
+        var ch=grid[ny][nx];
+        if(ch==='.'||ch==='o'||scared[k])goal=[nx,ny];
+        q.push([nx,ny]);
+      });
+    }
+    var want=null;
+    if(goal){var k2=key(goal[0],goal[1]);while(prev[k2]&&prev[k2].c!==start){var pc=prev[k2].c;k2=key(pc[0],pc[1]);}want=prev[k2]?prev[k2].d:null;}
+    if(!want){
+      var bd=-1;
+      ['L','R','U','D'].forEach(function(d){var v=DIRS[d],nx=(sx+v[0]+GW)%GW,ny=sy+v[1];if(wall(nx,ny)||gate(nx,ny))return;var md=99;gh.forEach(function(g2){if(!g2.sc)md=Math.min(md,Math.abs(g2.x-nx)+Math.abs(g2.y-ny));});if(md>bd){bd=md;want=d;}});
+    }
+    if(want&&want!==pl.nd)tb.k({L:'ArrowLeft',R:'ArrowRight',U:'ArrowUp',D:'ArrowDown'}[want]);
+    return [score,'points'];
   };
   return g;
 })();
@@ -7305,6 +7631,18 @@ GAMES.bust=(function(){
       if(overT>0.7)txt('Tap to play again',V.w/2,V.h*0.36+106,16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.up();if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    var sp=Math.min(3,1+level*0.12)*60,pyl=V.h-46,tx=bx;
+    if(vy>0){var tt=(pyl-R-by)/(vy*sp),w=V.w-2*R,xx=bx+vx*sp*tt-R;xx=((xx%(2*w))+2*w)%(2*w);if(xx>w)xx=2*w-xx;tx=xx+R;}
+    if(m.off===undefined||Math.random()<0.01)m.off=(Math.random()*2-1)*16;
+    var aim=clampN(tx+m.off,PW/2,V.w-PW/2);
+    if(!tb.pressing())tb.down(aim,V.h-40);else tb.mv(aim,V.h-40);
+    return [score,'points'];
+  };
   return g;
 })();
 
@@ -7400,6 +7738,25 @@ GAMES.snake=(function(){
       txt(newBest?'NEW BEST!':'Best '+best,V.w/2,V.h*0.36+72,16,newBest?P.sun:'#fff');
       if(overT>0.6)txt('Tap to play again',V.w/2,V.h*0.36+104,16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    var h=sn[0],tg=gold?gold.p:food,body={};
+    sn.forEach(function(s,i){if(i<sn.length-1)body[s.x+','+s.y]=1;});
+    function free(x,y){return x>=0&&y>=0&&x<GW&&y<GH&&!body[x+','+y];}
+    function room(x,y){var seen={},q=[[x,y]],n=0;seen[x+','+y]=1;while(q.length&&n<sn.length+4){var c=q.shift();n++;[[1,0],[-1,0],[0,1],[0,-1]].forEach(function(o){var a=c[0]+o[0],b=c[1]+o[1],k=a+','+b;if(!seen[k]&&free(a,b)){seen[k]=1;q.push([a,b]);}});}return n;}
+    var bo=null,bs=-1e9;
+    [[1,0,'ArrowRight'],[-1,0,'ArrowLeft'],[0,1,'ArrowDown'],[0,-1,'ArrowUp']].forEach(function(o){
+      if(o[0]===-dir.x&&o[1]===-dir.y)return;
+      var nx=h.x+o[0],ny=h.y+o[1];if(!free(nx,ny))return;
+      var r=room(nx,ny),s=-Math.abs(nx-tg.x)-Math.abs(ny-tg.y)+(r<sn.length+2?r-100:0);
+      if(s>bs){bs=s;bo=o;}
+    });
+    if(bo&&(st==='ready'||bo[0]!==nd.x||bo[1]!==nd.y))tb.k(bo[2]);
+    return [score,'points'];
   };
   return g;
 })();
@@ -7526,6 +7883,18 @@ GAMES.stack=(function(){
       if(overT>0.6)txt('Tap to play again',V.w/2,V.h*0.36+104,16,'#fff');
     }else txt('Swipe: move · tap: spin · swipe down: drop',V.w/2,V.h-22,12,'#fff');
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [lines,'lines'];}
+    m.o=0;
+    if(!m.plan||py<m.lp){m.plan=tbBestDrop(grid,GW,GH,function(r){return cells(cur,r);});m.n=0;}
+    m.lp=py;
+    var p=m.plan;if(!p)return [lines,'lines'];
+    if(++m.n>40){tb.k('Space');m.plan=null;return [lines,'lines'];}
+    if(rot!==p.r)tb.k('ArrowUp');else if(px<p.x)tb.k('ArrowRight');else if(px>p.x)tb.k('ArrowLeft');else{tb.k('Space');m.plan=null;}
+    return [lines,'lines'];
+  };
   return g;
 })();
 
@@ -7616,6 +7985,40 @@ GAMES.merge=(function(){
       txt(newBest?'NEW BEST!':'Best '+best,V.w/2,V.h*0.38+72,16,newBest?P.sun:'#fff');
       if(overT>0.6)txt('Tap to play again',V.w/2,V.h*0.38+104,16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.18)return [score,'points'];m.c=0;
+    function sim(dx,dy){
+      var G=grid.map(function(r){return r.slice();}),gain=0,moved=false,order=[],x,y,merged={};
+      for(y=0;y<N;y++)for(x=0;x<N;x++)order.push([x,y]);
+      if(dx>0)order.sort(function(a,b){return b[0]-a[0];});
+      if(dy>0)order.sort(function(a,b){return b[1]-a[1];});
+      order.forEach(function(p){
+        var cx=p[0],cy=p[1],v=G[cy][cx];if(!v)return;
+        while(true){
+          var nx2=cx+dx,ny=cy+dy;if(nx2<0||ny<0||nx2>=N||ny>=N)break;
+          if(!G[ny][nx2]){G[ny][nx2]=v;G[cy][cx]=0;cx=nx2;cy=ny;moved=true;}
+          else if(G[ny][nx2]===v&&!merged[nx2+','+ny]){G[ny][nx2]=v*2;G[cy][cx]=0;merged[nx2+','+ny]=1;gain+=v*2;moved=true;break;}
+          else break;
+        }
+      });
+      return {G:G,gain:gain,moved:moved};
+    }
+    var bm=null;
+    [[0,1,'ArrowDown'],[-1,0,'ArrowLeft'],[1,0,'ArrowRight'],[0,-1,'ArrowUp']].forEach(function(mv,i){
+      var r=sim(mv[0],mv[1]);if(!r.moved)return;
+      var empt=0,mx=0;r.G.forEach(function(row){row.forEach(function(v){if(!v)empt++;if(v>mx)mx=v;});});
+      var s=r.gain+empt*12+(r.G[N-1][0]===mx?mx:0)-i*3;
+      if(!bm||s>bm.s)bm={s:s,mv:mv};
+    });
+    if(bm){
+      if(Math.random()<0.5)tb.k(bm.mv[2]);
+      else{var cx=V.w/2,cy=V.h/2;tb.down(cx,cy);tb.mv(cx+bm.mv[0]*60,cy+bm.mv[1]*60);tb.up();}
+    }
+    return [score,'points'];
   };
   return g;
 })();
@@ -7734,6 +8137,44 @@ GAMES.golf=(function(){
     }
     CAM3.draw(false);
   };
+  /* test bots: play for real */
+  function tbShot(ang,pw){
+    var x=bx,z=bz,vx2=Math.sin(ang)*pw*16,vz2=Math.cos(ang)*pw*16,dt=1/30,n=3,f,i;
+    for(f=0;f<240;f++){
+      for(i=0;i<n;i++){
+        var sand=H.sand.some(function(r){return inRect(x,z,r);}),fr=sand?3.4:1.1;
+        x+=vx2*dt/n;z+=vz2*dt/n;
+        var sp=Math.hypot(vx2,vz2),dec=fr*dt/n*6;if(sp>0){var k=Math.max(0,sp-dec)/sp;vx2*=k;vz2*=k;}
+        H.walls.forEach(function(w){
+          if(!inRect(x,z,[w[0],w[1],w[2]+0.5,w[3]+0.5]))return;
+          var ox=(w[2]+0.5)/2-Math.abs(x-w[0]),oz=(w[3]+0.5)/2-Math.abs(z-w[1]);
+          if(ox<oz){x+=x<w[0]?-ox:ox;vx2=-vx2*0.7;}else{z+=z<w[1]?-oz:oz;vz2=-vz2*0.7;}
+        });
+        if(Math.abs(x)>H.w){x=clampN(x,-H.w,H.w);vx2=-vx2*0.7;}
+        if(Math.abs(z)>H.d){z=clampN(z,-H.d,H.d);vz2=-vz2*0.7;}
+        if(Math.hypot(x-H.cup[0],z-H.cup[1])<0.55&&Math.hypot(vx2,vz2)<9)return -1+pw*0.1;
+      }
+      if(Math.hypot(vx2,vz2)<=0.08)break;
+    }
+    return Math.hypot(x-H.cup[0],z-H.cup[1])+(H.sand.some(function(r){return inRect(x,z,r);})?2:0);
+  }
+  g.tbp=function(tb,dt){
+    var m=tb.m,done=hole+((st==='sunk'||st==='done')?1:0);
+    if(st==='done'){if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [done,'holes'];}
+    m.o=0;
+    if(st!=='aim'||moving()){m.s=null;return [done,'holes'];}
+    if(m.ph===1){
+      var a=m.best.a-(CAM3.mode===1?Math.PI:0),dd=m.best.p*90+3;
+      tb.mv(m.sx-Math.sin(a)*dd,m.sy-Math.cos(a)*dd);m.ph=2;return [done,'holes'];
+    }
+    if(m.ph===2){tb.up();m.ph=0;m.s=null;return [done,'holes'];}
+    if(!m.s)m.s={i:0,best:null};
+    var pw=0.22+m.s.i*0.11;
+    for(var k=0;k<72;k++){var ang=k*Math.PI/36,r=tbShot(ang,pw);if(!m.s.best||r<m.s.best.r)m.s.best={r:r,a:ang,p:pw};}
+    if(++m.s.i<8)return [done,'holes'];
+    m.best=m.s.best;m.sx=V.w/2;m.sy=V.h*0.6;tb.down(m.sx,m.sy);m.ph=1;
+    return [done,'holes'];
+  };
   return g;
 })();
 
@@ -7813,6 +8254,22 @@ GAMES.dive=(function(){
     if(flash>0){ctx.fillStyle='rgba(255,236,140,'+(flash*0.8)+')';ctx.fillRect(0,0,V.w,V.h);}
     if(st!=='over')PAD.draw();
     CAM3.draw(st==='ready');
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.only([]);if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [score,'points'];}
+    m.o=0;
+    if(st==='ready'){tb.k('ArrowDown');return [0,'points'];}
+    var tg=null;rings.forEach(function(r){if(!r.done&&!r.miss&&r.y<y+0.3&&(!tg||r.y>tg.y))tg=r;});
+    var on=[];
+    if(tg){
+      var ddx=tg.x-(x+vx*0.25),ddz=tg.z-(z+vz*0.25);
+      if(ddx>0.3)on.push('ArrowRight');else if(ddx<-0.3)on.push('ArrowLeft');
+      if(ddz>0.3)on.push('ArrowDown');else if(ddz<-0.3)on.push('ArrowUp');
+    }
+    tb.only(on);
+    return [score,'points'];
   };
   return g;
 })();
@@ -8022,6 +8479,20 @@ GAMES.tag=(function(){
     PAD.draw();CAM3.draw(false);
     if(flash>0){ctx.fillStyle='rgba(255,90,77,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m,info=botsOn()?LIT:hostIT(),it=!!(info&&info.p===me()),d=[0,0];
+    if(m.wasIt&&!it)m.tags=(m.tags||0)+1;m.wasIt=it;if(!it)m.safe=(m.safe||0)+dt;
+    if(it){var bb=null,bd=1e9;bots.forEach(function(b){var dd=Math.hypot(b.x-x,b.z-z);if(dd<bd){bd=dd;bb=b;}});if(bb)d=[bb.x+bb.vx*0.3-x,bb.z+bb.vz*0.3-z];}
+    else{
+      var itb=null;bots.forEach(function(b){if(info&&b.k===info.p)itb=b;});
+      m.w=(m.w||0)-dt;if(m.w<=0){m.w=1+Math.random()*1.5;m.wx=(Math.random()*2-1)*8;m.wz=(Math.random()*2-1)*8;}
+      if(itb)d=tbSteer(x,z,m.wx,m.wz,[[itb.x,itb.z,9]]);
+    }
+    d=tbAround(x,z,d,PIL.map(function(p){return [p[0],p[1],PS,PS];}));
+    tbWalk(tb,d[0],d[1]);
+    return [Math.floor(m.safe||0),'seconds not It'];
+  };
   return g;
 })();
 
@@ -8173,6 +8644,19 @@ GAMES.ball=(function(){
     PAD.draw();CAM3.draw(false);
     if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var b=curB();if(!b){tb.only([]);return [0,'goals'];}
+    var ux=0-b.x,uz=D-b.z,ul=Math.hypot(ux,uz)||1;ux/=ul;uz/=ul;
+    var rx=b.x-x,rz=b.z-z,along=rx*ux+rz*uz,perp=Math.abs(rx*uz-rz*ux),d;
+    if(along>0.2&&perp<0.55)d=[rx,rz];
+    else{
+      var sx=b.x-ux*1.3,sz=b.z-uz*1.3;d=[sx-x,sz-z];
+      if(along<0.3&&Math.hypot(rx,rz)<2.2)d=[d[0]+(x<b.x?-1.6:1.6),d[1]-1.2];
+    }
+    tbWalk(tb,d[0],d[1]);
+    return [b.a,'goals'];
+  };
   return g;
 })();
 
@@ -8284,6 +8768,22 @@ GAMES.hoops=(function(){
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.36+106,16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.up();if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    if(live){tb.up();return [score,'points'];}
+    if(!tb.pressing()){m.c=(m.c||0)+dt;if(m.c>0.25){m.c=0;tb.down(bx,by);}return [score,'points'];}
+    var hy=hoopY(),vy0=-clampN(Math.sqrt(3000*Math.max(40,by-hy+40)),520,1500);
+    var disc=vy0*vy0-3000*(by-hy),tt=disc>0?(-vy0+Math.sqrt(disc))/1500:0.6;
+    var sp=52+Math.min(90,score*2.6),hx=hoopX,dir=hoopDir,lo=hoopW/2+16,hi=V.w-hoopW/2-16,rem=sp*tt;
+    while(rem>0){var st2=Math.min(5,rem);hx+=dir*st2;rem-=st2;if(hx<lo){hx=lo;dir=1;}if(hx>hi){hx=hi;dir=-1;}}
+    var ddx=clampN((hx-bx)/(0.5+4.2*tt),-620/4.2,620/4.2),ddy=-vy0/6.2;
+    var ox2=drag?drag.x:bx,oy2=drag?drag.y:by;
+    tb.mv(ox2+ddx,oy2-ddy);tb.up();
+    return [score,'points'];
+  };
   return g;
 })();
 
@@ -8381,6 +8881,25 @@ GAMES.memo=(function(){
       if(wt>0.6)txt(level<3?'Tap for the next level':'Tap to play again',V.w/2,wy+102*ws,16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(win){if(wt>0.7&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [level,'levels'];}
+    m.o=0;
+    if(m.cards!==cards){m.cards=cards;m.seen={};}
+    cards.forEach(function(c,i){if(c.up||c.done)m.seen[i]=c.v;});
+    m.c=(m.c||0)+dt;if(m.c<0.3||lock>0)return [level-1,'levels'];m.c=0;
+    function tapI(i){var c=cards[i];tb.tap(c.x+cw/2,c.y+ch/2);}
+    var open=[];cards.forEach(function(c,i){if(!c.done&&!c.up)open.push(i);});
+    if(!open.length)return [level-1,'levels'];
+    var pick=-1;
+    if(first){open.forEach(function(i){if(pick<0&&m.seen[i]===first.v)pick=i;});}
+    else{var byv={};open.forEach(function(i){var v=m.seen[i];if(v===undefined||pick>=0)return;if(byv[v]!==undefined)pick=byv[v];else byv[v]=i;});}
+    if(pick<0)open.forEach(function(i){if(pick<0&&m.seen[i]===undefined)pick=i;});
+    if(pick<0)pick=open[0];
+    tapI(pick);
+    return [level-1,'levels'];
+  };
   return g;
 })();
 
@@ -8475,6 +8994,15 @@ GAMES.whack=(function(){
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.36+106,16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m,now=performance.now();
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;if(!m.s)m.s=[];
+    holes.forEach(function(h,i){if(h.up<=0)m.s[i]=0;else if(!m.s[i])m.s[i]=now+120+Math.random()*150;});
+    for(var i=0;i<holes.length;i++){var h=holes[i];if(h.up>0.35&&h.k!==2&&m.s[i]&&now>m.s[i]){tb.tap(h.x+h.w/2,h.y+h.w*0.55);m.s[i]=1e15;break;}}
+    return [score,'points'];
+  };
   return g;
 })();
 
@@ -8558,6 +9086,16 @@ GAMES.tower=(function(){
       txt(newBest?'NEW BEST!':'Best '+best,V.w/2,V.h*0.36+74,16,newBest?P.sun:'#fff');
       if(overT>0.6)txt('Tap to build again',V.w/2,V.h*0.36+106,16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(overT>0.7&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [stack.length-1,'blocks'];}
+    m.o=0;
+    if(!cur)return [stack.length-1,'blocks'];
+    var top=stack[stack.length-1],nx=cur.x+cur.dir*cur.sp*0.05;
+    if(Math.abs(cur.x-top.x)<4||(cur.x-top.x)*(nx-top.x)<0){if(Math.random()<0.5)tb.k('Space');else tb.tap(V.w/2,V.h/2);}
+    return [stack.length-1,'blocks'];
   };
   return g;
 })();
@@ -8656,6 +9194,18 @@ GAMES.pong=(function(){
       txt(s1+' - '+s2,V.w/2,V.h*0.4+44,24,'#fff');
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+80,16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.up();if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [s1,'points'];}
+    m.o=0;
+    if(!bot){tb.up();tb.tap(V.w-50,30);return [s1,'points'];}
+    var y1=V.h-54,tx=V.w/2;
+    if(vy>0){var tt=(y1-R-by)/(vy*60),w=V.w-2*R,xx=bx+vx*60*tt-R;xx=((xx%(2*w))+2*w)%(2*w);if(xx>w)xx=2*w-xx;tx=xx+R;}
+    var off=(px2+PW/2>V.w/2?-1:1)*PW*0.42,aim=clampN(tx-off,PW/2,V.w-PW/2);
+    if(!tb.pressing())tb.down(aim,V.h-40);else tb.mv(aim,V.h-40);
+    return [s1,'points'];
   };
   return g;
 })();
@@ -8769,6 +9319,32 @@ GAMES.frog=(function(){
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }else if(t<2.5)txt('Tap the way you want to hop',V.w/2,V.h-16,15,'#fff');
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.16)return [score,'points'];
+    function laneAt(y){for(var i=0;i<lanes.length;i++)if(Math.abs(lanes[i].y-y)<=LH/2)return lanes[i];return null;}
+    function carFree(L,x){for(var k=0;k<=3;k++){var tt=k*0.12;if(L.it.some(function(o){var ox=o.x+L.sp*tt;return x>ox-20&&x<ox+o.w+20;}))return false;}return true;}
+    function goodTo(L,x){
+      if(!L)return false;
+      if(L.k==='safe')return true;
+      if(L.k==='car')return carFree(L,x);
+      var on=L.it.some(function(o){var ox=o.x+L.sp*0.05;return x>ox+10&&x<ox+o.w-10;});
+      return on&&x+L.sp*0.6>24&&x+L.sp*0.6<V.w-24;
+    }
+    function okHere(L,x){if(!L||L.k==='safe')return true;if(L.k==='car')return carFree(L,x);return x+L.sp*0.5>24&&x+L.sp*0.5<V.w-24;}
+    var here=laneAt(fy);
+    function go(k){m.c=0;tb.k(k);}
+    if(goodTo(laneAt(fy-LH),fx)){go('ArrowUp');return [score,'points'];}
+    if(!okHere(here,fx)){
+      var tries=[[-1,'ArrowLeft'],[1,'ArrowRight']];
+      if(here&&here.k==='log')tries.sort(function(a,b){return (a[0]*here.sp)-(b[0]*here.sp);});
+      for(var i=0;i<tries.length;i++){var nx=clampN(fx+tries[i][0]*CELL,14,V.w-14);if(goodTo(here,nx)){go(tries[i][1]);return [score,'points'];}}
+      if(goodTo(laneAt(fy+LH),fx))go('ArrowDown');
+    }
+    return [score,'points'];
+  };
   return g;
 })();
 
@@ -8834,6 +9410,17 @@ GAMES.flap=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+76,18,P.sun);
       if(t>0.7)txt('Tap to try again',V.w/2,V.h*0.4+(newBest?108:82),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'pipes'];}
+    m.o=0;
+    if(st==='ready'){tb.k('Space');return [0,'pipes'];}
+    var p=null;pipes.forEach(function(q){if(q.x+52>46&&(!p||q.x<p.x))p=q;});
+    var tgt=p?p.gy+gap*0.62:V.h*0.5,pred=y+vy*0.09+6;
+    if(pred>tgt&&(!p||y>p.gy+28))tb.k('Space');
+    return [score,'pipes'];
   };
   return g;
 })();
@@ -8966,6 +9553,21 @@ GAMES.drop=(function(){
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [lines,'lines'];}
+    m.o=0;
+    if(!m.plan||py<m.lp){
+      m.plan=tbBestDrop(grid,CW,CH,function(r){var mm=shapeAt(piece,r),out=[];for(var j=0;j<mm.length;j++)for(var i=0;i<mm[j].length;i++)if(mm[j][i])out.push([i,j]);return out;});
+      m.n=0;
+    }
+    m.lp=py;
+    var p=m.plan;if(!p)return [lines,'lines'];
+    if(++m.n>40){tb.k('Space');m.plan=null;return [lines,'lines'];}
+    if(pr!==p.r)tb.k('ArrowUp');else if(px<p.x)tb.k('ArrowRight');else if(px>p.x)tb.k('ArrowLeft');else{tb.k('Space');m.plan=null;}
+    return [lines,'lines'];
+  };
   return g;
 })();
 
@@ -9074,6 +9676,27 @@ GAMES.maze=(function(){
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [level-1,'mazes'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.09)return [level-1,'mazes'];m.c=0;
+    var prev={},q=[[cx,cy]],seen={};seen[cx+','+cy]=1;
+    while(q.length){
+      var c=q.shift();if(c[0]===W2-1&&c[1]===H2-1)break;
+      var cl=cells[idx(c[0],c[1])];
+      [[0,-1,'n','ArrowUp'],[1,0,'e','ArrowRight'],[0,1,'s','ArrowDown'],[-1,0,'w','ArrowLeft']].forEach(function(d){
+        if(cl[d[2]])return;var nx=c[0]+d[0],ny=c[1]+d[1],k=nx+','+ny;if(seen[k])return;seen[k]=1;prev[k]=[c,d[3]];q.push([nx,ny]);
+      });
+    }
+    var k2=(W2-1)+','+(H2-1),first=null;
+    while(prev[k2]){first=prev[k2][1];var pc=prev[k2][0];if(pc[0]===cx&&pc[1]===cy)break;k2=pc[0]+','+pc[1];}
+    if(first){
+      if(Math.random()<0.7)tb.k(first);
+      else{var dd={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]}[first],sx=V.w/2,sy=V.h/2;tb.down(sx,sy);tb.mv(sx+dd[0]*30,sy+dd[1]*30);tb.up();}
+    }
+    return [level-1,'mazes'];
+  };
   return g;
 })();
 
@@ -9143,6 +9766,18 @@ GAMES.echo=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [Math.max(0,round-1),'rounds'];}
+    m.o=0;
+    if(st==='show'){if(showI<0)m.mem=[];else if(lit>=0&&m.mem)m.mem[showI]=lit;m.c=0;return [round-1,'rounds'];}
+    if(st!=='play')return [round-1,'rounds'];
+    m.c=(m.c||0)+dt;if(m.c<0.35)return [round-1,'rounds'];m.c=0;
+    var v=m.mem&&m.mem[at];if(v===undefined)v=0;
+    if(Math.random()<0.5)tb.k('Digit'+(v+1));else{var p=pos(v);tb.tap(p.x+p.s/2,p.y+p.s/2);}
+    return [round-1,'rounds'];
   };
   return g;
 })();
@@ -9225,6 +9860,21 @@ GAMES.slide=(function(){
       if(t>0.7)txt('Tap to shuffle again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(!m.o){m.o=1;m.n=(m.n||0)+1;}if(t>0.8&&!m.t2){m.t2=1;tb.tap(V.w/2,V.h*0.75);}return [m.n||0,'puzzles solved'];}
+    m.o=0;m.t2=0;m.c=(m.c||0)+dt;if(m.c<0.2)return [m.n||0,'puzzles solved'];m.c=0;
+    if(N!==3){if(vWide()){var r0=btn(0);tb.tap(r0.x+r0.w/2,r0.y+r0.h/2);}else tb.tap(V.w/6,60);m.plan=null;return [m.n||0,'puzzles solved'];}
+    var key=tiles.join(',');
+    if(!m.plan||m.key!==key)m.plan=tbSlide(tiles);
+    var mv=m.plan.shift();
+    if(mv===undefined){m.plan=null;return [m.n||0,'puzzles solved'];}
+    tb.tap(ox+(mv%N)*S+S/2,oy+Math.floor(mv/N)*S+S/2);
+    m.key=tiles.join(',');
+    if(m.key===key)m.plan=null;
+    return [m.n||0,'puzzles solved'];
+  };
   return g;
 })();
 
@@ -9289,6 +9939,18 @@ GAMES.lights=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [8,'boards'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.22)return [level-1,'boards'];m.c=0;
+    var key=JSON.stringify(gr);
+    if(!m.plan||m.key!==key)m.plan=tbLights(gr,N)||[];
+    var p=m.plan.shift();
+    if(p!==undefined)tb.tap(ox+(p%N)*S+S/2,oy+Math.floor(p/N)*S+S/2);
+    m.key=JSON.stringify(gr);
+    return [level-1,'boards'];
   };
   return g;
 })();
@@ -9403,6 +10065,19 @@ GAMES.tictac=(function(){
       txt(msg,rx,ry,26,msg.indexOf('YOU')===0||msg.indexOf('BLUE')===0?P.grass:(msg==='DRAW'?'#fff':P.brick));
       if(t>0.5)txt('Tap to play again',rx,ry+32,15,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(!m.d){m.d=1;if(msg==='YOU WIN!')m.w=(m.w||0)+1;}if(t>0.6&&!m.o){m.o=1;tb.tap(ox+S*1.5,oy+S*1.5);}return [m.w||0,'wins'];}
+    m.d=0;m.o=0;
+    if(!bot){var s2=sw();tb.tap(s2.x+s2.w/2,s2.y+s2.h/2);return [m.w||0,'wins'];}
+    if(turn!==1)return [m.w||0,'wins'];
+    m.c=(m.c||0)+dt;if(m.c<0.4)return [m.w||0,'wins'];m.c=0;
+    var i=b.every(function(v){return !v;})?4:mini(b.slice(),false,0).i;
+    if(i===undefined||i<0||b[i]){for(var k=0;k<9;k++)if(!b[k]){i=k;break;}}
+    tb.tap(ox+(i%3)*S+S/2,oy+Math.floor(i/3)*S+S/2);
+    return [m.w||0,'wins'];
   };
   return g;
 })();
@@ -9527,6 +10202,47 @@ GAMES.four=(function(){
       if(t>0.5||yLost)txt(sub,rx,my+30,Math.min(15,Math.floor(pw*1.9/sub.length)),'#fff');
     }
   };
+  /* test bots: play for real */
+  function tbFour(){
+    var open=[],c;for(c=0;c<CW;c++)if(!b[c])open.push(c);
+    function score4(){
+      var s=0,dirs=[[1,0],[0,1],[1,1],[1,-1]],x,y,d,k;
+      for(y=0;y<CH;y++)for(x=0;x<CW;x++)for(d=0;d<4;d++){
+        var mine=0,his=0,ok=true;
+        for(k=0;k<4;k++){var v=at(x+dirs[d][0]*k,y+dirs[d][1]*k);if(v<0){ok=false;break;}if(v===1)mine++;else if(v===2)his++;}
+        if(!ok||(mine&&his))continue;
+        if(mine===3)s+=6;else if(mine===2)s+=2;
+        if(his===3)s-=8;else if(his===2)s-=2;
+      }
+      for(y=0;y<CH;y++)if(b[y*CW+3]===1)s+=3;
+      return s;
+    }
+    var best=null;
+    open.forEach(function(c1){
+      drop(c1,1);var w=findWin(),sc;
+      if(w&&w.p===1)sc=1e6;
+      else{
+        var worst=1e9,any=false;
+        for(var c2=0;c2<CW;c2++){if(b[c2])continue;any=true;drop(c2,2);var w2=findWin(),s2=(w2&&w2.p===2)?-1e5:score4();undo(c2);if(s2<worst)worst=s2;}
+        sc=any?worst:0;
+      }
+      undo(c1);
+      if(!best||sc>best.s)best={s:sc,c:c1};
+    });
+    return best?best.c:open[0];
+  }
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(fromYard)return [0,'wins'];
+    if(st==='over'){if(!m.d){m.d=1;var w=findWin();if(w&&w.p===1)m.w=(m.w||0)+1;}if(t>0.6&&!m.o){m.o=1;tb.tap(ox+S*3.5,oy+S*3);}return [m.w||0,'wins'];}
+    m.d=0;m.o=0;
+    if(!bot){var s2=sw();tb.tap(s2.x+s2.w/2,s2.y+s2.h/2);return [m.w||0,'wins'];}
+    if(turn!==1)return [m.w||0,'wins'];
+    m.c=(m.c||0)+dt;if(m.c<0.45)return [m.w||0,'wins'];m.c=0;
+    var col=tbFour();
+    if(Math.random()<0.5)tb.k('Digit'+(col+1));else tb.tap(ox+col*S+S/2,oy+S*2);
+    return [m.w||0,'wins'];
+  };
   return g;
 })();
 
@@ -9609,6 +10325,20 @@ GAMES.catchg=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.up();if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    var by2=V.h-56,bt=null;
+    items.forEach(function(o){if(o.hit||o.k==='rock')return;var tt=(by2-o.y)/o.vy;if(tt<-0.05)return;if(Math.abs(o.x-bx)/900>tt+0.05)return;var s=tt-(o.k==='gold'?0.3:0);if(!bt||s<bt.s)bt={s:s,o:o};});
+    var tx=bt?bt.o.x:bx;
+    items.forEach(function(o){if(o.hit||o.k!=='rock')return;var tt=(by2-o.y)/o.vy;if(tt>-0.05&&tt<0.5&&Math.abs(o.x-tx)<BW/2+22)tx=o.x+(tx>=o.x?1:-1)*(BW/2+26);});
+    tx=clampN(tx,BW/2,V.w-BW/2);
+    var nx=bx+clampN(tx-bx,-900*dt,900*dt);
+    if(!tb.pressing())tb.down(nx,V.h-40);else tb.mv(nx,V.h-40);
+    return [score,'points'];
   };
   return g;
 })();
@@ -9749,6 +10479,22 @@ GAMES.rocks=(function(){
       if(t>0.7)txt('Tap to fly again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.only([]);if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.4);}return [score,'points'];}
+    m.o=0;
+    var tg=null,bd=1e9;rocks.forEach(function(r){var d=Math.hypot(r.x-sx,r.y-sy);if(d<bd){bd=d;tg=r;}});
+    var on=[];
+    if(tg){
+      var tt=bd/340,ax=tg.x+tg.vx*tt,ay=tg.y+tg.vy*tt,want=Math.atan2(ay-sy,ax-sx),da=Math.atan2(Math.sin(want-ang),Math.cos(want-ang));
+      if(da>0.08)on.push('ArrowRight');else if(da<-0.08)on.push('ArrowLeft');
+      m.f=(m.f||0)-dt;if(Math.abs(da)<0.18&&m.f<=0){tb.k('Space');m.f=0.18;}
+      if(rocks.some(function(r){return Math.hypot(r.x-sx,r.y-sy)<r.r+48;})&&Math.abs(da)>2.2)on.push('ArrowUp');
+    }
+    tb.only(on);
+    return [score,'points'];
+  };
   return g;
 })();
 
@@ -9855,6 +10601,31 @@ GAMES.sweep=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:(won?80:46)),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st!=='run'){if(!m.d){m.d=1;if(won)m.w=(m.w||0)+1;}if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.75);}return [m.w||0,'boards cleared'];}
+    m.d=0;m.o=0;m.c=(m.c||0)+dt;if(m.c<0.12)return [m.w||0,'boards cleared'];m.c=0;
+    var Rc=rects(),fb=vWide()?[Rc.fl.x+Rc.fl.w/2,Rc.fl.y+Rc.fl.h/2]:[V.w/2,86];
+    function tapCell(i,j){tb.tap(ox+i*S+S/2,oy+j*S+S/2);}
+    if(first){if(flagMode)tb.tap(fb[0],fb[1]);else tapCell(CW>>1,CH>>1);return [m.w||0,'boards cleared'];}
+    var toOpen=null,toFlag=null,i,j;
+    for(j=0;j<CH&&!toOpen&&!toFlag;j++)for(i=0;i<CW&&!toOpen&&!toFlag;i++){
+      var c=at(i,j);if(!c.o||!c.n)continue;
+      var un=[],fl=0;around(i,j,function(o,x2,y2){if(o.f)fl++;else if(!o.o)un.push([x2,y2]);});
+      if(!un.length)continue;
+      if(c.n===fl)toOpen=un[0];else if(c.n-fl===un.length)toFlag=un[0];
+    }
+    if(toFlag){if(!flagMode)tb.tap(fb[0],fb[1]);else tapCell(toFlag[0],toFlag[1]);return [m.w||0,'boards cleared'];}
+    if(flagMode){tb.tap(fb[0],fb[1]);return [m.w||0,'boards cleared'];}
+    if(!toOpen){
+      var gs=null;
+      for(j=0;j<CH;j++)for(i=0;i<CW;i++){var c2=at(i,j);if(c2.o||c2.f)continue;var nn=0;around(i,j,function(o){if(o.o&&o.n)nn++;});if(!gs||nn<gs.n)gs={x:i,y:j,n:nn};}
+      if(gs)toOpen=[gs.x,gs.y];
+    }
+    if(toOpen)tapCell(toOpen[0],toOpen[1]);
+    return [m.w||0,'boards cleared'];
   };
   return g;
 })();
@@ -10003,6 +10774,47 @@ GAMES.bubble=(function(){
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
   };
+  /* test bots: play for real */
+  function tbBub(a,col){
+    var f={x:V.w/2,y:V.h-46,vx:Math.cos(a)*520,vy:Math.sin(a)*520},dt=1/60,it,s,r,c;
+    for(it=0;it<240;it++){
+      for(s=0;s<2;s++){
+        f.x+=f.vx*dt/2;f.y+=f.vy*dt/2;
+        if(f.x<FX+10+R){f.x=FX+10+R;f.vx=-f.vx;}
+        if(f.x>FX+fieldW()-10-R){f.x=FX+fieldW()-10-R;f.vx=-f.vx;}
+      }
+      var hit=f.y<70+R;
+      for(r=0;r<grid.length&&!hit;r++)for(c=0;c<grid[r].length;c++){if(!grid[r][c])continue;var p=cellPos(r,c);if((p.x-f.x)*(p.x-f.x)+(p.y-f.y)*(p.y-f.y)<(R*1.85)*(R*1.85)){hit=true;break;}}
+      if(!hit)continue;
+      var rr=Math.max(0,Math.round((f.y-70-R)/(R*1.74))),bc=null,bd=1e9;
+      for(var r2=Math.max(0,rr-1);r2<=Math.min(grid.length,rr+1);r2++){
+        var len=grid[r2]?grid[r2].length:CW-(r2%2?0:1);
+        for(var c2=0;c2<len;c2++){if(grid[r2]&&grid[r2][c2])continue;var p2=cellPos(r2,c2),d2=(p2.x-f.x)*(p2.x-f.x)+(p2.y-f.y)*(p2.y-f.y);if(d2<bd){bd=d2;bc=[r2,c2];}}
+      }
+      if(!bc)return null;
+      var seen={},stack=[bc],n=0;seen[bc[0]+','+bc[1]]=1;
+      while(stack.length){
+        var q=stack.pop(),odd=q[0]%2;n++;
+        [[q[0],q[1]-1],[q[0],q[1]+1],[q[0]-1,q[1]-(odd?0:1)],[q[0]-1,q[1]+(odd?1:0)],[q[0]+1,q[1]-(odd?0:1)],[q[0]+1,q[1]+(odd?1:0)]].forEach(function(e){
+          var k2=e[0]+','+e[1];if(seen[k2])return;var v=grid[e[0]]&&grid[e[0]][e[1]];if(v===col){seen[k2]=1;stack.push(e);}
+        });
+      }
+      return {s:(n>=3?n*10:(n-1)*3)-bc[0]*0.2};
+    }
+    return null;
+  }
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    if(fly)return [score,'points'];
+    m.c=(m.c||0)+dt;if(m.c<0.5)return [score,'points'];m.c=0;
+    var col=shooter[0],bb=null;
+    for(var k=0;k<=36;k++){var a=-2.88+2.62*k/36,res=tbBub(a,col);if(res&&(!bb||res.s>bb.s))bb={s:res.s,a:a};}
+    var a2=bb?bb.a:-1.5708;
+    tb.down(V.w/2+Math.cos(a2)*140,V.h-46+Math.sin(a2)*140);tb.up();
+    return [score,'points'];
+  };
   return g;
 })();
 
@@ -10113,12 +10925,34 @@ GAMES.dig=(function(){
       if(t>0.7)txt('Tap to dig again',V.w/2,V.h*0.38+(newBest?128:98),16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.14)return [score,'points'];m.c=0;
+    function cl(x,y){if(x<0||x>=CW||y<0)return 3;return rowAt(y)[x];}
+    var bo=null,bs=-1e9;
+    [[0,1,'ArrowDown'],[-1,0,'ArrowLeft'],[1,0,'ArrowRight'],[0,-1,'ArrowUp']].forEach(function(o){
+      var nx=px+o[0],ny=py+o[1],c=cl(nx,ny);if(c===3)return;
+      var s=o[1]*3+(c===2?4:0)+(cl(nx,ny+1)===3?-2:0)+(m.last===o[2]?1:0);
+      if(ny<lava+1.5)s-=20;
+      if(o[1]===0&&cl(px,py+1)!==3)s-=2;
+      if(o[1]<0)s-=6;
+      if(s>bs){bs=s;bo=o;}
+    });
+    if(bo){
+      m.last=bo[2];
+      if(Math.random()<0.4)tb.tap(ox+(px+bo[0])*S+S/2,(py+bo[1]-camY)*S+90+S/2);else tb.k(bo[2]);
+    }
+    return [score,'points'];
+  };
   return g;
 })();
 
 /* ===== Colour Sort: pour the blocks until every tube is one colour ===== */
 GAMES.sort=(function(){
   var g={kind:'canvas',title:'Colour Sort',lw:400};
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
   var COLS=[P.brick,P.sky,P.grass,P.sun,P.lilac,P.orange,'#ff8ad4','#7fd4ff'];
   var tubes,CAP,sel,level,moves,score,best,st,t,newBest,msg,msgT,TW,TH,undoS;
   function build(){
@@ -10136,7 +10970,7 @@ GAMES.sort=(function(){
   function metrics(){
     var n=tubes?tubes.length:6,perRow=Math.ceil(n/2);
     TW=Math.min(66,Math.floor((V.w-24)/perRow)-10);
-    TH=Math.min(Math.floor((V.h-230)/2)-10,CAP*52);
+    TH=Math.max(60,Math.min(Math.floor((V.h-230)/2)-10,CAP*52));
   }
   function reset(hard){if(hard){level=1;score=0;newBest=false;}st='run';t=0;msg='';msgT=0;build();metrics();}
   g.start=function(){best=lsGet('by.sort',0);reset(true);};
@@ -10214,6 +11048,24 @@ GAMES.sort=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [10,'levels'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.22)return [level-1,'levels'];m.c=0;
+    var key=JSON.stringify(tubes);
+    if(!m.plan||m.key!==key){
+      if(sel>=0){m.plan=null;var b0=tubeBox(sel);tb.tap(b0.x+b0.w/2,b0.y+b0.h/2);m.key=JSON.stringify(tubes);return [level-1,'levels'];}
+      m.plan=tbSortPlan(tubes,CAP);m.step=0;
+      if(!m.plan){tb.tap(40,70);return [level-1,'levels'];}
+    }
+    var mv=m.plan[0];
+    if(!mv){m.plan=null;return [level-1,'levels'];}
+    var bx2=tubeBox(m.step===0?mv[0]:mv[1]);tb.tap(bx2.x+bx2.w/2,bx2.y+bx2.h/2);
+    if(m.step===0)m.step=1;else{m.step=0;m.plan.shift();}
+    m.key=JSON.stringify(tubes);
+    return [level-1,'levels'];
   };
   return g;
 })();
@@ -10313,6 +11165,19 @@ GAMES.cave=(function(){
       if(t>0.7)txt('Tap to fly again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.only([]);if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    if(st==='ready'){tb.h('Space',true);return [0,'points'];}
+    var sp=170+Math.min(190,dist*0.05),ahead=70+sp*0.18,w=null;
+    walls.forEach(function(q){if(!w||Math.abs(q.x-ahead)<Math.abs(w.x-ahead))w=q;});
+    var tgt=w?(w.top+w.bot)/2:V.h/2;
+    blocks.forEach(function(b){if(b.x>60&&b.x<70+sp*0.6&&Math.abs(b.y-tgt)<b.r+26)tgt=b.y+(tgt<b.y?-1:1)*(b.r+30);});
+    tb.only(y+vy*0.1>tgt?['Space']:[]);
+    return [score,'points'];
+  };
   return g;
 })();
 
@@ -10399,6 +11264,15 @@ GAMES.range=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.36+102,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.36+(newBest?134:104),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.2)return [score,'points'];
+    var tg=null;targets.forEach(function(o){var s=o.life-(o.gold?1:0);if(!tg||s<tg.s)tg={o:o,s:s};});
+    if(tg){m.c=0;tb.tap(tg.o.x+tg.o.vx*0.03,tg.o.y+tg.o.vy*0.03);}
+    return [score,'points'];
   };
   return g;
 })();
@@ -10520,6 +11394,24 @@ GAMES.sumo=(function(){
       if(t>0.8)txt('Tap to play again',V.w/2,V.h*0.4+78,16,'#fff');
     }
   };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st!=='run'){if(t>0.9&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [s1,'points'];}
+    m.o=0;
+    if(!bot){tb.tap(V.w-50,30);return [s1,'points'];}
+    m.c=(m.c||0)+dt;if(m.c<0.09)return [s1,'points'];m.c=0;
+    var dx,dy;
+    if(Math.hypot(p1.x-cxp,p1.y-cyp)>ringR*0.62){dx=cxp-p1.x;dy=cyp-p1.y;}
+    else{
+      var ox2=p2.x-cxp,oy2=p2.y-cyp,ol=Math.hypot(ox2,oy2)||1,bx2=p2.x-ox2/ol*30,by2=p2.y-oy2/ol*30;
+      if(Math.hypot(p1.x-bx2,p1.y-by2)>18){dx=bx2-p1.x;dy=by2-p1.y;}else{dx=p2.x-p1.x;dy=p2.y-p1.y;}
+    }
+    var l=Math.hypot(dx,dy)||1;
+    if(Math.abs(dx)/l>0.38)tb.k(dx>0?'ArrowRight':'ArrowLeft');
+    if(Math.abs(dy)/l>0.38)tb.k(dy>0?'ArrowDown':'ArrowUp');
+    return [s1,'points'];
+  };
   return g;
 })();
 
@@ -10622,6 +11514,23 @@ GAMES.road=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to drive again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;m.c=(m.c||0)-dt;
+    var sp=250+Math.min(380,dist*0.06)+boost*140,cy=V.h-100,danger=[0,0,0,0],coin=[0,0,0,0],l,k;
+    cars.forEach(function(c){var tt=(cy-56-c.y)/sp;if(c.y<cy+56&&tt<0.75)danger[c.l]+=1/(Math.max(0.05,tt)+0.2);});
+    coins.forEach(function(c){if(c.y<cy)coin[c.l]+=1;});
+    var bl=lane,bs=-1e9;
+    for(l=0;l<LANES;l++){
+      var blk2=false;for(k=Math.min(l,lane);k<=Math.max(l,lane);k++)if(k!==lane&&danger[k]>3)blk2=true;
+      var s=-danger[l]*5+coin[l]-Math.abs(l-lane)*0.5-(blk2?50:0);
+      if(s>bs){bs=s;bl=l;}
+    }
+    if(bl!==lane&&m.c<=0){m.c=0.12;var d=bl<lane?-1:1;if(Math.random()<0.5)tb.k(d<0?'ArrowLeft':'ArrowRight');else tb.tap(carX+d*60,V.h-100);}
+    return [score,'points'];
   };
   return g;
 })();
@@ -10731,6 +11640,19 @@ GAMES.beat=(function(){
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.36+102,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.36+(newBest?134:104),16,'#fff');
     }
+  };
+  /* test bots: play for real */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    var L=line();
+    for(var i=0;i<LANES;i++){
+      var n=null;notes.forEach(function(q){if(q.l===i&&!q.done&&(!n||Math.abs(q.y-L)<Math.abs(n.y-L)))n=q;});
+      if(!n)continue;var d=n.y-L;
+      if(d>-speed*0.04&&d<16){if(Math.random()<0.5)tb.k('Digit'+(i+1));else tb.tap(laneX(i),L);}
+    }
+    return [score,'points'];
   };
   return g;
 })();
@@ -12595,6 +13517,7 @@ function avFor(uid,name){
 }
 var avSaveT=0;
 function avSave(){
+  if(TBMEM)return;
   if(!SOC.ok||!SOC.db||!SOC.uid||!SOC.account||SOC.canWrite===false)return;
   clearTimeout(avSaveT);
   avSaveT=setTimeout(function(){
@@ -13954,8 +14877,10 @@ function plLoad(){
     PLY.all=all;PLY.max=100;
   },function(e){cmdMsg('err',failText(e));}).then(cmdDone);
 }
-/* ===== Test bots: bots open every game, press random keys and tap around for a few seconds each, and watch for
-   errors, games that stop drawing, blank screens and very low frame rates. The owner (or anyone given the Test bots
+/* ===== Test bots: bots play every game for a few seconds each and watch for errors, games that stop drawing, blank
+   screens, very low frame rates and stutters. A game with a pilot (g.tbp) is played for real: the pilot reads the game and
+   tries to win, using the same keys and taps a player uses. Games without one get random keys and taps. After the games,
+   the extra checks (TBMS) go through the menus, the shop and Blaster Duel. The owner (or anyone given the Test bots
    tool) runs them from the admin panel; the owner's runs post the problems to Requests as TestBot (asks/bot-testbots,
    a document only the owner can write). window.BY_TESTBOTS runs the same test from outside, for the daily check. ===== */
 var TB={on:false,stop:false,show:false,i:0,n:0,name:'',res:null,at:0,msg:null};
@@ -13969,19 +14894,215 @@ function tbBlank(){
     return n>0&&top/n>=0.995;
   }catch(e){return false;}
 }
+/* the key a player presses for a game key (Settings > Controls can move them), and its name */
+function tbRaw(c){for(var a in BIND_CANON)if(BIND_CANON[a]===c)return BIND[a];return c;}
+function tbKeyName(raw){if(raw==='Space')return ' ';if(/^Key[A-Z]$/.test(raw))return raw.slice(3).toLowerCase();if(/^Digit\d$/.test(raw))return raw.slice(5);return raw;}
+function tbKd(c,down){
+  var raw=tbRaw(c);
+  if(bindMap(raw)!==c){try{if(cur&&cur.key)cur.key(c,down);}catch(e){}return;}
+  try{window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{key:tbKeyName(raw),code:raw,bubbles:true}));}catch(e){}
+  if(down&&TB.show)tbKey(tbKeyName(raw));
+}
+/* a touch or click on the game screen, at game units (the same x and y the game draws with) */
+function tbPt(type,x,y,id){
+  var q=stage.getBoundingClientRect(),k=V.css||1,cx=q.left+x/k,cy=q.top+y/k;
+  if(TB.show&&type==='pointerdown')tbTap(cx,cy);
+  try{stage.dispatchEvent(new PointerEvent(type,{clientX:cx,clientY:cy,pointerId:id||7,pointerType:'mouse',button:0,buttons:type==='pointerup'?0:1,bubbles:true}));}catch(e){}
+}
+/* what a pilot can do: B.k taps a key, B.h holds or lets go of one, B.only holds exactly these keys, B.tap taps the screen,
+   B.down / B.mv / B.up press, drag and let go, B.btn presses a button in a page game. B.m is the pilot's memory. */
+function tbBot(){
+  var held={},taps=[],ptr=null,B={t:0,m:{},
+    k:function(c){tbKd(c,true);taps.push(c);},
+    h:function(c,on){if(on){if(!held[c]){held[c]=1;tbKd(c,true);}}else if(held[c]){delete held[c];tbKd(c,false);}},
+    only:function(l){Object.keys(held).forEach(function(c){if(l.indexOf(c)<0)B.h(c,false);});l.forEach(function(c){B.h(c,true);});},
+    tap:function(x,y){tbPt('pointerdown',x,y,8);tbPt('pointerup',x,y,8);},
+    down:function(x,y){if(ptr)B.up();ptr=[x,y];tbPt('pointerdown',x,y,9);},
+    mv:function(x,y){if(ptr){ptr=[x,y];tbPt('pointermove',x,y,9);}},
+    up:function(){if(ptr){var p=ptr;ptr=null;tbPt('pointerup',p[0],p[1],9);}},
+    pressing:function(){return !!ptr;},
+    btn:function(f){
+      var bs=[].slice.call(storyEl.querySelectorAll('button')).filter(function(b){return !b.disabled&&b.offsetParent!==null;});
+      var l=typeof f==='function'?bs.filter(f):(f==null?bs:[bs[f]]),b=l[Math.random()*l.length|0];
+      if(!b)return false;if(TB.show)tbTapEl(b);b.click();return true;
+    },
+    rnd:function(a,b){return a+Math.random()*(b-a);},
+    next:function(){taps.forEach(function(c){tbKd(c,false);});taps=[];},
+    end:function(){B.next();Object.keys(held).forEach(function(c){tbKd(c,false);});held={};B.up();}
+  };
+  return B;
+}
+/* one pilot step; it answers its progress as [number, 'what it counts'] */
+function tbPilot(g,B,r,ms){
+  var dt=Math.min(0.25,Math.max(0,ms/1000));B.t+=dt;B.next();
+  if(cur!==g)return;
+  var v;try{v=g.tbp(B,dt);}catch(e){r.perr=String((e&&e.message)||e).slice(0,100);return;}
+  if(v==null)return;
+  var s=Array.isArray(v)?v[0]:v;
+  if(typeof s==='number'&&isFinite(s)){r.play.s=s;if(s>r.play.top)r.play.top=s;}
+  if(Array.isArray(v)&&v[1])r.play.l=String(v[1]).slice(0,30);
+}
+/* ---------- helpers the pilots share ---------- */
+/* hold the arrow keys that walk toward (dx, dz) in a 3D game that reads PAD and CAM3 */
+function tbWalk(tb,dx,dz,more){
+  var on=more?more.slice():[],l=Math.hypot(dx,dz);
+  if(l>0.2){
+    var a=CAM3.mode===1?Math.PI:(CAM3.mode===2?CAM3.yaw:0),c=Math.cos(a),s=Math.sin(a),mx=dx/l,mz=dz/l,ax=mx*c-mz*s,ay=mx*s+mz*c;
+    if(ax>0.38)on.push('ArrowRight');else if(ax<-0.38)on.push('ArrowLeft');
+    if(ay>0.38)on.push('ArrowUp');else if(ay<-0.38)on.push('ArrowDown');
+  }
+  tb.only(on);
+}
+/* the same with a thumb on the on-screen stick (the left half of the screen), for exact directions */
+function tbStick(tb,dx,dz,more){
+  tb.only(more||[]);
+  var l=Math.hypot(dx,dz);if(l<0.2){tb.up();return;}
+  var a=CAM3.mode===1?Math.PI:(CAM3.mode===2?CAM3.yaw:0),c=Math.cos(a),s=Math.sin(a),mx=dx/l,mz=dz/l,ax=mx*c-mz*s,ay=mx*s+mz*c,bx=V.w*0.18,by=V.h-92;
+  if(!tb.pressing())tb.down(bx,by);
+  tb.mv(bx+ax*PAD.R*0.9,by-ay*PAD.R*0.9);
+}
+/* the same for a flat game seen from above: down the screen is +y */
+function tbWalk2(tb,dx,dy,more){
+  var on=more?more.slice():[],l=Math.hypot(dx,dy);
+  if(l>0.2){var mx=dx/l,my=dy/l;if(mx>0.38)on.push('ArrowRight');else if(mx<-0.38)on.push('ArrowLeft');if(my>0.38)on.push('ArrowDown');else if(my<-0.38)on.push('ArrowUp');}
+  tb.only(on);
+}
+/* toward a target, pushed away from things to avoid: each is [x, z, how far to keep away] */
+function tbSteer(px,pz,tx,tz,av){
+  var dx=tx-px,dz=tz-pz,d=Math.hypot(dx,dz);if(d>0.001){dx/=d;dz/=d;}else{dx=0;dz=0;}
+  (av||[]).forEach(function(f){var ex=px-f[0],ez=pz-f[1],e=Math.hypot(ex,ez)||0.01,r=f[2]||4;if(e<r){var k=(r-e)/r*2.4;dx+=ex/e*k;dz+=ez/e*k;}});
+  return [dx,dz];
+}
+/* walking into a box (a pillar or a crate): slide along its side instead. Boxes are [x, z, half width, half depth]. */
+function tbAround(px,pz,d,boxes){
+  var l=Math.hypot(d[0],d[1]);if(l<0.01)return d;
+  var ux=d[0]/l,uz=d[1]/l,ax=px+ux*1.2,az=pz+uz*1.2;
+  for(var i=0;i<boxes.length;i++){
+    var b=boxes[i];
+    if(Math.abs(ax-b[0])<b[2]+0.45&&Math.abs(az-b[1])<b[3]+0.45){
+      var sx=-uz,sz=ux;if((px-b[0])*sx+(pz-b[1])*sz<0){sx=-sx;sz=-sz;}
+      return [ux*0.25+sx,uz*0.25+sz];
+    }
+  }
+  return d;
+}
+/* a jump: press, hold it a moment for full height, then let go so the next jump is a fresh press */
+function tbJump(tb,dt,want,hold){
+  var m=tb.m;
+  if(m.jh>0){m.jh-=dt;if(m.jh<=0)m.jr=0.1;return m.jh>0;}
+  if(m.jr>0){m.jr-=dt;return false;}
+  if(want){m.jh=hold||0.32;return true;}
+  return false;
+}
+/* falling-block games: the best turn and column for this piece. cellsOf(r) lists its [x, y] cells for turn r. */
+function tbBestDrop(grid,W,H,cellsOf){
+  function hits(cs,x,y){for(var i=0;i<cs.length;i++){var gx=x+cs[i][0],gy=y+cs[i][1];if(gx<0||gx>=W||gy>=H)return true;if(gy>=0&&grid[gy][gx])return true;}return false;}
+  var best=null;
+  for(var r=0;r<4;r++){
+    var cs=cellsOf(r),mn=99,mx=-99;cs.forEach(function(c){mn=Math.min(mn,c[0]);mx=Math.max(mx,c[0]);});
+    for(var x=-mn;x+mx<W;x++){
+      if(hits(cs,x,0))continue;
+      var y=0;while(!hits(cs,x,y+1))y++;
+      var g2=grid.map(function(row){return row.map(function(v){return v?1:0;});});
+      cs.forEach(function(c){var gy=y+c[1];if(gy>=0)g2[gy][x+c[0]]=1;});
+      var lines=0;g2=g2.filter(function(row){if(row.every(function(v){return v;})){lines++;return false;}return true;});
+      while(g2.length<H)g2.unshift(new Array(W).fill(0));
+      var hs=[],holes=0,agg=0,bump=0,i,j;
+      for(i=0;i<W;i++){var h=0,seen=false;for(j=0;j<H;j++){if(g2[j][i]){if(!seen){h=H-j;seen=true;}}else if(seen)holes++;}hs.push(h);agg+=h;}
+      for(i=0;i<W-1;i++)bump+=Math.abs(hs[i]-hs[i+1]);
+      var s=-0.51*agg+0.76*lines-0.36*holes-0.18*bump;
+      if(!best||s>best.s)best={s:s,r:r,x:x};
+    }
+  }
+  return best;
+}
+/* the 3 x 3 slide puzzle: the tiles to tap (by index) that put it back in order, found with a quick best-first search */
+function tbSlide(start){
+  var goal='1,2,3,4,5,6,7,8,0',heap=[],seen={},n=0;
+  function h(a){var s=0;for(var i=0;i<9;i++){var v=a[i];if(!v)continue;var gi=v-1;s+=Math.abs(i%3-gi%3)+Math.abs((i/3|0)-(gi/3|0));}return s;}
+  function push(e){heap.push(e);var i=heap.length-1;while(i>0){var p=(i-1)>>1;if(heap[p].f<=heap[i].f)break;var t=heap[p];heap[p]=heap[i];heap[i]=t;i=p;}}
+  function pop(){var top=heap[0],last=heap.pop();if(heap.length){heap[0]=last;var i=0;for(;;){var l=i*2+1,r=l+1,m=i;if(l<heap.length&&heap[l].f<heap[m].f)m=l;if(r<heap.length&&heap[r].f<heap[m].f)m=r;if(m===i)break;var t=heap[m];heap[m]=heap[i];heap[i]=t;i=m;}}return top;}
+  push({a:start.slice(),g:0,f:h(start)*2,p:null,mv:-1});seen[start.join(',')]=0;
+  while(heap.length&&n<30000){
+    var c=pop();n++;
+    if(c.a.join(',')===goal){var out=[];while(c.p){out.unshift(c.mv);c=c.p;}return out;}
+    var bl=c.a.indexOf(0),bx=bl%3,by=bl/3|0;
+    [[-1,0],[1,0],[0,-1],[0,1]].forEach(function(d){
+      var nx=bx+d[0],ny=by+d[1];if(nx<0||ny<0||nx>2||ny>2)return;
+      var k=ny*3+nx,a=c.a.slice();a[bl]=a[k];a[k]=0;var key=a.join(',');
+      if(seen[key]!==undefined&&seen[key]<=c.g+1)return;seen[key]=c.g+1;
+      push({a:a,g:c.g+1,f:c.g+1+h(a)*2,p:c,mv:k});
+    });
+  }
+  return [];
+}
+/* Lights Out: which cells to press so every light goes off (solved over GF(2)), or null */
+function tbLights(gr,N){
+  var n=N*N,A=[],i,j,r,c;
+  for(i=0;i<n;i++){
+    var row=new Array(n+1).fill(0),x=i%N,y=i/N|0;
+    [[0,0],[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){var xx=x+d[0],yy=y+d[1];if(xx>=0&&yy>=0&&xx<N&&yy<N)row[yy*N+xx]=1;});
+    row[n]=gr[y][x]?1:0;A.push(row);
+  }
+  var where=new Array(n).fill(-1),rw=0;
+  for(c=0;c<n&&rw<n;c++){
+    var sel=-1;for(r=rw;r<n;r++)if(A[r][c]){sel=r;break;}
+    if(sel<0)continue;
+    var tmp=A[sel];A[sel]=A[rw];A[rw]=tmp;where[c]=rw;
+    for(r=0;r<n;r++)if(r!==rw&&A[r][c])for(j=c;j<=n;j++)A[r][j]^=A[rw][j];
+    rw++;
+  }
+  for(r=rw;r<n;r++)if(A[r][n])return null;
+  var out=[];for(c=0;c<n;c++)if(where[c]>=0&&A[where[c]][n])out.push(c);
+  return out;
+}
+/* Colour Sort: a list of pours [from, to] that sorts the tubes, or null */
+function tbSortPlan(tubes,CAP){
+  var seen={},path=[],n=0;
+  function key(ts){return ts.map(function(t){return t.join('.');}).sort().join('|');}
+  function done(ts){return ts.every(function(t){return !t.length||(t.length===CAP&&t.every(function(v){return v===t[0];}));});}
+  function moves(ts){
+    var out=[];
+    for(var a=0;a<ts.length;a++){
+      var A=ts[a];if(!A.length)continue;
+      var v=A[A.length-1],uni=A.every(function(x){return x===v;});
+      for(var b=0;b<ts.length;b++){
+        if(a===b)continue;var Bt=ts[b];
+        if(Bt.length>=CAP||(Bt.length&&Bt[Bt.length-1]!==v)||(uni&&!Bt.length))continue;
+        out.push([a,b,(Bt.length?2:0)+(uni?0:1)]);
+      }
+    }
+    out.sort(function(x,y){return y[2]-x[2];});return out;
+  }
+  function pour(ts,a,b){var c=ts.map(function(t){return t.slice();}),v=c[a][c[a].length-1];while(c[a].length&&c[a][c[a].length-1]===v&&c[b].length<CAP)c[b].push(c[a].pop());return c;}
+  function dfs(ts,depth){
+    if(done(ts))return true;
+    if(depth>70||n>6000)return false;
+    var k=key(ts);if(seen[k])return false;seen[k]=1;n++;
+    var ms=moves(ts);
+    for(var i=0;i<ms.length;i++){path.push([ms[i][0],ms[i][1]]);if(dfs(pour(ts,ms[i][0],ms[i][1]),depth+1))return true;path.pop();}
+    return false;
+  }
+  return dfs(tubes,0)?path.slice():null;
+}
+/* a pause of 150 ms or more between two frames is a stutter; this many (and over 4% of frames) is a problem */
+var TB_STUT=6;
 function tbOne(id,ms,shots){
   return new Promise(function(done){
-    var g=GAMES[id],r={id:id,t:g.title||id,err:{},draws:0,fps:0,blank:false,stalled:false,ok:true},od=null,held=[],mid=0;
+    var g=GAMES[id],r={id:id,t:g.title||id,err:{},draws:0,fps:0,blank:false,stalled:false,ok:true},od=null,held=[],mid=0,ft=[],lf=0,hits=0,B=typeof g.tbp==='function'?tbBot():null,lt=0;
     var hid=!!document.hidden,onVis=function(){if(document.hidden)hid=true;};document.addEventListener('visibilitychange',onVis);
     var onErr=function(e){var m=String((e&&(e.message||(e.reason&&(e.reason.message||e.reason))))||'error').replace(/\s+/g,' ').slice(0,110);r.err[m]=(r.err[m]||0)+1;};
     window.addEventListener('error',onErr);window.addEventListener('unhandledrejection',onErr);
-    try{openGame(id);RUNCHEAT=true;$('cheattag').hidden=true;if(typeof g.draw==='function'){od=g.draw;g.draw=function(){r.draws++;return od.apply(this,arguments);};}}catch(e){onErr(e);}
-    var t0=performance.now();
+    try{openGame(id);RUNCHEAT=true;$('cheattag').hidden=true;if(typeof g.draw==='function'){od=g.draw;g.draw=function(){
+      var n=performance.now();if(lf&&!document.hidden&&n-t0>700){var d=n-lf;if(d<2000){ft.push(d);if(d>=150)hits++;}}lf=n;
+      r.draws++;return od.apply(this,arguments);};}}catch(e){onErr(e);}
+    var t0=performance.now();lt=t0;if(B)r.play={s:0,top:0,l:'points'};
     function up(){held.forEach(function(k){try{window.dispatchEvent(new KeyboardEvent('keyup',{key:k[0],code:k[1],bubbles:true}));}catch(e){}});held=[];}
     var iv=setInterval(function(){
       try{
         up();
         if(TB.stop)return;
+        if(B){var n=performance.now();tbPilot(g,B,r,n-lt);lt=n;return;}
         if(Math.random()<0.6){var k=TB_KEYS[Math.random()*TB_KEYS.length|0];window.dispatchEvent(new KeyboardEvent('keydown',{key:k[0],code:k[1],bubbles:true}));held.push(k);if(TB.show)tbKey(k[0]);}
         if(!stage.hidden&&Math.random()<0.5){
           var rc=stage.getBoundingClientRect(),cx=rc.left+rc.width*(0.1+Math.random()*0.8),cy=rc.top+rc.height*(0.15+Math.random()*0.75);
@@ -13992,22 +15113,25 @@ function tbOne(id,ms,shots){
         }
         if(!storyEl.hidden&&Math.random()<0.3){var bs=storyEl.querySelectorAll('button');if(bs.length){var sb=bs[Math.random()*bs.length|0];if(TB.show)tbTapEl(sb);sb.click();}}
       }catch(e){onErr(e);}
-    },TB.show?320:160);
+    },B?50:(TB.show?320:160));
     var midBlank=false;
-    setTimeout(function(){mid=r.draws;if(g.kind==='canvas')midBlank=tbBlank();},ms/2);
+    var pageBlank=function(){return !storyEl.querySelector('button')&&!String(storyEl.innerText||'').trim();};
+    setTimeout(function(){mid=r.draws;midBlank=g.kind==='canvas'?tbBlank():pageBlank();},ms/2);
     setTimeout(function(){
-      clearInterval(iv);up();
+      clearInterval(iv);up();if(B)B.end();
       var secs=Math.max(0.5,(performance.now()-t0)/1000),canvas=g.kind==='canvas';
       /* blank only counts when the screen was blank halfway through too, so a game-over screen does not count */
       if(canvas){r.fps=Math.round(r.draws/secs);r.blank=midBlank&&tbBlank();r.stalled=r.draws===mid;}
+      else r.blank=midBlank&&pageBlank();
+      if(canvas&&ft.length>8){ft.sort(function(a,b){return a-b;});r.lag={p95:Math.round(ft[Math.floor(ft.length*0.95)]),hitch:hits,n:ft.length};r.stut=hits>=TB_STUT&&hits/ft.length>0.04;}
       document.removeEventListener('visibilitychange',onVis);
-      if(hid||document.hidden){r.paused=true;r.blank=false;r.stalled=false;r.fps=0;}
+      if(hid||document.hidden){r.paused=true;r.blank=false;r.stalled=false;r.fps=0;r.stut=false;r.lag=null;}
       if(shots&&canvas){try{r.shot=cv.toDataURL('image/jpeg',0.5);}catch(e){}}
       try{if(PM.open)pmClose(true);}catch(e){}
       try{closeGame();}catch(e){onErr(e);}
       if(od)g.draw=od;
       window.removeEventListener('error',onErr);window.removeEventListener('unhandledrejection',onErr);
-      r.ok=!Object.keys(r.err).length&&!r.blank&&!r.stalled&&!(canvas&&!r.paused&&r.fps<15);
+      r.ok=!Object.keys(r.err).length&&!r.blank&&!r.stalled&&!r.stut&&!(canvas&&!r.paused&&r.fps<15);
       done(r);
     },ms);
   });
@@ -14025,20 +15149,21 @@ function tbShow(){
 /* bots play on a throwaway copy: saves go to TBMEM, and the bricks, stats and Blaster Duel loadout in memory are put back after */
 function tbSnap(){
   try{flushW();}catch(e){}
-  TB.snap={w:JSON.stringify(W),rv:(typeof RV!=='undefined'&&RV)?JSON.stringify({load:RV.load,sens:RV.sens,diff:RV.diff,mode:RV.mode}):null};
+  TB.snap={w:JSON.stringify(W),rv:(typeof RV!=='undefined'&&RV)?JSON.stringify({load:RV.load,sens:RV.sens,diff:RV.diff,mode:RV.mode,lay:RV.lay||{}}):null,sh:SH.tab};
   TBMEM={};
 }
 function tbRestore(){
   TBMEM=null;
   var s=TB.snap;TB.snap=null;if(!s)return;
   try{var o=JSON.parse(s.w);Object.keys(W).forEach(function(k){delete W[k];});Object.keys(o).forEach(function(k){W[k]=o[k];});if(wTimer){clearTimeout(wTimer);wTimer=0;}wDirty=false;brkChip();}catch(e){}
-  try{if(s.rv&&typeof RV!=='undefined'&&RV){var r=JSON.parse(s.rv);RV.load=r.load;RV.sens=r.sens;RV.diff=r.diff;RV.mode=r.mode;}}catch(e){}
+  try{if(s.rv&&typeof RV!=='undefined'&&RV){var r=JSON.parse(s.rv);RV.load=r.load;RV.sens=r.sens;RV.diff=r.diff;RV.mode=r.mode;RV.lay=r.lay||{};}}catch(e){}
+  if(s.sh)SH.tab=s.sh;SH.msg=null;
 }
 function tbRun(opts){
   opts=opts||{};
   if(TB.on)return Promise.resolve(null);
-  var ids=(opts.ids||tbIds()).filter(function(id){return !!GAMES[id];}),ms=Math.max(800,opts.ms||3000),out=[];
-  TB.on=true;TB.stop=false;TB.show=!!opts.show;TB.i=0;TB.n=ids.length;TB.msg=null;tbSnap();
+  var ids=(opts.ids||tbIds()).filter(function(id){return !!GAMES[id];}),ms=Math.max(800,opts.ms||3000),out=[],ml=opts.missions?TBMS.slice():[];
+  TB.on=true;TB.stop=false;TB.show=!!opts.show;TB.i=0;TB.n=ids.length+ml.length;TB.msg=null;tbSnap();
   try{if(!social.hidden)closeSocial();}catch(e){}
   try{if(typeof toHub==='function')toHub();}catch(e){}
   tbShow();
@@ -14046,19 +15171,115 @@ function tbRun(opts){
     return p.then(function(){
       if(TB.stop)return;
       TB.i=i+1;TB.name=GAMES[id].title||id;tbShow();
-      return tbOne(id,ms,!!opts.shots).then(function(r){out.push(r);if(opts.each)try{opts.each(r,i,ids.length);}catch(e){}});
+      return tbOne(id,ms,!!opts.shots).then(function(r){out.push(r);if(opts.each)try{opts.each(r,i,TB.n);}catch(e){}});
     });
-  },Promise.resolve()).then(function(){
+  },Promise.resolve()).then(function(){return tbMissions(ml,out,opts,ids.length);}).then(function(){
     TB.on=false;TB.show=false;tbHideHand();tbRestore();if(!opts.show){TB.res=out;TB.at=Date.now();}tbShow();
     return out;
   },function(e){TB.on=false;TB.show=false;tbHideHand();tbRestore();tbShow();throw e;});
+}
+/* ===== Extra checks: after the games, the bots go through things a game run never reaches. Each check is a list of
+   steps; the first step that does not work is what it reports. ===== */
+function tbWait(ms){return new Promise(function(ok){setTimeout(ok,ms);});}
+function tbUntil(f,ms){var t0=Date.now();return new Promise(function(ok){(function k(){var v=false;try{v=f();}catch(e){}if(v||Date.now()-t0>ms)return ok(!!v);setTimeout(k,60);})();});}
+function tbSteps(list){
+  var res={n:0,fail:''};
+  return list.reduce(function(p,s){
+    return p.then(function(){
+      if(res.fail||TB.stop)return;
+      res.n++;
+      return Promise.resolve().then(s[1]).then(function(v){if(v===false)res.fail=s[0];},function(e){res.fail=s[0]+' ('+String((e&&e.message)||e).slice(0,80)+')';});
+    });
+  },Promise.resolve()).then(function(){return res;});
+}
+/* run these one after another: each answers true, false or a promise of one; stops at the first false */
+function tbSeq(fs){return fs.reduce(function(p,f){return p.then(function(ok){return ok===false?false:f();});},Promise.resolve(true));}
+function tbClick(el){if(!el||el.disabled)return false;if(TB.show)tbTapEl(el);el.click();return true;}
+function tbEsc(){try{window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}));}catch(e){}}
+/* a button picked by its data- attributes, so it is found again after the screen redraws */
+function tbSel(b){var s='button';[].forEach.call(b.attributes,function(a){if(a.name.indexOf('data-')===0)s+='['+a.name+'="'+String(a.value).replace(/["\\]/g,'\\$&')+'"]';});return s;}
+function tbAll(root,sel,max){
+  var list=[].slice.call(root.querySelectorAll(sel)).slice(0,max||40).map(tbSel),n=0;
+  return list.reduce(function(p,s){return p.then(function(){if(TB.stop)return;if(tbClick(root.querySelector(s)))n++;return tbWait(TB.show?220:25);});},Promise.resolve()).then(function(){return n;});
+}
+function tbMenus(){
+  var pm=function(a){return tbClick($('pm-card').querySelector('[data-pm="'+a+'"]'));};
+  return tbSteps([
+    ['the home screen did not show',function(){toHub();return !hub.hidden;}],
+    ['the Bricks shop did not open',function(){W.coins=Math.max(W.coins|0,99999);return tbClick($('shop-btn'))&&!shopEl.hidden&&shopBody.children.length>0;}],
+    ['a shop tab did not open',function(){
+      var tabs=[].map.call(shopBody.querySelectorAll('[data-shtab]'),function(b){return b.getAttribute('data-shtab');});
+      return tbSeq([function(){return tabs.length>=3;}].concat(tabs.map(function(tb){return function(){tbClick(shopBody.querySelector('[data-shtab="'+tb+'"]'));return tbWait(40).then(function(){return SH.tab===tb&&shopBody.children.length>1;});};})));
+    }],
+    ['buying or using a block color or badge did not work',function(){SH.tab='shop';shopRender();var o=Object.keys(W.owned).length;return tbAll(shopBody,'[data-buy],[data-equip]',30).then(function(n){return n>0&&Object.keys(W.owned).length>o;});}],
+    ['the avatar shop did not work',function(){SH.tab='avatar';shopRender();return tbAll(shopBody,'[data-avk],[data-avmode],[data-av3k]',24).then(function(){return tbAll(shopBody,'[data-av],[data-av3]',30);}).then(function(n){return n>0&&shopBody.children.length>1;});}],
+    ['the tasks list did not work',function(){SH.tab='tasks';shopRender();return tbAll(shopBody,'[data-claim]',20).then(function(){return shopBody.querySelectorAll('.task').length>0;});}],
+    ['Back from the shop did not go home',function(){return tbClick($('shop-back'))&&!hub.hidden;}],
+    ['Settings did not open',function(){return tbClick(document.querySelector('[data-nav="settings"]'))&&!$('settings').hidden&&$('set-body').children.length>3;}],
+    ['a Settings button did not work',function(){
+      var b=$('set-body'),g0=gfxMode(),s0=soundOn;
+      return tbAll(b,'[data-gq]',3).then(function(){
+        tbClick(b.querySelector('[data-gq="'+g0+'"]'));tbClick(b.querySelector('[data-snd]'));tbClick(b.querySelector('[data-snd]'));
+        if(soundOn!==s0||gfxMode()!==g0)return false;
+        tbClick(b.querySelector('[data-bind]'));if(!BIND_WAIT)return false;
+        tbEsc();return !BIND_WAIT;
+      });
+    }],
+    ['Back from Settings did not go home',function(){return tbClick($('set-back'))&&!hub.hidden;}],
+    ['Charts did not open',function(){return tbClick(document.querySelector('[data-nav="charts"]'))&&!$('charts').hidden&&$('charts-body').children.length>0&&tbClick($('ch-back'))&&!hub.hidden;}],
+    ['Updates did not open',function(){return tbClick($('upd-btn'))&&!$('updates').hidden&&$('upd-body').children.length>0&&tbClick($('upd-back'))&&!hub.hidden;}],
+    ['Continue did not open',function(){return tbClick($('res-btn'))&&!$('resume').hidden&&tbClick($('res-back'))&&!hub.hidden;}],
+    ['a game did not open from its tile',function(){tbClick(document.querySelector('#games .tile[data-game="snake"]'));return tbUntil(function(){return cur===GAMES.snake&&!play.hidden;},5000);}],
+    ['the game menu (Esc) did not open',function(){RUNCHEAT=true;tbEsc();return PM.open&&!$('pmenu').hidden&&$('pm-card').querySelectorAll('button').length>=3;}],
+    ['a game menu button did not work',function(){
+      var p0=PERF.on;pm('perf');pm('perf');if(PERF.on!==p0)return false;
+      pm('leave');if(PM.view!=='leave')return false;pm('no');if(PM.view!=='menu')return false;
+      pm('resume');return !PM.open;
+    }],
+    ['Leave game did not go home',function(){tbEsc();pm('leave');pm('yes');return !cur&&!hub.hidden;}]
+  ]);
+}
+/* a check inside a game: the game answers g.tbm(name) with the steps result */
+function tbInGame(id,m){
+  openGame(id);RUNCHEAT=true;$('cheattag').hidden=true;
+  return tbWait(700).then(function(){return GAMES[id].tbm(m);});
+}
+var TBMS=[
+  {id:'menus',t:'Menus and buttons',run:tbMenus},
+  {id:'duelmenus',t:'Blaster Duel menus',run:function(){return tbInGame('duel','menus');}},
+  {id:'duelx',t:'Blaster Duel special',run:function(){return tbInGame('duel','x');}}
+];
+function tbMission(m){
+  var r={id:'m.'+m.id,t:m.t,check:true,err:{},ok:true,steps:0,fail:''};
+  var onErr=function(e){var s=String((e&&(e.message||(e.reason&&(e.reason.message||e.reason))))||'error').replace(/\s+/g,' ').slice(0,110);r.err[s]=(r.err[s]||0)+1;};
+  window.addEventListener('error',onErr);window.addEventListener('unhandledrejection',onErr);
+  return Promise.resolve().then(m.run).then(function(x){r.steps=x.n;r.fail=x.fail||'';},function(e){r.fail='it stopped: '+String((e&&e.message)||e).slice(0,80);}).then(function(){
+    window.removeEventListener('error',onErr);window.removeEventListener('unhandledrejection',onErr);
+    try{if(PM.open)pmClose(true);}catch(e){}
+    try{if(cur)closeGame();}catch(e){onErr(e);}
+    try{toHub();}catch(e){}
+    if(TB.stop&&!r.fail&&!Object.keys(r.err).length)r.stopped=true;
+    r.ok=!r.fail&&!Object.keys(r.err).length;
+    return r;
+  });
+}
+function tbMissions(ml,out,opts,base){
+  return ml.reduce(function(p,m,i){
+    return p.then(function(){
+      if(TB.stop)return;
+      TB.i=base+i+1;TB.name=m.t;tbShow();
+      return tbMission(m).then(function(r){if(r.stopped)return;out.push(r);if(opts.each)try{opts.each(r,base+i,TB.n);}catch(e){}});
+    });
+  },Promise.resolve());
 }
 function tbProblems(res){
   var out=[];
   (res||[]).forEach(function(r){
     var bits=[],em=Object.keys(r.err);
+    if(r.fail)bits.push(r.fail);
     if(em.length)bits.push('error: '+em[0]+(r.err[em[0]]>1?' (x'+r.err[em[0]]+')':'')+(em.length>1?' and '+(em.length-1)+' more':''));
     if(r.stalled)bits.push('stopped drawing');
+    if(r.stut&&r.lag)bits.push('stutters ('+r.lag.hitch+' long pauses)');
     if(r.blank)bits.push('the screen looked blank');
     if(r.fps&&r.fps<15&&!r.paused)bits.push('slow ('+r.fps+' fps)');
     if(bits.length)out.push(r.t+': '+bits.join('; '));
@@ -14070,13 +15291,16 @@ function tbProblems(res){
    report in its chat (days: the newest 20 reports). The same problem that is still waiting, or that got a No, is not
    asked again; one that was marked Done but is still broken comes back as a new request. */
 function tbSummary(res,kind,stopped){
-  var n=res.length,p=tbProblems(res).length,s;
-  if(kind==='watch')s='You watched me play '+(n===1?res[0].t:n+' games')+'.';
-  else s='I played '+(stopped?n+(n===1?' game':' games')+' before you stopped me':'all '+n+' games')+'.';
-  return s+(p?' '+(p===1?'1 game had a problem:':p+' games had problems:'):' Everything worked: no errors, freezes, blank screens or lag.');
+  var gs=res.filter(function(r){return !r.check;}),n=gs.length,ck=res.length-n,p=tbProblems(res).length,s;
+  var ex=ck?' and '+(kind==='watch'?'do ':'did ')+ck+(ck===1?' extra check':' extra checks'):'';
+  if(kind==='watch')s='You watched me play '+(n===1?gs[0].t:n+' games')+ex+'.';
+  else s='I played '+(stopped?n+(n===1?' game':' games')+' before you stopped me':'all '+n+' games')+ex+'.';
+  var slow=gs.filter(function(r){return r.fps>0&&r.fps<40;}).sort(function(a,b){return a.fps-b.fps;}).slice(0,3);
+  if(slow.length)s+=' Slowest: '+slow.map(function(r){return r.t+' '+r.fps+' fps';}).join(', ')+'.';
+  return s+(p?' '+(p===1?'1 had a problem:':p+' had problems:'):' Everything worked: no errors, freezes, blank screens or lag.');
 }
 /* the same problem, even when the error count or the frame rate is a little different this time */
-function tbSame(t){return String(t).replace(/\s*\(x\d+\)/g,'').replace(/\(\d+ fps\)/g,'(fps)');}
+function tbSame(t){return String(t).replace(/\s*\(x\d+\)/g,'').replace(/\(\d+ fps\)/g,'(fps)').replace(/\(\d+ long pauses\)/g,'(pauses)');}
 function tbReport(res,kind,stopped,noDay){
   var now=Date.now(),probs=[],tested={},ref=SOC.db.doc('asks/bot-testbots');
   res.forEach(function(r){tested[r.id]=1;var w=tbProblems([r])[0];if(w)probs.push({g:r.id,t:('[Test bots] '+w).slice(0,200),s:w.slice(0,220)});});
@@ -14105,9 +15329,9 @@ function tbReport(res,kind,stopped,noDay){
   });
 }
 function tbSection(dis){
-  var h='<p class="lbl">Test bots</p><p class="note">Bots open every game for a few seconds, press keys and tap around, and look for errors, games that freeze, blank screens and lag. '+(SOC.db?'When they finish, anything broken goes to Requests from TestBot, and TestBot sends you a report in your friends.':'The results show here. Requests and TestBot\u2019s reports are in the Claude version.')+'</p>';
+  var h='<p class="lbl">Test bots</p><p class="note">Bots play every game for a few seconds and try to win, then check the menus, the shop and Blaster Duel. They look for errors, games that freeze, blank screens, lag and stutters. '+(SOC.db?'When they finish, anything broken goes to Requests from TestBot, and TestBot sends you a report in your friends.':'The results show here. Requests and TestBot\u2019s reports are in the Claude version.')+'</p>';
   if(TB.msg)h+='<p class="note '+TB.msg.t+'" role="status">'+esc(TB.msg.s)+'</p>';
-  h+='<button class="choice" type="button" data-cmd="tbrun"'+(TB.on?' disabled':dis)+'>'+(TB.on?'Testing...':'Run test bots (about 2 minutes)')+'</button>';
+  h+='<button class="choice" type="button" data-cmd="tbrun"'+(TB.on?' disabled':dis)+'>'+(TB.on?'Testing...':'Run test bots (about 3 minutes)')+'</button>';
   if(TB.res){
     var p=tbProblems(TB.res);
     h+='<p class="note">Last run '+esc(rqTime(TB.at))+': '+TB.res.length+' games, '+(p.length?p.length+(p.length===1?' with a problem':' with problems'):'no problems')+'.</p>';
@@ -14118,7 +15342,7 @@ function tbSection(dis){
 }
 function cmdTestBots(){
   if(TB.on)return;
-  tbRun({ms:2500}).then(function(res){
+  tbRun({ms:2500,missions:true}).then(function(res){
     if(!res)return;
     var p=tbProblems(res),stopped=TB.stop,done=function(m){TB.msg=m;if(TB.from==='bot'){TB.from='';openBot('bot-testbots');}else openCmd();};
     if(res.length&&SOC.db&&CMD.owner)tbReport(res,'run',stopped).then(function(){done({t:'good',s:p.length?(p.length===1?'1 game is not working. It is':p.length+' games are not working. They are')+' in Requests, and TestBot sent you a report.':'No problems found. TestBot sent you a report.'});},function(e){done({t:'err',s:'Found '+p.length+' problems, but sending them to Requests failed: '+failText(e)});});
@@ -14162,7 +15386,7 @@ function bvSection(dis){
   if(BV.res){
     var p=tbProblems(BV.res);
     h+='<p class="note">You watched '+BV.res.length+(BV.res.length===1?' game':' games')+' at '+esc(rqTime(BV.at))+': '+(p.length?p.length+(p.length===1?' problem':' problems'):'no problems')+'.</p>';
-    BV.res.forEach(function(r){var w=tbProblems([r])[0];h+='<div class="row"><span class="who">'+esc(r.t)+'<small>'+(w?esc(w.slice(w.indexOf(':')+1).trim()):'OK'+(r.fps?' · '+r.fps+' fps':''))+'</small></span></div>';});
+    BV.res.forEach(function(r){var w=tbProblems([r])[0],pl=r.play&&r.play.top?' · bot got '+r.play.top+' '+(r.play.top===1?String(r.play.l).replace(/(\w)s\b/,'$1'):r.play.l):'';h+='<div class="row"><span class="who">'+esc(r.t)+'<small>'+(w?esc(w.slice(w.indexOf(':')+1).trim()):'OK'+(r.fps?' · '+r.fps+' fps':'')+pl)+'</small></span></div>';});
     if(BV.sent)h+='<p class="note good">'+(p.length?'Sent to Requests, and TestBot sent you a report.':'TestBot sent you a report.')+'</p>';
   }
   if(!SOC.db){
@@ -14185,7 +15409,7 @@ function bvSection(dis){
 function bvWatch(){
   if(TB.on)return;
   var ids=BV.pick==='all'?bvIds():[BV.pick];
-  tbRun({ids:ids,ms:(+BV.secs||10)*1000,show:true}).then(function(res){
+  tbRun({ids:ids,ms:(+BV.secs||10)*1000,show:true,missions:BV.pick==='all'}).then(function(res){
     if(!res)return;
     BV.res=res;BV.at=Date.now();BV.sent=false;BV.err='';
     if(res.length&&SOC.db&&CMD.owner)tbReport(res,'watch',TB.stop).then(function(){BV.sent=true;},function(e){BV.err='The bots finished, but sending what they found failed: '+failText(e);}).then(openCmd);
@@ -14210,7 +15434,7 @@ function bvLoad(){
    every morning. The reports live in asks/bot-testbots and asks/bot-claude (days), which only the owner can write. ===== */
 var BOTS={sub:false,d:{},cur:'',skel:'',local:{},q:{},list:[['bot-testbots','TestBot'],['bot-claude','ClaudeBot']]};
 var BOTINFO={
-  'bot-testbots':{n:'TestBot',c:'#3cc8f0',ph:'Tell TestBot what to check, like: check Block Golf on a phone',d:'I play every game, press keys and tap around, and tell you about errors, freezes, blank screens and lag. I report after every test run and every morning, and I check anything you tell me to.'},
+  'bot-testbots':{n:'TestBot',c:'#3cc8f0',ph:'Tell TestBot what to check, like: check Block Golf on a phone',d:'I play every game and try to win, check the menus and the shop, and tell you about errors, freezes, blank screens and lag. I report after every test run and every morning, and I check anything you tell me to.'},
   'bot-claude':{n:'ClaudeBot',c:'#ff9a3c',ph:'Ask ClaudeBot to look into something',d:'Every morning I look at pictures of every game from the daily bot test and tell you what looks broken. Ask me to look into anything: I play the games, look at them and answer you.'}
 };
 function botOn(){return typeof BOTS!=='undefined'&&!!(SOC.db&&SOC.account&&(can('testbots')||can('botview')));}
@@ -14293,7 +15517,7 @@ function botRender(first){
   $('bot-msgs').innerHTML=h;
   var a='';
   if(id==='bot-testbots'&&TB.msg)a+='<p class="note '+TB.msg.t+'" role="status">'+esc(TB.msg.s)+'</p>';
-  if(id==='bot-testbots'&&can('testbots'))a+='<button class="choice" type="button" data-bot="run"'+(TB.on||INV.busy?' disabled':'')+'>'+(TB.on?'Testing...':'Run the test bots now (about 2 minutes)')+'</button>';
+  if(id==='bot-testbots'&&can('testbots'))a+='<button class="choice" type="button" data-bot="run"'+(TB.on||INV.busy?' disabled':'')+'>'+(TB.on?'Testing...':'Run the test bots now (about 3 minutes)')+'</button>';
   if(can('botview'))a+='<button class="choice alt" type="button" data-bot="view"'+(INV.busy?' disabled':'')+'>Watch the bots play</button>';
   if(id==='bot-claude')a+='<button class="choice" type="button" data-bot="duel">Play Blaster Duel with me</button><button class="choice alt" type="button" data-bot="duelpro">Play ClaudeBot Pro</button>';
   a+='<p class="note">'+(id==='bot-claude'?'Ask me about any game, like: does Four in a Row fit on phones? I play it, look at it and tell you. I use your Claude account to think, so the first time Claude asks you to allow it.':'Tell me what to check, like: check Block Golf on a phone, or: test every game for 10 seconds. Say laptop, phone, sideways or tablet for the screen.')+' Anything broken also goes to Requests. Pictures of every game: <a href="https://glufftl25-sys.github.io/blockyard/bots.html" target="_blank" rel="noopener" style="color:var(--cyan)">Bots page</a></p>';
@@ -14719,6 +15943,7 @@ bwBody.addEventListener('click',function(e){
 window.BY_TESTBOTS=function(o){return tbRun(o||{}).then(function(r){return r?{results:r,problems:tbProblems(r)}:null;});};
 window.BY_TESTBOTS.stop=function(){if(TB.on){TB.stop=true;tbShow();}};
 window.BY_TESTBOTS.progress=function(){return {on:TB.on,i:TB.i,n:TB.n,name:TB.name};};
+window.BY_TESTBOTS.duel=function(cmd){if(cmd==='open'){if(cur!==GAMES.duel)openGame('duel');return true;}return GAMES.duel.tbm('mp',cmd);};
 window.BY_TESTBOTS.ver=function(){var u=UPDATES[0];return u?u.id+' \u00b7 '+u.t:'';};
 function cmdPlayers(){
   CMD.busy=true;cmdRender();
@@ -16066,7 +17291,7 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u54", "d": "Oct 26, 2026", "t": "Blaster Duel update", "x": ["The round clock now shows the right time in longer fights.", "Small fixes."]}, {"id": "u53", "d": "Oct 25, 2026", "t": "Make your own button layout", "x": ["Blaster Duel: open Settings in the lobby and tap Edit touch buttons.", "Drag FIRE, AIM, JUMP, RELOAD, SLIDE and the left FIRE button anywhere you like.", "Tap a button, then make it smaller or bigger, or hide it. Tap a hidden one and press Show to bring it back.", "Reset all puts every button back where it started. Your layout is saved."]}, {"id": "u52", "d": "Oct 25, 2026", "t": "Aim help on phones", "x": ["Blaster Duel now helps you aim on phones and tablets, even more than on a controller.", "When an enemy is near your crosshair, your aim slides onto them while you move, look around or fire. The pull is strongest while you hold FIRE."]}, {"id": "u51", "d": "Oct 25, 2026", "t": "Test bot fix", "x": ["Fixed: if your phone screen turned off or you switched apps while the test bots were running, the games they were testing got reported as blank. The bots now skip those games instead.", "Target Range, Block Sumo, Traffic Dodge and Beat Blocks were never broken. They were the last 4 games in a test run when the screen went off."]}, {"id": "u50", "d": "Oct 25, 2026", "t": "Support Blockyard", "x": ["Settings has a new Support Blockyard part with a Tip on itch.io button.", "Blockyard stays free. Tips are optional real money for the maker, so ask a grown-up first. Tips do not give bricks."]}, {"id": "u49", "d": "Oct 25, 2026", "t": "Blaster Duel weapon shop", "x": ["Blaster Duel now starts you with the Assault Rifle, Handgun, Katana and Grenade.", "Everything else is in the Weapons shop. Buy weapons with bricks.", "19 new weapons: Bow, Wildcat, Crossbow, Gunblade, Flamethrower, Energy Rifle, Grenade Launcher, Minigun, Paintball Gun, Permafrost, Distortion, Spray, Flare Gun, Shorty, Daggers, Slingshot, Exogun, Energy Pistols and Warper.", "Special powers: the Bow charges up, Permafrost slows people, Paintball splats their screen, Distortion flings them, Daggers let you double jump, Warper zaps you forward, and the Energy Pistols never reload.", "Weapons you already had equipped are yours to keep.", "Guns now reload by themselves when they run out."]}, {"id": "u48", "d": "Oct 25, 2026", "t": "Blaster Duel update", "x": ["Small changes to Blaster Duel."]}, {"id": "u47", "d": "Oct 25, 2026", "t": "ClaudeBot Pro", "x": ["New in Blaster Duel Practice: ClaudeBot Pro, the gold one. It is the toughest bot yet.", "It does everything ClaudeBot does, but it is faster, aims better, reacts quicker, has two medkits and three grenades, and dodges when you aim right at it.", "It has its own lines and Pro tips, and Practice counts your wins against it.", "ClaudeBot is exactly the same as before.", "ClaudeBot's chat has a Play ClaudeBot Pro button too."]}, {"id": "u46", "d": "Oct 25, 2026", "t": "Duel ClaudeBot", "x": ["New in Blaster Duel: play ClaudeBot, the toughest bot. Open Practice, pick ClaudeBot and press Start.", "ClaudeBot strafes and hops, switches weapons for the range, backs off to heal with a medkit, and throws grenades where it last saw you.", "It talks while you play: it cheers when you get it, and gives you a tip when it gets you.", "ClaudeBot's chat has a new Play Blaster Duel with me button that drops you straight into a duel.", "Practice shows how many times you have beaten ClaudeBot."]}, {"id": "u45", "d": "Oct 25, 2026", "t": "Ask works on the website and app", "x": ["The Ask button now works on the website, the app and itch.io. Send the owner a request for a new game, a gift or a fix.", "Requests from there show up in Requests in the Claude version, marked with where they came from.", "When the owner answers, your request says Done or Not this time.", "Requests are locked on the way, so other players cannot read them.", "Your requests stay listed on your device, and you can delete them."]}, {"id": "u44", "d": "Oct 25, 2026", "t": "Online play on the website and app", "x": ["The website, the app and itch.io now have real online play. Everyone playing there meets in the same games.", "Works in Obby Race, Hill King, Paint Battle, Star Party, Yard Escape, Blaster Duel, Block Tag, Blockball and Balloon Battle matches with a code.", "If nobody else is there, the bots play with you, and they leave when a real player joins.", "Other players show with their own name and avatar colour.", "Settings has a new Online play part that shows if you are connected.", "Players on the website and app do not meet players in the Claude version. They are separate.", "Game chat stays off on the website and app, because anyone on the internet can join."]}, {"id": "u43", "d": "Oct 25, 2026", "t": "Online games work offline", "x": ["Block Tag, Blockball and Star Party now work on the website, the app and itch.io, and with no internet: bots play with you when nobody else is there.", "Block Tag: three bots play tag with you. The It bot chases, the others run away.", "Blockball: Bot Grape plays against you. Kick the ball into the blue net.", "Star Party: three bots grab stars too, so there is someone to beat.", "The bots leave as soon as a real player joins (in the Claude version).", "Copies outside Claude no longer show the game chat bubble or say they need an invite, because they have no online play."]}, {"id": "u42", "d": "Oct 25, 2026", "t": "Owner key changes and bots that investigate", "x": ["Your owner key for the website and app now changes every 5 minutes. Commands shows it with a countdown and makes a new one by itself.", "A device you unlock keeps Commands, even after the key changes. Devices you already unlocked stay unlocked.", "You can now tell the bots what to look into in their chats. TestBot checks the games you name, on the screens you name (laptop, phone, sideways or tablet), and you can watch it play right in the chat.", "ClaudeBot does the same, then looks at the pictures and answers you in its own words. It uses your Claude account to think, so the first time Claude asks you to allow it.", "Your messages and their answers stay in the chat, and anything broken also goes to Requests."]}, {"id": "u41", "d": "Oct 25, 2026", "t": "Owner tools on the website and app", "x": ["The owner can now get Commands on the website, the app and itch.io too.", "In the Claude version, open Commands and tap Show my owner key under Owner on the website and app. Copy it.", "On the website or app, open Settings, paste it under Owner and tap Unlock. Commands shows up at the top of the hub.", "There you get Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements stay in the Claude version, because they need everyone's shared data.", "The key stays with your player, so it follows your email account to your other devices."]}, {"id": "u40", "d": "Oct 25, 2026", "t": "Watch every bot at once", "x": ["Watch the bots play now opens a wall with a screen for every game, each with its own bot.", "A few bots test at the same time, then hand over to the next game, round after round, so you can see every bot testing.", "Each screen shows Bot testing now, Working or the problem it found, with a picture of the game.", "Tap a game to watch just that bot, big, with every tap and key press shown. Tap All bots to go back.", "When you leave, anything broken goes to Requests and TestBot sends you a report.", "The bots' copies of the games have no sound and never change anyone's saves."]}, {"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u55", "d": "Oct 27, 2026", "t": "Smarter test bots", "x": ["The test bots now play every game for real and try to win, instead of pressing random keys.", "After the games they press every menu and shop button, and check the Blaster Duel menus and the touch-button editor.", "Every day two bots also join one Blaster Duel match online, to check that playing with a friend works.", "The Bots page shows a speed list (slowest games first), the extra checks, and how far each bot got.", "Fixed: Lantern Quest opened to a blank page.", "Fixed: Colour Sort's tubes were squashed and could not be tapped on laptop screens."]}, {"id": "u54", "d": "Oct 26, 2026", "t": "Blaster Duel update", "x": ["The round clock now shows the right time in longer fights.", "Small fixes."]}, {"id": "u53", "d": "Oct 25, 2026", "t": "Make your own button layout", "x": ["Blaster Duel: open Settings in the lobby and tap Edit touch buttons.", "Drag FIRE, AIM, JUMP, RELOAD, SLIDE and the left FIRE button anywhere you like.", "Tap a button, then make it smaller or bigger, or hide it. Tap a hidden one and press Show to bring it back.", "Reset all puts every button back where it started. Your layout is saved."]}, {"id": "u52", "d": "Oct 25, 2026", "t": "Aim help on phones", "x": ["Blaster Duel now helps you aim on phones and tablets, even more than on a controller.", "When an enemy is near your crosshair, your aim slides onto them while you move, look around or fire. The pull is strongest while you hold FIRE."]}, {"id": "u51", "d": "Oct 25, 2026", "t": "Test bot fix", "x": ["Fixed: if your phone screen turned off or you switched apps while the test bots were running, the games they were testing got reported as blank. The bots now skip those games instead.", "Target Range, Block Sumo, Traffic Dodge and Beat Blocks were never broken. They were the last 4 games in a test run when the screen went off."]}, {"id": "u50", "d": "Oct 25, 2026", "t": "Support Blockyard", "x": ["Settings has a new Support Blockyard part with a Tip on itch.io button.", "Blockyard stays free. Tips are optional real money for the maker, so ask a grown-up first. Tips do not give bricks."]}, {"id": "u49", "d": "Oct 25, 2026", "t": "Blaster Duel weapon shop", "x": ["Blaster Duel now starts you with the Assault Rifle, Handgun, Katana and Grenade.", "Everything else is in the Weapons shop. Buy weapons with bricks.", "19 new weapons: Bow, Wildcat, Crossbow, Gunblade, Flamethrower, Energy Rifle, Grenade Launcher, Minigun, Paintball Gun, Permafrost, Distortion, Spray, Flare Gun, Shorty, Daggers, Slingshot, Exogun, Energy Pistols and Warper.", "Special powers: the Bow charges up, Permafrost slows people, Paintball splats their screen, Distortion flings them, Daggers let you double jump, Warper zaps you forward, and the Energy Pistols never reload.", "Weapons you already had equipped are yours to keep.", "Guns now reload by themselves when they run out."]}, {"id": "u48", "d": "Oct 25, 2026", "t": "Blaster Duel update", "x": ["Small changes to Blaster Duel."]}, {"id": "u47", "d": "Oct 25, 2026", "t": "ClaudeBot Pro", "x": ["New in Blaster Duel Practice: ClaudeBot Pro, the gold one. It is the toughest bot yet.", "It does everything ClaudeBot does, but it is faster, aims better, reacts quicker, has two medkits and three grenades, and dodges when you aim right at it.", "It has its own lines and Pro tips, and Practice counts your wins against it.", "ClaudeBot is exactly the same as before.", "ClaudeBot's chat has a Play ClaudeBot Pro button too."]}, {"id": "u46", "d": "Oct 25, 2026", "t": "Duel ClaudeBot", "x": ["New in Blaster Duel: play ClaudeBot, the toughest bot. Open Practice, pick ClaudeBot and press Start.", "ClaudeBot strafes and hops, switches weapons for the range, backs off to heal with a medkit, and throws grenades where it last saw you.", "It talks while you play: it cheers when you get it, and gives you a tip when it gets you.", "ClaudeBot's chat has a new Play Blaster Duel with me button that drops you straight into a duel.", "Practice shows how many times you have beaten ClaudeBot."]}, {"id": "u45", "d": "Oct 25, 2026", "t": "Ask works on the website and app", "x": ["The Ask button now works on the website, the app and itch.io. Send the owner a request for a new game, a gift or a fix.", "Requests from there show up in Requests in the Claude version, marked with where they came from.", "When the owner answers, your request says Done or Not this time.", "Requests are locked on the way, so other players cannot read them.", "Your requests stay listed on your device, and you can delete them."]}, {"id": "u44", "d": "Oct 25, 2026", "t": "Online play on the website and app", "x": ["The website, the app and itch.io now have real online play. Everyone playing there meets in the same games.", "Works in Obby Race, Hill King, Paint Battle, Star Party, Yard Escape, Blaster Duel, Block Tag, Blockball and Balloon Battle matches with a code.", "If nobody else is there, the bots play with you, and they leave when a real player joins.", "Other players show with their own name and avatar colour.", "Settings has a new Online play part that shows if you are connected.", "Players on the website and app do not meet players in the Claude version. They are separate.", "Game chat stays off on the website and app, because anyone on the internet can join."]}, {"id": "u43", "d": "Oct 25, 2026", "t": "Online games work offline", "x": ["Block Tag, Blockball and Star Party now work on the website, the app and itch.io, and with no internet: bots play with you when nobody else is there.", "Block Tag: three bots play tag with you. The It bot chases, the others run away.", "Blockball: Bot Grape plays against you. Kick the ball into the blue net.", "Star Party: three bots grab stars too, so there is someone to beat.", "The bots leave as soon as a real player joins (in the Claude version).", "Copies outside Claude no longer show the game chat bubble or say they need an invite, because they have no online play."]}, {"id": "u42", "d": "Oct 25, 2026", "t": "Owner key changes and bots that investigate", "x": ["Your owner key for the website and app now changes every 5 minutes. Commands shows it with a countdown and makes a new one by itself.", "A device you unlock keeps Commands, even after the key changes. Devices you already unlocked stay unlocked.", "You can now tell the bots what to look into in their chats. TestBot checks the games you name, on the screens you name (laptop, phone, sideways or tablet), and you can watch it play right in the chat.", "ClaudeBot does the same, then looks at the pictures and answers you in its own words. It uses your Claude account to think, so the first time Claude asks you to allow it.", "Your messages and their answers stay in the chat, and anything broken also goes to Requests."]}, {"id": "u41", "d": "Oct 25, 2026", "t": "Owner tools on the website and app", "x": ["The owner can now get Commands on the website, the app and itch.io too.", "In the Claude version, open Commands and tap Show my owner key under Owner on the website and app. Copy it.", "On the website or app, open Settings, paste it under Owner and tap Unlock. Commands shows up at the top of the hub.", "There you get Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements stay in the Claude version, because they need everyone's shared data.", "The key stays with your player, so it follows your email account to your other devices."]}, {"id": "u40", "d": "Oct 25, 2026", "t": "Watch every bot at once", "x": ["Watch the bots play now opens a wall with a screen for every game, each with its own bot.", "A few bots test at the same time, then hand over to the next game, round after round, so you can see every bot testing.", "Each screen shows Bot testing now, Working or the problem it found, with a picture of the game.", "Tap a game to watch just that bot, big, with every tap and key press shown. Tap All bots to go back.", "When you leave, anything broken goes to Requests and TestBot sends you a report.", "The bots' copies of the games have no sound and never change anyone's saves."]}, {"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
 /* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in

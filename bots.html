@@ -60,6 +60,17 @@ ul.probs li{margin:3px 0}
 .bar i{display:block;height:100%;width:0;background:var(--grass);transition:width .3s}
 select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radius:10px;background:var(--raise2);color:var(--text);font:800 15px var(--body)}
 .err{color:#ffb1aa}
+.checks{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.checks li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--raise);border:3px solid var(--ink);border-radius:12px}
+.checks li .chip{flex:none}
+.checks li span.why{display:block;color:#ffb1aa;font-size:14px}
+.speed{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.speed li{display:grid;grid-template-columns:minmax(110px,180px) 1fr auto;gap:10px;align-items:center;font-size:15px}
+.speed li .sb{height:12px;border:2px solid var(--ink);border-radius:999px;background:var(--raise);overflow:hidden}
+.speed li .sb i{display:block;height:100%}
+.speed li small{color:var(--muted);font-size:13px;white-space:nowrap}
+.g .t span.got{color:var(--sun)}
+@media (max-width:520px){.speed li{grid-template-columns:1fr auto;row-gap:3px}.speed li .sb{grid-column:1/-1;order:3}}
 @media (max-width:520px){.grid{grid-template-columns:repeat(2,1fr)}.g .t b{font-size:16px}.card{padding:14px}}
 </style>
 </head>
@@ -75,12 +86,28 @@ select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radiu
 
   <section class="card" aria-labelledby="dt">
     <h2 id="dt">Daily test</h2>
-    <p class="note">Every day, and after every game update, bots play every game on GitHub's computers at laptop and phone sizes. They look for errors, frozen games, blank screens and lag. ClaudeBot posts any problems to Requests in the game.</p>
+    <p class="note">Every day, and after every game update, bots play every game on GitHub's computers at laptop and phone sizes, and try to win. Then they check the menus, the shop and Blaster Duel, and two bots play Blaster Duel against each other online. They look for errors, frozen games, blank screens, lag and stutters. ClaudeBot posts any problems to Requests in the game.</p>
     <div id="daily" aria-live="polite"><p class="note">Loading the latest report...</p></div>
     <div class="row" style="margin-top:12px">
       <a class="btn alt" id="gh" href="https://github.com/glufftl25-sys/blockyard/actions/workflows/test-bots.yml" target="_blank" rel="noopener">Run now or see past runs on GitHub</a>
     </div>
     <p class="note" style="font-size:14px">To run it now: open that link while signed in to GitHub, press <b>Run workflow</b>, then come back here in about 10 minutes.</p>
+  </section>
+
+  <section class="card" id="checksCard" hidden aria-labelledby="ct">
+    <h2 id="ct">Extra checks</h2>
+    <p class="note">Things a quick game run never reaches: every menu and shop button, the Blaster Duel menus and button editor, and two players joining one Blaster Duel match.</p>
+    <ul class="checks" id="checks"></ul>
+  </section>
+
+  <section class="card" id="speedCard" hidden aria-labelledby="st">
+    <h2 id="st">Speed</h2>
+    <div class="tabs" role="group" aria-label="Screen size for speed">
+      <button type="button" data-ssize="laptop" aria-pressed="true">Laptop</button>
+      <button type="button" data-ssize="phone" aria-pressed="false">Phone</button>
+    </div>
+    <p class="note">Slowest games first. Frames a second (60 is perfect), the slowest frame out of every 20, and long pauses (a frame that took 150 ms or more). GitHub's computer has no graphics card, so real laptops and phones usually run faster: look for games that are much slower than the rest.</p>
+    <ul class="speed" id="speed"></ul>
   </section>
 
   <section class="card" id="gamesCard" hidden aria-labelledby="gt">
@@ -97,7 +124,7 @@ select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radiu
     <p class="note">Watch the bots play every game right now, in this browser. The yellow dot shows every tap and the white box shows every key they press. Your saves are not changed and nothing is posted.</p>
     <div class="row">
       <label for="secs">Time per game</label>
-      <select id="secs"><option value="2000">2 seconds</option><option value="3000" selected>3 seconds</option><option value="5000">5 seconds</option></select>
+      <select id="secs"><option value="2000">2 seconds</option><option value="3000">3 seconds</option><option value="5000" selected>5 seconds</option><option value="10000">10 seconds</option></select>
       <button class="btn" type="button" id="go">Start the bots</button>
       <button class="btn alt" type="button" id="stop" hidden>Stop</button>
     </div>
@@ -114,7 +141,7 @@ select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radiu
     'https://raw.githubusercontent.com/glufftl25-sys/blockyard/bots/',
     'https://cdn.jsdelivr.net/gh/glufftl25-sys/blockyard@bots/'
   ];
-  var REP=null,BASE='',SIZE='laptop';
+  var REP=null,BASE='',SIZE='laptop',SSIZE='laptop';
   function $(id){return document.getElementById(id);}
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function when(t){try{return new Date(t).toLocaleString(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){return String(t);}}
@@ -124,12 +151,15 @@ select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radiu
     if(r.stalled)b.push('stopped drawing');
     if(r.blank)b.push('screen looked blank');
     if(r.fps&&r.fps<15)b.push('slow');
+    if(r.stut)b.push('stutters');
+    if(r.fail)b.push(r.fail);
     return b.join(', ');
   }
+  function got(r){if(!r.play||!r.play.top)return '';var l=String(r.play.l||'');if(r.play.top===1)l=l.replace(/(\w)s\b/,'$1');return 'Bot got '+r.play.top+' '+l;}
   function card(r,src,size){
     var w=r.ok?'':why(r);
-    return '<div class="g '+size+(r.ok?'':' bad')+'"><div class="pic">'+(src?'<img loading="lazy" alt="'+esc(r.t)+', last frame" src="'+esc(src)+'">':'Page game')+'</div>'+
-      '<div class="t"><b>'+esc(r.t)+'</b><span>'+(r.ok?'OK':'Problem')+(r.fps?' · '+r.fps+' fps':'')+'</span>'+(w?'<span class="why">'+esc(w)+'</span>':'')+'</div></div>';
+    return '<div class="g '+size+(r.ok?'':' bad')+'"><div class="pic">'+(src?'<img loading="lazy" alt="'+esc(r.t)+', last frame" src="'+esc(src)+'">':(r.check?'Extra check':'Page game'))+'</div>'+
+      '<div class="t"><b>'+esc(r.t)+'</b><span>'+(r.ok?'OK':'Problem')+(r.fps?' · '+r.fps+' fps':'')+'</span>'+(got(r)?'<span class="got">'+esc(got(r))+'</span>':'')+(w?'<span class="why">'+esc(w)+'</span>':'')+'</div></div>';
   }
 
   /* daily report */
@@ -140,7 +170,7 @@ select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radiu
   }
   function showDaily(){
     var probs=0,games=0,h='';
-    REP.runs.forEach(function(x){probs+=x.problems.length;games=Math.max(games,x.results.length);});
+    REP.runs.forEach(function(x){probs+=x.problems.length;games=Math.max(games,x.results.filter(function(r){return !r.check;}).length);});
     h+='<div class="big">'+(probs?'<span class="chip bad">'+probs+(probs===1?' problem':' problems')+'</span>':'<span class="chip ok">All '+games+' games OK</span>')+
       '<span>Last run '+esc(when(REP.at))+'</span></div>';
     h+='<p class="note">Version tested: '+esc(REP.ver||'unknown')+(REP.secs?' · took '+Math.round(REP.secs/60)+' min':'')+'</p>';
@@ -151,19 +181,47 @@ select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radiu
     });
     $('daily').innerHTML=h;
     $('gamesCard').hidden=false;
-    showGrid();
+    showGrid();showChecks();showSpeed();
+  }
+  function showChecks(){
+    var list=[];
+    REP.runs.forEach(function(x){x.results.forEach(function(r){if(r.check)list.push({r:r,size:x.size});});});
+    if(!list.length){$('checksCard').hidden=true;return;}
+    $('checksCard').hidden=false;
+    $('checks').innerHTML=list.map(function(e){
+      var r=e.r,w=r.ok?'':why(r);
+      return '<li><span class="chip '+(r.ok?'ok':'bad')+'">'+(r.ok?'OK':'Problem')+'</span><div><b>'+esc(r.t)+'</b> <span class="tag">'+esc(e.size.toUpperCase())+'</span>'+(w?'<span class="why">'+esc(w)+'</span>':'')+'</div></li>';
+    }).join('');
+  }
+  function showSpeed(){
+    var run=REP.runs.filter(function(x){return x.size===SSIZE;})[0],lag=run&&run.lag;
+    if(!lag){lag=run?run.results.filter(function(r){return !r.check&&r.fps;}).map(function(r){return {t:r.t,fps:r.fps,p95:r.lag?r.lag.p95:0,hitch:r.lag?r.lag.hitch:0};}).sort(function(a,b){return a.fps-b.fps;}):[];}
+    if(!REP.runs.some(function(x){return x.lag||x.results.some(function(r){return r.fps;});})){$('speedCard').hidden=true;return;}
+    $('speedCard').hidden=false;
+    if(!lag.length){$('speed').innerHTML='<li class="note">No '+esc(SSIZE)+' numbers in this report.</li>';return;}
+    $('speed').innerHTML=lag.map(function(e){
+      var c=e.fps>=45?'var(--grass)':(e.fps>=25?'var(--sun)':'var(--brick)');
+      return '<li><span>'+esc(e.t)+'</span><span class="sb" aria-hidden="true"><i style="width:'+Math.min(100,Math.round(e.fps/60*100))+'%;background:'+c+'"></i></span><small>'+e.fps+' fps'+(e.p95?' · '+e.p95+' ms':'')+(e.hitch?' · '+e.hitch+(e.hitch===1?' pause':' pauses'):'')+'</small></li>';
+    }).join('');
   }
   function showGrid(){
     var run=REP.runs.filter(function(x){return x.size===SIZE;})[0];
     if(!run){$('grid').innerHTML='<p class="note">No '+esc(SIZE)+' run in this report.</p>';return;}
-    var list=run.results.slice().sort(function(a,b){return (a.ok?1:0)-(b.ok?1:0);});
+    var list=run.results.filter(function(r){return !r.check;}).sort(function(a,b){return (a.ok?1:0)-(b.ok?1:0);});
     $('grid').innerHTML=list.map(function(r){return card(r,r.shot?BASE+r.shot:'',SIZE);}).join('');
   }
-  document.querySelectorAll('.tabs button').forEach(function(b){
+  document.querySelectorAll('[data-size]').forEach(function(b){
     b.addEventListener('click',function(){
       SIZE=b.getAttribute('data-size');
-      document.querySelectorAll('.tabs button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+      document.querySelectorAll('[data-size]').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
       if(REP)showGrid();
+    });
+  });
+  document.querySelectorAll('[data-ssize]').forEach(function(b){
+    b.addEventListener('click',function(){
+      SSIZE=b.getAttribute('data-ssize');
+      document.querySelectorAll('[data-ssize]').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+      if(REP)showSpeed();
     });
   });
   load(0);
@@ -187,11 +245,11 @@ select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radiu
         catch(e){live('<p class="note err">The bots could not start here. Open this page from the Blockyard website and try again.</p>');done();return;}
         var probs=0;
         live('<div class="bar"><i id="pbar"></i></div><p class="note" id="ptxt">Starting...</p>');
-        w.BY_TESTBOTS({ms:+$('secs').value,shots:true,show:true,each:function(r,i,n){
+        w.BY_TESTBOTS({ms:+$('secs').value,shots:true,show:true,missions:true,each:function(r,i,n){
           if(!r.ok)probs++;
           var pb=$('pbar'),pt=$('ptxt');
           if(pb)pb.style.width=Math.round((i+1)/n*100)+'%';
-          if(pt)pt.textContent=(i+1)+' of '+n+' games played · '+(probs?probs+(probs===1?' problem':' problems'):'no problems so far');
+          if(pt)pt.textContent=(i+1)+' of '+n+' games and checks done · '+(probs?probs+(probs===1?' problem':' problems'):'no problems so far');
           $('liveGrid').insertAdjacentHTML('beforeend',card(r,r.shot||'',''));
         }}).then(function(res){
           if(!res){live('<p class="note err">The bots are already running in that game window.</p>');done();return;}
