@@ -1,0 +1,2794 @@
+{
+ "at": "2026-10-31T13:55:44.367Z",
+ "sha": "a69acd5",
+ "ver": "u56 · Phone and controller settings",
+ "ms": 4000,
+ "runs": [
+  {
+   "size": "laptop",
+   "w": 1280,
+   "h": 720,
+   "ms": 4000,
+   "problems": [],
+   "results": [
+    {
+     "id": "runner",
+     "t": "Box Hopper",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 91,
+      "top": 91,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-runner.jpg"
+    },
+    {
+     "id": "arena",
+     "t": "Block Blitz",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "waves"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-arena.jpg"
+    },
+    {
+     "id": "story",
+     "t": "Lantern Quest",
+     "err": {},
+     "draws": 0,
+     "fps": 0,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "endings"
+     }
+    },
+    {
+     "id": "obby",
+     "t": "Sky Obby",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "sections"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-obby.jpg"
+    },
+    {
+     "id": "dash",
+     "t": "Lane Dash",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 28,
+      "top": 28,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-dash.jpg"
+    },
+    {
+     "id": "stars",
+     "t": "Star Hunt",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 3,
+      "top": 3,
+      "l": "stars"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-stars.jpg"
+    },
+    {
+     "id": "gems",
+     "t": "Gem Rush",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 5,
+      "top": 5,
+      "l": "gems"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-gems.jpg"
+    },
+    {
+     "id": "hill",
+     "t": "Hill King",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 2,
+      "top": 2,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-hill.jpg"
+    },
+    {
+     "id": "hop",
+     "t": "Sky Hop",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 93,
+      "top": 93,
+      "l": "height"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-hop.jpg"
+    },
+    {
+     "id": "paint",
+     "t": "Paint Battle",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "cells"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-paint.jpg"
+    },
+    {
+     "id": "party",
+     "t": "Star Party",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 8,
+      "top": 8,
+      "l": "stars"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-party.jpg"
+    },
+    {
+     "id": "yard",
+     "t": "Yard Escape",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 2,
+      "top": 2,
+      "l": "story steps"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-yard.jpg"
+    },
+    {
+     "id": "duel",
+     "t": "Blaster Duel",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "rounds won"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-duel.jpg"
+    },
+    {
+     "id": "pac",
+     "t": "PacBlox",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 260,
+      "top": 260,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-pac.jpg"
+    },
+    {
+     "id": "bust",
+     "t": "Brick Buster",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 300,
+      "top": 300,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-bust.jpg"
+    },
+    {
+     "id": "snake",
+     "t": "Block Snake",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 20,
+      "top": 20,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-snake.jpg"
+    },
+    {
+     "id": "stack",
+     "t": "Stacker",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 3,
+      "top": 3,
+      "l": "lines"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-stack.jpg"
+    },
+    {
+     "id": "merge",
+     "t": "Merge Blocks",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 92,
+      "top": 92,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-merge.jpg"
+    },
+    {
+     "id": "golf",
+     "t": "Block Golf",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "holes"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-golf.jpg"
+    },
+    {
+     "id": "dive",
+     "t": "Sky Dive",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 30,
+      "top": 30,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-dive.jpg"
+    },
+    {
+     "id": "tag",
+     "t": "Block Tag",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 4,
+      "top": 4,
+      "l": "seconds not It"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-tag.jpg"
+    },
+    {
+     "id": "ball",
+     "t": "Blockball",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "goals"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-ball.jpg"
+    },
+    {
+     "id": "hoops",
+     "t": "Hoops",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 70,
+      "top": 70,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-hoops.jpg"
+    },
+    {
+     "id": "memo",
+     "t": "Memory Match",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "levels"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-memo.jpg"
+    },
+    {
+     "id": "whack",
+     "t": "Whack-a-Block",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 60,
+      "top": 60,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-whack.jpg"
+    },
+    {
+     "id": "tower",
+     "t": "Sky Tower",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 3,
+      "top": 3,
+      "l": "blocks"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-tower.jpg"
+    },
+    {
+     "id": "pong",
+     "t": "Pong Duel",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-pong.jpg"
+    },
+    {
+     "id": "frog",
+     "t": "Block Frogger",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-frog.jpg"
+    },
+    {
+     "id": "flap",
+     "t": "Flap Block",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "pipes"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-flap.jpg"
+    },
+    {
+     "id": "drop",
+     "t": "Block Drop",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 6,
+      "top": 6,
+      "l": "lines"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-drop.jpg"
+    },
+    {
+     "id": "maze",
+     "t": "Maze Run",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "mazes"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-maze.jpg"
+    },
+    {
+     "id": "echo",
+     "t": "Color Echo",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "rounds"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-echo.jpg"
+    },
+    {
+     "id": "slide",
+     "t": "Slide Puzzle",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "puzzles solved"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-slide.jpg"
+    },
+    {
+     "id": "lights",
+     "t": "Lights Out",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "boards"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-lights.jpg"
+    },
+    {
+     "id": "tictac",
+     "t": "Block Tac Toe",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "wins"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-tictac.jpg"
+    },
+    {
+     "id": "four",
+     "t": "Four in a Row",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "wins"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-four.jpg"
+    },
+    {
+     "id": "catchg",
+     "t": "Egg Catch",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 17,
+      "top": 17,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-catchg.jpg"
+    },
+    {
+     "id": "rocks",
+     "t": "Rock Blaster",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 360,
+      "top": 360,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-rocks.jpg"
+    },
+    {
+     "id": "sweep",
+     "t": "Brick Sweeper",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "boards cleared"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-sweep.jpg"
+    },
+    {
+     "id": "bubble",
+     "t": "Bubble Pop",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-bubble.jpg"
+    },
+    {
+     "id": "dig",
+     "t": "Gem Digger",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 64,
+      "top": 64,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-dig.jpg"
+    },
+    {
+     "id": "sort",
+     "t": "Colour Sort",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "levels"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-sort.jpg"
+    },
+    {
+     "id": "cave",
+     "t": "Cave Flyer",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 74,
+      "top": 74,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-cave.jpg"
+    },
+    {
+     "id": "range",
+     "t": "Target Range",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 90,
+      "top": 90,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-range.jpg"
+    },
+    {
+     "id": "sumo",
+     "t": "Block Sumo",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 2,
+      "top": 2,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-sumo.jpg"
+    },
+    {
+     "id": "road",
+     "t": "Traffic Dodge",
+     "err": {},
+     "draws": 240,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 69,
+      "top": 69,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-road.jpg"
+    },
+    {
+     "id": "beat",
+     "t": "Beat Blocks",
+     "err": {},
+     "draws": 241,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 530,
+      "top": 530,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 198
+     },
+     "stut": false,
+     "shot": "laptop-beat.jpg"
+    },
+    {
+     "id": "m.menus",
+     "t": "Menus and buttons",
+     "check": true,
+     "err": {},
+     "ok": true,
+     "steps": 18,
+     "fail": ""
+    },
+    {
+     "id": "m.duelmenus",
+     "t": "Blaster Duel menus",
+     "check": true,
+     "err": {},
+     "ok": true,
+     "steps": 5,
+     "fail": ""
+    },
+    {
+     "id": "m.duelx",
+     "t": "Blaster Duel special",
+     "check": true,
+     "err": {},
+     "ok": true,
+     "steps": 9,
+     "fail": ""
+    },
+    {
+     "id": "m.mp",
+     "t": "Playing with a friend (Blaster Duel)",
+     "check": true,
+     "err": {},
+     "ok": true,
+     "steps": 5,
+     "fail": ""
+    }
+   ],
+   "lag": [
+    {
+     "id": "runner",
+     "t": "Box Hopper",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "arena",
+     "t": "Block Blitz",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "obby",
+     "t": "Sky Obby",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "dash",
+     "t": "Lane Dash",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "stars",
+     "t": "Star Hunt",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "gems",
+     "t": "Gem Rush",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "hill",
+     "t": "Hill King",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "hop",
+     "t": "Sky Hop",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "paint",
+     "t": "Paint Battle",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "party",
+     "t": "Star Party",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "yard",
+     "t": "Yard Escape",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "duel",
+     "t": "Blaster Duel",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "pac",
+     "t": "PacBlox",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "bust",
+     "t": "Brick Buster",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "snake",
+     "t": "Block Snake",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "stack",
+     "t": "Stacker",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "merge",
+     "t": "Merge Blocks",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "golf",
+     "t": "Block Golf",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "dive",
+     "t": "Sky Dive",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "tag",
+     "t": "Block Tag",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "ball",
+     "t": "Blockball",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "hoops",
+     "t": "Hoops",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "memo",
+     "t": "Memory Match",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "whack",
+     "t": "Whack-a-Block",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "tower",
+     "t": "Sky Tower",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "pong",
+     "t": "Pong Duel",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "frog",
+     "t": "Block Frogger",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "flap",
+     "t": "Flap Block",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "drop",
+     "t": "Block Drop",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "maze",
+     "t": "Maze Run",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "echo",
+     "t": "Color Echo",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "slide",
+     "t": "Slide Puzzle",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "lights",
+     "t": "Lights Out",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "tictac",
+     "t": "Block Tac Toe",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "four",
+     "t": "Four in a Row",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "catchg",
+     "t": "Egg Catch",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "rocks",
+     "t": "Rock Blaster",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "sweep",
+     "t": "Brick Sweeper",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "bubble",
+     "t": "Bubble Pop",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "dig",
+     "t": "Gem Digger",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "sort",
+     "t": "Colour Sort",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "cave",
+     "t": "Cave Flyer",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "range",
+     "t": "Target Range",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "sumo",
+     "t": "Block Sumo",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "road",
+     "t": "Traffic Dodge",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "beat",
+     "t": "Beat Blocks",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    }
+   ],
+   "pageErrors": []
+  },
+  {
+   "size": "phone",
+   "w": 844,
+   "h": 390,
+   "ms": 3000,
+   "problems": [],
+   "results": [
+    {
+     "id": "runner",
+     "t": "Box Hopper",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 67,
+      "top": 67,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-runner.jpg"
+    },
+    {
+     "id": "arena",
+     "t": "Block Blitz",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "waves"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-arena.jpg"
+    },
+    {
+     "id": "story",
+     "t": "Lantern Quest",
+     "err": {},
+     "draws": 0,
+     "fps": 0,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "endings"
+     }
+    },
+    {
+     "id": "obby",
+     "t": "Sky Obby",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "sections"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-obby.jpg"
+    },
+    {
+     "id": "dash",
+     "t": "Lane Dash",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 21,
+      "top": 21,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-dash.jpg"
+    },
+    {
+     "id": "stars",
+     "t": "Star Hunt",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 2,
+      "top": 2,
+      "l": "stars"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-stars.jpg"
+    },
+    {
+     "id": "gems",
+     "t": "Gem Rush",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 3,
+      "top": 3,
+      "l": "gems"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-gems.jpg"
+    },
+    {
+     "id": "hill",
+     "t": "Hill King",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-hill.jpg"
+    },
+    {
+     "id": "hop",
+     "t": "Sky Hop",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 78,
+      "top": 78,
+      "l": "height"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-hop.jpg"
+    },
+    {
+     "id": "paint",
+     "t": "Paint Battle",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "cells"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-paint.jpg"
+    },
+    {
+     "id": "party",
+     "t": "Star Party",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 2,
+      "top": 2,
+      "l": "stars"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-party.jpg"
+    },
+    {
+     "id": "yard",
+     "t": "Yard Escape",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "story steps"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-yard.jpg"
+    },
+    {
+     "id": "duel",
+     "t": "Blaster Duel",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "rounds won"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-duel.jpg"
+    },
+    {
+     "id": "pac",
+     "t": "PacBlox",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 200,
+      "top": 200,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-pac.jpg"
+    },
+    {
+     "id": "bust",
+     "t": "Brick Buster",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 80,
+      "top": 80,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-bust.jpg"
+    },
+    {
+     "id": "snake",
+     "t": "Block Snake",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 20,
+      "top": 20,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-snake.jpg"
+    },
+    {
+     "id": "stack",
+     "t": "Stacker",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 2,
+      "top": 2,
+      "l": "lines"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-stack.jpg"
+    },
+    {
+     "id": "merge",
+     "t": "Merge Blocks",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 68,
+      "top": 68,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-merge.jpg"
+    },
+    {
+     "id": "golf",
+     "t": "Block Golf",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "holes"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-golf.jpg"
+    },
+    {
+     "id": "dive",
+     "t": "Sky Dive",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-dive.jpg"
+    },
+    {
+     "id": "tag",
+     "t": "Block Tag",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 3,
+      "top": 3,
+      "l": "seconds not It"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-tag.jpg"
+    },
+    {
+     "id": "ball",
+     "t": "Blockball",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "goals"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-ball.jpg"
+    },
+    {
+     "id": "hoops",
+     "t": "Hoops",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 45,
+      "top": 45,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-hoops.jpg"
+    },
+    {
+     "id": "memo",
+     "t": "Memory Match",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "levels"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-memo.jpg"
+    },
+    {
+     "id": "whack",
+     "t": "Whack-a-Block",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 10,
+      "top": 10,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-whack.jpg"
+    },
+    {
+     "id": "tower",
+     "t": "Sky Tower",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 2,
+      "top": 2,
+      "l": "blocks"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-tower.jpg"
+    },
+    {
+     "id": "pong",
+     "t": "Pong Duel",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-pong.jpg"
+    },
+    {
+     "id": "frog",
+     "t": "Block Frogger",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 4,
+      "top": 4,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-frog.jpg"
+    },
+    {
+     "id": "flap",
+     "t": "Flap Block",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "pipes"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-flap.jpg"
+    },
+    {
+     "id": "drop",
+     "t": "Block Drop",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 4,
+      "top": 4,
+      "l": "lines"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-drop.jpg"
+    },
+    {
+     "id": "maze",
+     "t": "Maze Run",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "mazes"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-maze.jpg"
+    },
+    {
+     "id": "echo",
+     "t": "Color Echo",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "rounds"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-echo.jpg"
+    },
+    {
+     "id": "slide",
+     "t": "Slide Puzzle",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "puzzles solved"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-slide.jpg"
+    },
+    {
+     "id": "lights",
+     "t": "Lights Out",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 1,
+      "top": 1,
+      "l": "boards"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-lights.jpg"
+    },
+    {
+     "id": "tictac",
+     "t": "Block Tac Toe",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "wins"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-tictac.jpg"
+    },
+    {
+     "id": "four",
+     "t": "Four in a Row",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "wins"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-four.jpg"
+    },
+    {
+     "id": "catchg",
+     "t": "Egg Catch",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 17,
+      "top": 17,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-catchg.jpg"
+    },
+    {
+     "id": "rocks",
+     "t": "Rock Blaster",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 180,
+      "top": 180,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-rocks.jpg"
+    },
+    {
+     "id": "sweep",
+     "t": "Brick Sweeper",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "boards cleared"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-sweep.jpg"
+    },
+    {
+     "id": "bubble",
+     "t": "Bubble Pop",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 50,
+      "top": 50,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-bubble.jpg"
+    },
+    {
+     "id": "dig",
+     "t": "Gem Digger",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 80,
+      "top": 80,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-dig.jpg"
+    },
+    {
+     "id": "sort",
+     "t": "Colour Sort",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 0,
+      "top": 0,
+      "l": "levels"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-sort.jpg"
+    },
+    {
+     "id": "cave",
+     "t": "Cave Flyer",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 51,
+      "top": 51,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-cave.jpg"
+    },
+    {
+     "id": "range",
+     "t": "Target Range",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 79,
+      "top": 79,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-range.jpg"
+    },
+    {
+     "id": "sumo",
+     "t": "Block Sumo",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 2,
+      "top": 2,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-sumo.jpg"
+    },
+    {
+     "id": "road",
+     "t": "Traffic Dodge",
+     "err": {},
+     "draws": 180,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 49,
+      "top": 49,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-road.jpg"
+    },
+    {
+     "id": "beat",
+     "t": "Beat Blocks",
+     "err": {},
+     "draws": 181,
+     "fps": 60,
+     "blank": false,
+     "stalled": false,
+     "ok": true,
+     "play": {
+      "s": 312,
+      "top": 312,
+      "l": "points"
+     },
+     "lag": {
+      "p95": 17,
+      "hitch": 0,
+      "n": 138
+     },
+     "stut": false,
+     "shot": "phone-beat.jpg"
+    },
+    {
+     "id": "m.menus",
+     "t": "Menus and buttons",
+     "check": true,
+     "err": {},
+     "ok": true,
+     "steps": 18,
+     "fail": ""
+    },
+    {
+     "id": "m.duelmenus",
+     "t": "Blaster Duel menus",
+     "check": true,
+     "err": {},
+     "ok": true,
+     "steps": 5,
+     "fail": ""
+    },
+    {
+     "id": "m.duelx",
+     "t": "Blaster Duel special",
+     "check": true,
+     "err": {},
+     "ok": true,
+     "steps": 9,
+     "fail": ""
+    }
+   ],
+   "lag": [
+    {
+     "id": "runner",
+     "t": "Box Hopper",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "arena",
+     "t": "Block Blitz",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "obby",
+     "t": "Sky Obby",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "dash",
+     "t": "Lane Dash",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "stars",
+     "t": "Star Hunt",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "gems",
+     "t": "Gem Rush",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "hill",
+     "t": "Hill King",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "hop",
+     "t": "Sky Hop",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "paint",
+     "t": "Paint Battle",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "party",
+     "t": "Star Party",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "yard",
+     "t": "Yard Escape",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "duel",
+     "t": "Blaster Duel",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "pac",
+     "t": "PacBlox",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "bust",
+     "t": "Brick Buster",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "snake",
+     "t": "Block Snake",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "stack",
+     "t": "Stacker",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "merge",
+     "t": "Merge Blocks",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "golf",
+     "t": "Block Golf",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "dive",
+     "t": "Sky Dive",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "tag",
+     "t": "Block Tag",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "ball",
+     "t": "Blockball",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "hoops",
+     "t": "Hoops",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "memo",
+     "t": "Memory Match",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "whack",
+     "t": "Whack-a-Block",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "tower",
+     "t": "Sky Tower",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "pong",
+     "t": "Pong Duel",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "frog",
+     "t": "Block Frogger",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "flap",
+     "t": "Flap Block",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "drop",
+     "t": "Block Drop",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "maze",
+     "t": "Maze Run",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "echo",
+     "t": "Color Echo",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "slide",
+     "t": "Slide Puzzle",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "lights",
+     "t": "Lights Out",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "tictac",
+     "t": "Block Tac Toe",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "four",
+     "t": "Four in a Row",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "catchg",
+     "t": "Egg Catch",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "rocks",
+     "t": "Rock Blaster",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "sweep",
+     "t": "Brick Sweeper",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "bubble",
+     "t": "Bubble Pop",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "dig",
+     "t": "Gem Digger",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "sort",
+     "t": "Colour Sort",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "cave",
+     "t": "Cave Flyer",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "range",
+     "t": "Target Range",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "sumo",
+     "t": "Block Sumo",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "road",
+     "t": "Traffic Dodge",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    },
+    {
+     "id": "beat",
+     "t": "Beat Blocks",
+     "fps": 60,
+     "p95": 17,
+     "hitch": 0
+    }
+   ],
+   "pageErrors": []
+  }
+ ],
+ "secs": 409
+}
