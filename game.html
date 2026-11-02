@@ -243,6 +243,13 @@ button.mst{color:var(--brick-dark);opacity:1;text-decoration:underline;cursor:po
 .e2ebar span{flex:1;min-width:0}
 .e2ebar .mini{flex:none;padding:3px 10px;font-size:12px}
 .msg .locked{font-style:italic;font-weight:700;opacity:.7}
+.msg{cursor:pointer}
+.msgrx{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.msgrx button,.msgact button{font:800 13px/1 var(--body);padding:3px 7px;border:2px solid var(--ink);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer}
+.msgrx button.on{background:var(--sun)}
+.msgact{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.msgact button{font-size:16px}
+.msgact button.del{font-size:13px;background:var(--brick);color:#fff}
 #chat-note{white-space:pre-line}
 .av.pic{background:none;overflow:visible!important;position:relative}
 .av.pic svg{border-radius:50%}
@@ -14518,7 +14525,7 @@ function unreadCount(key){
   var party=r.party?(PTY.all[key]||null):null;if(r.party&&!party)return 0;
   var read=readMap()[key]||0;
   return r.list.filter(function(x){var d=x.d;
-    return d&&typeof d==='object'&&typeof d.from==='string'&&d.from!==SOC.uid&&typeof d.at==='number'&&d.at>read&&senderOk(d,key,party)&&!blkOn(d.from);
+    return d&&typeof d==='object'&&d.re!==1&&typeof d.from==='string'&&d.from!==SOC.uid&&typeof d.at==='number'&&d.at>read&&senderOk(d,key,party)&&!blkOn(d.from);
   }).length;
 }
 function unreadText(n){return n>=CH_UNMAX?(CH_UNMAX-1)+'+':String(n);}
@@ -14547,8 +14554,11 @@ function cleanMsg(d,key,party,id){
     if(!e2eShape(d)||typeof id!=='string')return null;
     var ck=key+'/'+id,st=E2E.plain[ck];
     if(st===undefined){e2eOpen(ck,d,key);st=E2E.plain[ck];}
-    m.e=1;
+    m.e=1;m.id=id;
+    /* a reaction (re:1): a tiny locked message {r: emoji, to: message id}; it is drawn under that message */
+    if(d.re===1){m.rx=(st&&st.rx)?st.rx:null;return m;}
     if(typeof st==='string')m.text=st;
+    else if(st.rx){m.rx=st.rx;return m;}
     else{m.lock=st.w?'wait':st.why;m.text=e2eLockText(m.lock);}
     return m;
   }
@@ -14997,7 +15007,10 @@ function e2eUnbox(d,chat){
 function e2eOpen(ck,d,chat){
   E2E.plain[ck]={w:1};
   function done(v){E2E.plain[ck]=v;e2eRedraw();}
-  e2eUnbox(d,chat).then(function(o){var t=chatText(o.t);done(t?t:{why:'fail'});},done);
+  e2eUnbox(d,chat).then(function(o){
+    if(d.re===1){done((RX_EMO.indexOf(o.r)>=0&&typeof o.to==='string'&&o.to.length<=40)?{rx:{r:o.r,to:o.to}}:{why:'fail'});return;}
+    var t=chatText(o.t);done(t?t:{why:'fail'});
+  },done);
 }
 function e2eLockText(why){
   if(why==='wait')return 'Unlocking...';
@@ -15101,7 +15114,7 @@ function blkList(){return Object.keys(BLK.list).map(function(u){return {id:u,n:B
 function prevFrom(key){
   var r=CH.prevRaw[key],d=null,party=r&&r.party?(PTY.all[key]||null):null;
   /* the newest message that shows (one from someone you blocked is skipped) */
-  if(r)(r.list||[{d:r.d,id:r.id}]).some(function(x){d=cleanMsg(x.d,key,party,x.id);return !!d;});
+  if(r)(r.list||[{d:r.d,id:r.id}]).some(function(x){d=(x.d&&x.d.re===1)?null:cleanMsg(x.d,key,party,x.id);return !!d;});
   if(r&&r.party&&!PTY.all[key])d=null;
   if(d)CH.prev[key]=d;else delete CH.prev[key];
   return d;
@@ -15222,7 +15235,7 @@ function convStart(view,key,title,bar,friend,party){
   chatLeave();
   CH.friend=friend||null;CH.party=party||null;
   CH.view=view;CH.key=key;CH.msgs=[];CH.loaded=false;CH.failed=false;CH.first=true;CH.reg={};
-  CH.lim=CH_PAGE;CH.more=false;CH.pend=[];CH.docs=[];CH.newBelow=0;CH.keep=null;CH.readAt=readMap()[key]||0;
+  CH.lim=CH_PAGE;CH.more=false;CH.rx={};CH.act=null;CH.delSure=null;CH.pend=[];CH.docs=[];CH.newBelow=0;CH.keep=null;CH.readAt=readMap()[key]||0;
   $('chat-title').innerHTML=title;
   chatBody.classList.add('conv');
   var ro=SOC.canWrite===false,ph=ro?'You can read but not send yet':(CH.party?'Message the party':'Message @'+CH.friend.name);
@@ -15257,7 +15270,12 @@ function convMsgs(){
     if(p.err)return;
     CH.docs.forEach(function(x){if(x.d&&x.d.from===SOC.uid&&x.d.at===p.at&&x.d.sd===E2E.dev&&typeof E2E.plain[key+'/'+x.id]!=='string')E2E.plain[key+'/'+x.id]=p.text;});
   });
-  CH.msgs=CH.docs.map(function(x){return cleanMsg(x.d,key,party,x.id);}).filter(Boolean).reverse();
+  var all=CH.docs.map(function(x){return cleanMsg(x.d,key,party,x.id);}).filter(Boolean).reverse();
+  CH.msgs=all.filter(function(m){return !('rx' in m);});
+  /* reactions: one per person, emoji and message; the newest copy wins */
+  var rx={};
+  all.forEach(function(m){if(m.rx)rx[m.from+'|'+m.rx.to+'|'+m.rx.r]={from:m.from,r:m.rx.r,to:m.rx.to,id:m.id};});
+  CH.rx=rx;
   /* a message that is saved now shows up for real: drop its "Sending..." copy */
   CH.pend=CH.pend.filter(function(p){return p.err||!CH.msgs.some(function(m){return m.from===p.from&&m.at===p.at;});});
 }
@@ -15275,6 +15293,63 @@ function msgWho(m){
   if(m.from===SOC.uid)return 'You'+vmark(SOC.uid);
   if(CH.party)return cleanHtml(dispOf(m.from,ptyNameOf(CH.party,m.from)))+vmark(m.from);
   return '@'+esc(CH.friend.name)+vmark(CH.friend.id);
+}
+/* reactions under a message, and (when you tap it) the emoji you can add and Delete for your own */
+var RX_EMO=['\ud83d\udc4d','\u2764\ufe0f','\ud83d\ude02','\ud83d\ude2e','\ud83d\ude22','\ud83c\udf89'];
+function msgRx(m){
+  if(!m.id||m.pid||m.lock)return '';
+  var by={},h='';
+  Object.keys(CH.rx||{}).forEach(function(k){var x=CH.rx[k];if(x.to!==m.id)return;(by[x.r]=by[x.r]||[]).push(x);});
+  var rs=RX_EMO.filter(function(r){return by[r];});
+  if(rs.length){
+    h+='<div class="msgrx">';
+    rs.forEach(function(r){
+      var mine=by[r].some(function(x){return x.from===SOC.uid;}),n=by[r].length;
+      h+='<button type="button" class="'+(mine?'on':'')+'" data-ch="rx" data-id="'+esc(m.id)+'" data-r="'+r+'" aria-pressed="'+mine+'" aria-label="'+r+' '+n+(mine?', yours':'')+'">'+r+' '+n+'</button>';
+    });
+    h+='</div>';
+  }
+  if(CH.act===m.id){
+    h+='<div class="msgact">';
+    RX_EMO.forEach(function(r){h+='<button type="button" data-ch="rx" data-id="'+esc(m.id)+'" data-r="'+r+'" aria-label="React '+r+'">'+r+'</button>';});
+    if(m.from===SOC.uid&&SOC.canWrite!==false)h+='<button type="button" class="del" data-ch="delmsg" data-id="'+esc(m.id)+'">'+(CH.delSure===m.id?'Tap again to delete':'Delete')+'</button>';
+    h+='</div>';
+  }
+  return h;
+}
+/* add your reaction, or take it back if you already gave that one */
+function chatReact(mid,r){
+  if(!CH.key||!SOC.db||SOC.canWrite===false||RX_EMO.indexOf(r)<0)return;
+  var key=CH.key,have=CH.rx[SOC.uid+'|'+mid+'|'+r];
+  CH.act=null;
+  if(have){
+    delete CH.rx[SOC.uid+'|'+mid+'|'+r];msgsRender();
+    SOC.db.doc('chats/'+key+'/msgs/'+have.id).delete().catch(function(e){if(CH.key===key){chatNote(failText(e),'err');convWatchRe();}});
+    return;
+  }
+  var mine=Object.keys(CH.rx).filter(function(k){return CH.rx[k].from===SOC.uid&&CH.rx[k].to===mid;}).length;
+  if(mine>=3){chatNote('You can add up to 3 reactions to one message.','err');msgsRender();return;}
+  var now=Date.now(),uids=CH.party?Object.keys(CH.party.m):[SOC.uid,CH.friend.id];
+  CH.rx[SOC.uid+'|'+mid+'|'+r]={from:SOC.uid,r:r,to:mid,id:''};msgsRender();
+  /* t is for older versions of the game, which show it as a short message */
+  e2eSealObj({t:'reacted '+r,r:r,to:mid},uids,key,now,!!CH.party).then(function(box){
+    box.from=SOC.uid;box.at=now;box.bd=W.badge||'';box.re=1;
+    return SOC.db.collection('chats/'+key+'/msgs').add(box);
+  }).then(function(ref){
+    if(ref&&typeof ref.id==='string')E2E.plain[key+'/'+ref.id]={rx:{r:r,to:mid}};
+  },function(e){if(CH.key!==key)return;delete CH.rx[SOC.uid+'|'+mid+'|'+r];chatNote(e2eFail(e),'err');msgsRender();});
+}
+/* delete your own message: the saved copy is removed, so nothing of it is left */
+function chatDelMsg(mid){
+  var m=CH.msgs.filter(function(x){return x.id===mid;})[0];
+  if(!m||m.from!==SOC.uid||!CH.key||SOC.canWrite===false)return;
+  if(CH.delSure!==mid){CH.delSure=mid;msgsRender();return;}
+  var key=CH.key;CH.delSure=null;CH.act=null;
+  CH.docs=CH.docs.filter(function(x){return x.id!==mid;});convMsgs();msgsRender();
+  SOC.db.doc('chats/'+key+'/msgs/'+mid).delete().then(function(){
+    /* my reactions on it go too */
+    Object.keys(CH.rx||{}).forEach(function(k){var x=CH.rx[k];if(x.to===mid&&x.from===SOC.uid&&x.id)SOC.db.doc('chats/'+key+'/msgs/'+x.id).delete().catch(function(){});});
+  },function(e){if(CH.key===key){chatNote(failText(e),'err');convWatch();}});
 }
 function msgsRender(fresh){
   var el=$('msgs');
@@ -15296,9 +15371,9 @@ function msgsRender(fresh){
     if(dk&&dk!==day){day=dk;last=null;h+='<p class="daysep"><span>'+esc(botDayName(m.at))+'</span></p>';}
     if(!newDone&&!mine&&!m.pid&&CH.readAt&&m.at>CH.readAt){newDone=true;last=null;h+='<p class="newsep"><span>New</span></p>';}
     var grp=last&&last.from===m.from&&m.at-last.at<CH_GROUP,tm=fmtClock(m.at);
-    h+='<div class="msg'+(mine?' me':'')+(grp?' grp':'')+(m.pid?(m.err?' fail':' pend'):'')+'"'+(grp&&tm?' title="'+esc(tm)+'"':'')+'>'+
+    h+='<div class="msg'+(mine?' me':'')+(grp?' grp':'')+(m.pid?(m.err?' fail':' pend'):'')+'"'+(m.id&&!m.pid&&!m.lock?' data-mid="'+esc(m.id)+'"':'')+(grp&&tm?' title="'+esc(tm)+'"':'')+'>'+
        (grp?'':'<small>'+msgWho(m)+(m.bd?' '+esc(m.bd):'')+(tm?' · '+esc(tm):'')+'</small>')+
-       (m.lock?'<i class="locked">\ud83d\udd12 '+esc(m.text)+'</i>':cleanHtml(m.text))+
+       (m.lock?'<i class="locked">\ud83d\udd12 '+esc(m.text)+'</i>':cleanHtml(m.text))+msgRx(m)+
        (m.pid?(m.err?'<button class="mst" type="button" data-ch="retry" data-id="'+m.pid+'">Not sent · tap to try again</button>':'<i class="mst">Sending...</i>'):'')+'</div>';
     last=m;
   });
@@ -15399,7 +15474,13 @@ $('chat-back').addEventListener('click',function(){
 });
 chatBody.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;
-  if(!b||b.disabled)return;
+  /* tap a message to react to it (or delete it, if it is yours); tap again to close */
+  if(!b){
+    var mm=e.target.closest?e.target.closest('.msg[data-mid]'):null;
+    if(mm&&(CH.view==='conv'||CH.view==='party')){var mid=mm.getAttribute('data-mid');CH.act=CH.act===mid?null:mid;CH.delSure=null;msgsRender();}
+    return;
+  }
+  if(b.disabled)return;
   var a=b.getAttribute('data-ch');
   if(b.id==='chat-send'){chatSend();var i=$('chat-in');if(i)i.focus();return;}
   if(a==='open')convOpen(b.getAttribute('data-id'));
@@ -15431,6 +15512,8 @@ chatBody.addEventListener('click',function(e){
     else blkSet(bid,bnm,true);
   }
   else if(a==='unblock')blkSet(b.getAttribute('data-id'),b.getAttribute('data-nm'),false);
+  else if(a==='rx')chatReact(b.getAttribute('data-id'),b.getAttribute('data-r'));
+  else if(a==='delmsg')chatDelMsg(b.getAttribute('data-id'));
   else if(a==='jump'){var m=$('msgs');if(m)m.scrollTop=m.scrollHeight;CH.newBelow=0;chatJump();msgsRender();}
   else if(a==='kick'){
     var kid=b.getAttribute('data-id');
