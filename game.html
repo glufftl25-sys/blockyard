@@ -1074,6 +1074,22 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           </svg>
           <span class="txt"><strong>Sky Dive</strong><span class="tag">Fall through the rings. Miss 3 and splash!</span><span class="best" id="m3-best-dive">Best 0</span></span>
         </button>
+        <button class="card" type="button" data-game="sled" style="background:var(--sky)">
+          <svg class="art" viewBox="0 0 88 88" aria-hidden="true">
+            <rect fill="#eaf4ff" width="88" height="88"/>
+            <polygon points="0,30 88,58 88,88 0,88" fill="#cfe2f6"/>
+            <rect x="10" y="22" width="4" height="22" fill="#14213d"/>
+            <polygon points="14,22 26,26 14,30" fill="#ff5a4d"/>
+            <rect x="66" y="40" width="4" height="22" fill="#14213d"/>
+            <polygon points="70,40 82,44 70,48" fill="#3f8cff"/>
+            <polygon points="44,12 54,28 34,28" fill="#2ea06e" stroke="#14213d" stroke-width="2"/>
+            <rect x="42" y="28" width="4" height="6" fill="#9a6b45"/>
+            <rect x="30" y="60" width="26" height="7" fill="#ff5a4d" stroke="#14213d" stroke-width="2"/>
+            <rect x="36" y="46" width="12" height="14" fill="#3f8cff" stroke="#14213d" stroke-width="2"/>
+            <rect x="38" y="38" width="8" height="8" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/>
+          </svg>
+          <span class="txt"><strong>Block Sled</strong><span class="tag">Race downhill between the flags. Dodge the trees!</span><span class="best" id="m3-best-sled">Best 0</span></span>
+        </button>
       </div>
       <p class="note">Tip: tap the eye at the top of a 3D game to see your player from behind, from the front, or through their eyes.</p>
     </div>
@@ -9827,6 +9843,7 @@ function open3D(){
   $('m3-best-gems').textContent='Best '+lsGet('by.gems',0);
   var gf=lsGet('by.golf',0);$('m3-best-golf').textContent=gf?('Best '+gf+' shots'):'Not played';
   $('m3-best-dive').textContent='Best '+lsGet('by.dive',0);
+  $('m3-best-sled').textContent='Best '+lsGet('by.sled',0);
 }
 $('m3-back').addEventListener('click',toHub);
 
