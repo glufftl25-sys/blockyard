@@ -4642,8 +4642,10 @@ GAMES.yard=(function(){
   function voting(){return gsz>1&&!!NODES[node]&&NODES[node].c.length>1&&st==='story';}
   function vhash(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
   function memberKeys(){
-    var ks=[SOC.uid||'me'];
-    mates().forEach(function(p){if(p.presence.st==='story'&&p.presence.nd===node)ks.push(p.by||p.peer||'');});
+    /* room peer ids, because every player sees the same ones (their own from the room, the others' in presence),
+       so a tie picks the same choice on every screen */
+    var ks=[NET.me||SOC.uid||'me'];
+    mates().forEach(function(p){if(p.presence.st==='story'&&p.presence.nd===node)ks.push(p.peer||p.by||'');});
     return ks;
   }
   function votesIn(){
@@ -8424,6 +8426,8 @@ GAMES.tag=(function(){
     var now=Date.now(),players=allPlayers(),here={};
     var imm={};players.forEach(function(p){here[p.peer]=1;if(p.im)imm[p.peer]=1;});
     if(players.length<2){IT=null;return;}
+    /* I just took over from a host who left: keep whoever they said was It */
+    if(!IT&&lastSeen&&here[lastSeen.p])IT={p:lastSeen.p,at:lastSeen.at};
     /* nobody is It, or the It player left: the lowest id starts as It */
     if(!IT||!here[IT.p]){
       var ids=players.map(function(p){return p.peer;}).sort();
@@ -8533,7 +8537,16 @@ GAMES.tag=(function(){
   g.tbp=function(tb,dt){
     var m=tb.m,info=botsOn()?LIT:hostIT(),it=!!(info&&info.p===me()),d=[0,0];
     if(m.wasIt&&!it)m.tags=(m.tags||0)+1;m.wasIt=it;if(!it)m.safe=(m.safe||0)+dt;
-    if(it){var bb=null,bd=1e9;bots.forEach(function(b){var dd=Math.hypot(b.x-x,b.z-z);if(dd<bd){bd=dd;bb=b;}});if(bb)d=[bb.x+bb.vx*0.3-x,bb.z+bb.vz*0.3-z];}
+    if(it){
+      var bb=null,bd=1e9;bots.forEach(function(b){var dd=Math.hypot(b.x-x,b.z-z);if(dd<bd){bd=dd;bb=b;}});if(bb)d=[bb.x+bb.vx*0.3-x,bb.z+bb.vz*0.3-z];
+      if(!botsOn())allPlayers().forEach(function(p){if(p.peer===me()||p.im)return;var dd=Math.hypot(p.x-x,p.z-z);if(dd<bd){bd=dd;d=[p.x-x,p.z-z];}});
+    }
+    else if(!botsOn()&&info){
+      /* online: run from whoever is It */
+      var ip=null;allPlayers().forEach(function(p){if(p.peer===info.p)ip=p;});
+      m.w=(m.w||0)-dt;if(m.w<=0){m.w=1+Math.random()*1.5;m.wx=(Math.random()*2-1)*8;m.wz=(Math.random()*2-1)*8;}
+      d=ip?tbSteer(x,z,m.wx,m.wz,[[ip.x,ip.z,9]]):[m.wx-x,m.wz-z];
+    }
     else{
       var itb=null;bots.forEach(function(b){if(info&&b.k===info.p)itb=b;});
       m.w=(m.w||0)-dt;if(m.w<=0){m.w=1+Math.random()*1.5;m.wx=(Math.random()*2-1)*8;m.wz=(Math.random()*2-1)*8;}
@@ -8551,6 +8564,9 @@ GAMES.ball=(function(){
   var g={kind:'canvas',title:'Blockball',lw:400,is3d:true};
   var FW=10,D=15,SPD=8.4,JV=10.5,GR=30;
   var CAMP={x:0,z:-16},t,x,y,z,vx,vz,vy,face,step,buf,B,sc,side,kickT,flash,msg,msgT,hostB;
+  /* myKick: my last kick, sent with my position until the host has used it. kSeen: the kick times the host already used,
+     kept apart from the ball so a kick is never used twice (not even after a goal resets the ball). wasHost: I ran the ball last frame. */
+  var myKick=null,kSeen={},wasHost=false;
   /* nobody else here (offline, or alone online): Bot Grape plays against you, until a real player joins.
      It gets behind the ball and kicks it at your net (the red one), and it is a little slower than you. */
   var bot=null;
@@ -8587,7 +8603,7 @@ GAMES.ball=(function(){
   function reset(kickoff){B={x:0,y:0.4,z:0,vx:0,vz:0,vy:0,a:B?B.a:0,bl:B?B.bl:0};}
   g.start=function(){
     t=0;side=0;x=0;z=-10;y=0;vx=vz=vy=0;face=0;step=0;buf=0;kickT=0;flash=0;msg='';msgT=0;
-    sc={a:0,b:0};B=null;reset();hostB=null;bot=null;
+    sc={a:0,b:0};B=null;reset();hostB=null;bot=null;myKick=null;kSeen={};wasHost=false;
     PAD.reset();netJoin('w3-ball');STAT.add('plays3d',1);
   };
   g.stop=function(){PAD.reset();netLeave();};
@@ -8632,10 +8648,18 @@ GAMES.ball=(function(){
         kickT=0.25;beep(700,0.09,'square',0.05,1.6);
         var dirx=(b.x-x)/(d||1),dirz=(b.z-z)/(d||1),power=10+Math.hypot(vx,vz)*0.8;
         if(amHost()){B.vx=dirx*power;B.vz=dirz*power;B.vy=3.2;}
-        else netSend({kick:{x:dirx*power,z:dirz*power,at:Date.now()}});
+        else myKick={x:Math.round(dirx*power*10)/10,z:Math.round(dirz*power*10)/10,at:Date.now()};
       }
     }
     if(amHost()){
+      /* I just took over the ball (the host left): carry on from where the old host had it, with the same score,
+         and do not replay kicks that were already used */
+      if(!wasHost){
+        if(hostB){B={x:hostB.x,y:hostB.y,z:hostB.z,vx:hostB.vx,vz:hostB.vz,vy:hostB.vy,a:hostB.a,bl:hostB.bl};}
+        netOthers().forEach(function(p){var k=p.presence.kick;if(k&&typeof k==='object')kSeen[p.peer]=netNum(k.at,0,1e14,0);});
+        myKick=null;
+      }
+      wasHost=true;
       if(!B)reset();
       if(botsOn())botStep(dt);else bot=null;
       /* other players' kicks */
@@ -8643,9 +8667,8 @@ GAMES.ball=(function(){
         var k=p.presence.kick;
         if(!k||typeof k!=='object')return;
         var at=netNum(k.at,0,1e14,0),key=p.peer;
-        if(!B.seen)B.seen={};
-        if(B.seen[key]===at||!at)return;
-        B.seen[key]=at;B.vx=netNum(k.x,-40,40,0);B.vz=netNum(k.z,-40,40,0);B.vy=3.2;
+        if(kSeen[key]===at||!at)return;
+        kSeen[key]=at;B.vx=netNum(k.x,-40,40,0);B.vz=netNum(k.z,-40,40,0);B.vy=3.2;
       });
       B.x+=B.vx*dt;B.z+=B.vz*dt;B.y+=B.vy*dt;B.vy-=GR*dt;
       if(B.y<0.4){B.y=0.4;B.vy=Math.abs(B.vy)*0.45;if(B.vy<1.2)B.vy=0;}
@@ -8658,7 +8681,12 @@ GAMES.ball=(function(){
         }else{B.z=clampN(B.z,-D+0.4,D-0.4);B.vz=-B.vz*0.7;}
       }
       netSend({x:Math.round(x*100)/100,y:Math.round(y*100)/100,z:Math.round(z*100)/100,f:Math.round(face*100)/100,side:side,b:{x:Math.round(B.x*100)/100,y:Math.round(B.y*100)/100,z:Math.round(B.z*100)/100,vx:Math.round(B.vx*10)/10,vz:Math.round(B.vz*10)/10,vy:Math.round(B.vy*10)/10,a:B.a,bl:B.bl},kick:null});
-    }else netSend({x:Math.round(x*100)/100,y:Math.round(y*100)/100,z:Math.round(z*100)/100,f:Math.round(face*100)/100,side:side,b:null});
+    }else{
+      wasHost=false;
+      /* the kick rides along with my position (sending it on its own could be replaced by the next update and lost) */
+      if(myKick&&Date.now()-myKick.at>3000)myKick=null;
+      netSend({x:Math.round(x*100)/100,y:Math.round(y*100)/100,z:Math.round(z*100)/100,f:Math.round(face*100)/100,side:side,b:null,kick:myKick});
+    }
     netFlush();
   };
   g.draw=function(){
