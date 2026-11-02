@@ -13644,6 +13644,21 @@ GAMES.td=(function(){
     refreshPanel();
   };
   g.key=function(){};
+  /* hooks for a test bot pilot: read the game and do what a player's taps would do (same rules, same costs) */
+  g.tbh={
+    state:function(){
+      if(!me)return null;
+      return {st:st,mode:mode,money:Math.floor(me.money),lives:Math.max(0,me.lives),rival:rivalLives(),pops:me.pops,sent:me.sent,coming:me.queue.length+me.bal.length,clock:me.clock,
+        towers:me.towers.map(function(tw){return {type:tw.type,lv:tw.lv,c:tw.c,r:tw.r,up:tw.lv<2?TDEF[tw.type].up[tw.lv]:0};})};
+    },
+    costs:function(){var o={};TKEYS.forEach(function(k){o[k]=TDEF[k].cost;});return {towers:o,balloons:BCOST.slice()};},
+    /* free building tiles, the ones next to the most path first */
+    spots:function(n){if(!me)return [];return SPOTS.filter(function(p){return canPlace(me,p.c,p.r);}).slice(0,n||8).map(function(p){return {c:p.c,r:p.r};});},
+    build:function(type,c,r){if(!me||st!=='run'||!TDEF[type])return false;var tw=buy(me,type,c,r);if(tw)beep(440,0.1,'square',0.04,1.6);refreshPanel();return !!tw;},
+    upgrade:function(i){if(!me||st!=='run')return false;var ok=upgrade(me,me.towers[i]);if(ok)beep(780,0.12,'square',0.04,1.5);refreshPanel();return ok;},
+    send:function(k){if(!me||st!=='run'||!(k>=0&&k<=5)||me.money<BCOST[k])return false;var m=me.money;doSend(k);refreshPanel();return me.money<m;},
+    again:function(){if(st==='over'&&mode==='bot'&&overT>0.6){reset();refreshPanel();return true;}return false;}
+  };
   return g;
 })();
 /* ===== Balloon Battle: lobby, friend invites and live rooms ===== */
@@ -13873,9 +13888,9 @@ function othersCount(){
 function onLobbyPeers(){
   if(!MP.room||cur===GAMES.td||lobby.hidden)return;
   var rv=rivalPeer();
-  if(!rv&&LB.ready){LB.ready=false;mpPresence({ready:false});}
+  if(!rv&&LB.ready&&!LB.quick){LB.ready=false;mpPresence({ready:false});}
   if(rv&&LB.ready&&!LB.starting&&othersCount()===1&&rv.presence&&rv.presence.ready===true){
-    LB.starting=true;TDCFG={mode:'mp',diff:0};lobby.hidden=true;openGame('td');return;
+    LB.starting=true;qkStop();TDCFG={mode:'mp',diff:0};lobby.hidden=true;openGame('td');return;
   }
   lobRender();
 }
@@ -13895,20 +13910,77 @@ function joinFail(e){
   if(e&&e.code==='not_permitted')return 'You cannot join live matches yet. Ask the page owner to invite your email to this page.';
   return 'Could not open the match. Check your connection and try again.';
 }
+/* Find a rival: everyone looking waits in their own match room (ready straight away) and also shows up in one shared
+   room. The two who have waited longest pair up: the newer one joins the older one's match room, and the match starts
+   as soon as both are in. If it has not started within 12 seconds, the newer one goes back to looking. */
+var QK={room:null,offs:[],code:'',at:0,iv:0,qt:0};
+function qkLeave(){
+  QK.offs.forEach(function(f){try{f();}catch(e){}});QK.offs=[];
+  if(QK.iv){clearInterval(QK.iv);QK.iv=0;}
+  var r=QK.room;QK.room=null;
+  if(r){try{r.leave().catch(function(){});}catch(e){}}
+}
+function qkStop(){qkLeave();if(QK.qt){clearTimeout(QK.qt);QK.qt=0;}LB.quick=false;}
+function qkWaiting(){
+  if(!QK.room)return [];
+  return QK.room.peers().filter(function(p){
+    var q=p.presence;
+    return p.sameTab||(q&&q.want===1&&typeof q.at==='number'&&cleanCode(q.code)===q.code);
+  }).map(function(p){return {k:p.peer,me:!!p.sameTab,at:p.sameTab?QK.at:p.presence.at,code:p.sameTab?QK.code:p.presence.code};})
+    .sort(function(a,b){return a.at-b.at||(a.k<b.k?-1:1);});
+}
+function qkCheck(){
+  if(!QK.room||LB.view!=='find'||LB.busy)return;
+  var w=qkWaiting(),i=-1;
+  for(var j=0;j<w.length;j++)if(w[j].me)i=j;
+  if(i<0)return;
+  if(i%2===0||!w[i-1]){if(!lobby.hidden)lobRender();return;}
+  qkLeave();LB.quick=true;
+  enterRoom(w[i-1].code,false);
+}
+function findRival(){
+  if(LB.busy)return;
+  if(typeof amBlocked==='function'&&amBlocked()){LB.msg={t:'err',s:banText()};lobRender();return;}
+  qkStop();mpLeave();
+  LB.view='find';LB.msg=null;LB.busy=true;QK.code=newCode();QK.at=Date.now();lobRender();
+  mpJoin(QK.code).then(function(){
+    LB.quick=true;LB.ready=true;mpPresence({ready:true});
+    return getRoom();
+  }).then(function(rm){
+    if(!rm)throw {code:'no_room'};
+    return rm.join('td-quick');
+  }).then(function(room){
+    if(LB.view!=='find'){try{room.leave().catch(function(){});}catch(e){}return;}
+    QK.room=room;
+    room.presence({name:myName(),want:1,code:QK.code,at:QK.at}).catch(function(){});
+    QK.offs.push(room.onPeers(qkCheck));
+    QK.iv=setInterval(qkCheck,1000);
+  },function(e){qkStop();mpLeave();LB.view='home';LB.msg={t:'err',s:joinFail(e)};}).then(function(){LB.busy=false;lobRender();qkCheck();});
+}
 function enterRoom(code,hosting){
   if(LB.busy)return;
   LB.busy=true;LB.msg=null;lobRender();
   mpJoin(code).then(function(){
     LB.view='wait';LB.host=hosting;
-  },function(e){
+    if(LB.quick){
+      LB.ready=true;mpPresence({ready:true});
+      if(QK.qt)clearTimeout(QK.qt);
+      QK.qt=setTimeout(function(){QK.qt=0;if(LB.quick&&LB.view==='wait'&&!LB.starting&&!lobby.hidden){mpLeave();findRival();}},12000);
+    }
+  },function(e){LB.quick=false;
     LB.msg={t:'err',s:joinFail(e)};
-  }).then(function(){LB.busy=false;lobRender();});
+  }).then(function(){LB.busy=false;lobRender();if(LB.quick)onLobbyPeers();});
 }
 function lobRender(){
   var ae=document.activeElement;
   if(ae&&ae.tagName==='INPUT'&&lobBody.contains(ae))return;
   var h='',locked=SOC.ok&&SOC.canWrite===false;
-  if(LB.view==='wait'&&MP.room){
+  if(LB.view==='find'){
+    var nw=Math.max(0,qkWaiting().length-1);
+    h+='<div class="sheet"><h3>Finding a rival...</h3><p>'+(LB.busy?'Opening the waiting room...':(nw?'Matching you up...':'Waiting for someone else to look for a match. Ask a friend to press Find a rival too!'))+'</p></div>';
+    if(LB.msg)h+='<p class="note '+LB.msg.t+'" role="status">'+esc(LB.msg.s)+'</p>';
+    h+='<button class="choice" type="button" data-lob="unfind">Stop looking</button>';
+  }else if(LB.view==='wait'&&MP.room){
     var rv=rivalPeer(),oc=othersCount(),st2;
     if(oc>1)st2='This match already has two other players. Leave and make a new one.';
     else if(!rv)st2='Waiting for your rival to join...';
@@ -13935,6 +14007,7 @@ function lobRender(){
     h+='<div class="sheet"><h3>Play a friend</h3><p>You both build towers and send balloons at each other live. Whoever runs out of lives first loses.</p></div>';
     if(inv)h+='<div class="row"><span class="who">@'+esc(inv.name)+vmark(inv.from)+' invited you</span><button class="mini ok" type="button" data-lob="accept"'+(locked?' disabled':'')+'>Join</button></div>';
     if(locked)h+='<p class="note err">Live matches need you to be invited to this page. Ask the page owner to invite your email.</p>';
+    h+='<button class="choice" type="button" data-lob="find"'+((LB.busy||locked)?' disabled':'')+'>Find a rival</button>';
     h+='<button class="choice" type="button" data-lob="create"'+((LB.busy||locked)?' disabled':'')+'>'+(LB.busy?'Opening...':'Create a match')+'</button>';
     h+='<label class="lbl" for="join-code">Or join with a code</label>';
     h+='<input class="field" id="join-code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="4 letters or numbers" value="'+esc(LB.draft)+'">';
@@ -13947,16 +14020,18 @@ function lobRender(){
 function openLobby(){
   hub.hidden=true;play.hidden=true;social.hidden=true;lobby.hidden=false;
   LB.msg=null;LB.busy=false;LB.view=MP.room?'wait':'home';
+  if(!MP.room)qkStop();
   inviteSub();lobRender();
 }
 function closeLobby(){
-  mpLeave();lobby.hidden=true;hub.hidden=false;refreshHub();
+  qkStop();mpLeave();lobby.hidden=true;hub.hidden=false;refreshHub();
 }
 function startBot(d){
   TDCFG={mode:'bot',diff:d};lobby.hidden=true;openGame('td');
 }
 $('lob-back').addEventListener('click',function(){
-  if(LB.view==='wait'){mpLeave();LB.view='home';LB.msg=null;lobRender();}
+  if(LB.view==='find'){qkStop();mpLeave();LB.view='home';LB.msg=null;lobRender();}
+  else if(LB.view==='wait'){qkStop();mpLeave();LB.view='home';LB.msg=null;lobRender();}
   else closeLobby();
 });
 lobBody.addEventListener('click',function(e){
@@ -13965,14 +14040,16 @@ lobBody.addEventListener('click',function(e){
   initAudio();
   var bot=b.getAttribute('data-bot'),act=b.getAttribute('data-lob');
   if(bot!==null){startBot(+bot);return;}
-  if(act==='create'){enterRoom(newCode(),true);}
+  if(act==='find'){findRival();}
+  else if(act==='unfind'){qkStop();mpLeave();LB.view='home';LB.msg=null;lobRender();}
+  else if(act==='create'){qkStop();enterRoom(newCode(),true);}
   else if(act==='join'){
     var code=cleanCode(LB.draft);
     if(!code){LB.msg={t:'err',s:'Type the 4 letter or number code.'};lobRender();return;}
-    enterRoom(code,false);
+    qkStop();enterRoom(code,false);
   }else if(act==='accept'){
     var inv=liveInvite();if(!inv)return;
-    enterRoom(inv.code,false);
+    qkStop();enterRoom(inv.code,false);
     if(SOC.db&&SOC.uid)SOC.db.doc('invites/'+SOC.uid).delete().catch(function(){});
   }else if(act==='ready'){
     LB.ready=true;mpPresence({ready:true});
@@ -13982,7 +14059,7 @@ lobBody.addEventListener('click',function(e){
     }
     lobRender();
   }else if(act==='leave'){
-    mpLeave();LB.view='home';LB.msg=null;lobRender();
+    qkStop();mpLeave();LB.view='home';LB.msg=null;lobRender();
   }else if(act==='invite'){
     var fid=b.getAttribute('data-id'),nm=b.getAttribute('data-nm');
     if(!SOC.db||!SOC.account||!fid||!MP.code)return;
