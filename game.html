@@ -13939,7 +13939,7 @@ function fmtTime(at){
    Leaving a party you did not make is saved under your own uid too (left: party id -> when), so your other devices
    drop it and the others stop locking messages for you. If the maker invites you again later (j: uid -> when), you are back in. ===== */
 var PTY={mine:{},all:{},left:{},subbed:false,pick:{},name:'',busy:false,msg:null,sure:''};
-var PTY_MAXLEFT=40;
+var PTY_MAXLEFT=40,PTY_MAXREM=20;
 function ptyHidden(){var m=lsGet('party.hide',{});return (m&&typeof m==='object'&&!Array.isArray(m))?m:{};}
 function ptyHide(pid){var m=ptyHidden();m[pid]=1;lsSet('party.hide',m);}
 function ptyId(){return 'g'+Date.now().toString(36).slice(-6)+Math.floor(Math.random()*1296).toString(36);}
@@ -13954,7 +13954,12 @@ function cleanLeft(d){
 function cleanParty(pid,d,by,byName,leftOf){
   if(!d||typeof d!=='object')return null;
   if(!/^[a-z0-9]{4,20}$/.test(pid))return null;
-  var m={},j={},x={},n=0,jd=(d.j&&typeof d.j==='object')?d.j:{};
+  var m={},j={},x={},rx={},n=0,jd=(d.j&&typeof d.j==='object')?d.j:{};
+  /* people the maker removed: their messages from before that still show */
+  if(d.x&&typeof d.x==='object'&&!Array.isArray(d.x))Object.keys(d.x).slice(0,PTY_MAXREM).forEach(function(u){
+    var v=d.x[u];
+    if(typeof u==='string'&&u.length<=64&&v&&typeof v.nm==='string'&&NAME_RE.test(v.nm)&&+v.t>0)rx[u]={nm:v.nm,t:+v.t};
+  });
   if(d.m&&typeof d.m==='object')Object.keys(d.m).slice(0,12).forEach(function(u){
     if(typeof u!=='string'||u.length>64)return;
     var nm=d.m[u];
@@ -13964,10 +13969,11 @@ function cleanParty(pid,d,by,byName,leftOf){
     if(lt&&lt>=(j[u]||0)){x[u]={nm:nm,t:lt};return;}
     m[u]=nm;n++;
   });
+  Object.keys(rx).forEach(function(u){if(!m[u]&&!x[u])x[u]=rx[u];});
   /* a party everyone else left stays for its maker, so they can invite people again */
   if(!m[by]||(n<2&&!Object.keys(x).length))return null;
   return {id:pid,n:(typeof d.n==='string'?d.n.replace(CTRL,' ').slice(0,24).trim():'')||'Party',
-    by:by,byName:safeName(byName),m:m,j:j,x:x,at:+d.at||0};
+    by:by,byName:safeName(byName),m:m,j:j,x:x,rx:rx,at:+d.at||0};
 }
 function ptyList(){
   var hid=ptyHidden(),out=[];
@@ -14018,7 +14024,7 @@ function ptyMineList(){
   Object.keys(PTY.all).forEach(function(pid){
     var p=PTY.all[pid];
     if(p.by!==SOC.uid)return;
-    out[pid]={n:p.n,m:Object.assign({},p.m),j:Object.assign({},p.j||{}),at:p.at};
+    out[pid]={n:p.n,m:Object.assign({},p.m),j:Object.assign({},p.j||{}),x:Object.assign({},p.rx||{}),at:p.at};
   });
   return out;
 }
@@ -14138,7 +14144,7 @@ function ptyEdit(fn,okMsg){
   PTY.busy=true;PTY.msg=null;ptyPeopleView();
   ptySave(mine).then(function(){
     PTY.busy=false;PTY.msg=okMsg?{t:'good',s:okMsg}:null;
-    CH.party.m=p.m;CH.party.n=p.n;CH.party.j=p.j;
+    CH.party.m=p.m;CH.party.n=p.n;CH.party.j=p.j;CH.party.rx=p.x||{};CH.party.x=Object.assign({},CH.party.x||{},p.x||{});
     PTY.all[CH.party.id]=CH.party;
     ptyPeopleView();
   },function(e){PTY.busy=false;PTY.msg={t:'err',s:failText(e)};ptyPeopleView();});
@@ -14292,8 +14298,9 @@ function e2eWrapKey(dev,jwk){
 }
 function e2eAd(from,chat,at){return new TextEncoder().encode(E2E_INFO+'|'+chat+'|'+from+'|'+at);}
 /* lock a message for every device of every person in the chat */
-function e2eSeal(text,uids,chat,at){return e2eSealObj({t:text},uids,chat,at);}
-function e2eSealObj(obj,uids,chat,at){
+function e2eSeal(text,uids,chat,at,partial){return e2eSealObj({t:text},uids,chat,at,partial);}
+/* partial (parties only): lock it for everyone who has a device key and say who was left out (box.miss, never saved) */
+function e2eSealObj(obj,uids,chat,at,partial){
   var S=e2eSubtle();
   return e2eInit().then(function(){
     return Promise.all(uids.map(function(u){return e2eKeysOf(u);}));
@@ -14305,7 +14312,7 @@ function e2eSealObj(obj,uids,chat,at){
       if(!ids.length)missing.push(u);
       ids.forEach(function(d){devs.push([d,ks[d]]);});
     });
-    if(missing.length)return Promise.reject({code:'nokey',who:missing});
+    if(missing.length&&(!partial||missing.indexOf(SOC.uid)>=0||missing.length>=uids.length-1))return Promise.reject({code:'nokey',who:missing.filter(function(u){return u!==SOC.uid;})});
     var iv=crypto.getRandomValues(new Uint8Array(12));
     return S.generateKey({name:'AES-GCM',length:256},true,['encrypt']).then(function(mk){
       return Promise.all([
@@ -14319,7 +14326,7 @@ function e2eSealObj(obj,uids,chat,at){
         return e2eWrapKey(dv[0],dv[1]).then(function(wk){
           return S.encrypt({name:'AES-GCM',iv:iv2},wk,r[1]);
         }).then(function(w){k[dv[0]]=e2eB64(iv2)+'.'+e2eB64(w);},function(){});
-      })).then(function(){return {e:1,sd:E2E.dev,iv:e2eB64(iv),ct:e2eB64(r[0]),k:k};});
+      })).then(function(){var box={e:1,sd:E2E.dev,iv:e2eB64(iv),ct:e2eB64(r[0]),k:k};if(missing.length)Object.defineProperty(box,'miss',{value:missing,enumerable:false});return box;});
     });
   });
 }
@@ -14693,10 +14700,16 @@ function chatPost(p){
     else SOC.db.doc('chats/'+key).set({a:SOC.uid,b:CH.friend.id,at:now}).catch(function(){});
   }
   var uids=CH.party?Object.keys(CH.party.m):[SOC.uid,CH.friend.id];
-  e2eSeal(p.text,uids,key,now).then(function(box){
+  var miss=null;
+  e2eSeal(p.text,uids,key,now,!!CH.party).then(function(box){
+    miss=box.miss||null;
     box.from=SOC.uid;box.at=now;box.bd=W.badge||'';
     return SOC.db.collection('chats/'+key+'/msgs').add(box);
   }).then(function(ref){
+    if(miss&&CH.key===key&&CH.party){
+      var mn=miss.map(function(u){return '@'+safeName(ptyNameOf(CH.party,u));});
+      chatNote(mn.join(', ')+' can’t read new messages until '+(mn.length===1?'they open':'they each open')+' Blockyard.','');
+    }
     STAT.add('chats',1);
     if(ref&&typeof ref.id==='string')E2E.plain[key+'/'+ref.id]=p.text;
     if(CH.key!==key)return;
@@ -14787,13 +14800,18 @@ chatBody.addEventListener('click',function(e){
   else if(a==='jump'){var m=$('msgs');if(m)m.scrollTop=m.scrollHeight;CH.newBelow=0;chatJump();msgsRender();}
   else if(a==='kick'){
     var kid=b.getAttribute('data-id');
-    ptyEdit(function(p){if(kid===SOC.uid)return false;delete p.m[kid];return true;},'Removed them from the party.');
+    ptyEdit(function(p){
+      if(kid===SOC.uid||!p.m[kid])return false;
+      p.x=p.x||{};p.x[kid]={nm:p.m[kid],t:Date.now()};
+      var ks=Object.keys(p.x).sort(function(a,b){return p.x[b].t-p.x[a].t;});ks.slice(PTY_MAXREM).forEach(function(k){delete p.x[k];});
+      delete p.m[kid];return true;
+    },'Removed them from the party.');
   }
   else if(a==='invite'){
     var iid=b.getAttribute('data-id'),fr=friendById(iid);
     if(fr)ptyEdit(function(p){
       if(Object.keys(p.m).length>=12){PTY.msg={t:'err',s:'A party holds up to 12 people.'};return false;}
-      p.m[iid]=fr.name;p.j=p.j||{};p.j[iid]=Date.now();return true;
+      p.m[iid]=fr.name;p.j=p.j||{};p.j[iid]=Date.now();if(p.x)delete p.x[iid];return true;
     },'Added @'+(fr?fr.name:'them')+' to the party.');
   }
 });
