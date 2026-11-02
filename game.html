@@ -4222,6 +4222,9 @@ GAMES.party=(function(){
   var CAMP={x:0,z:-13.5};
   var t=0,x=0,z=0,y=0,vx=0,vz=0,vy=0,face=0,step=0,buf=0,flash=0,claims=[],gone={},myRound=-1,wonShown=-1;
   var H=null,lastSeen=null;
+  /* fair star claims (host only): pendC[star id] = {at: when the first claim arrived, c: {peer: touch time}} */
+  var pendC={},pendR=-1,CWAIT=300;
+  function starOff(){return (typeof FBN!=='undefined'&&SOLO&&FBN.ok)?(FBN.off||0):0;}
   /* nobody else here (offline, or alone online): three bots grab stars too, until a real player joins */
   var BOTC=[[94,216,138],[180,140,255],[255,154,60]],BOTN=['Bot Mint','Bot Grape','Bot Mango'];var bots=[];
   function botsOn(){return !netOthers().length;}   /* host state: {r:round, left:sec, ph:'play'|'end', ss:[[id,x,z]], sc:{peer:pts}, nx:nextId} */
@@ -4256,7 +4259,7 @@ GAMES.party=(function(){
     return o;
   }
   function amHost(){return hostPeer()===me();}
-  g.start=function(){PAD.reset();t=0;x=(Math.random()*2-1)*4;z=-6;y=0;vx=vz=vy=0;face=0;claims=[];gone={};H=null;myRound=-1;wonShown=-1;bots=[];CAMP.x=0;CAMP.z=-13.5;netJoin('w3-party');STAT.add('plays3d',1);};
+  g.start=function(){PAD.reset();t=0;x=(Math.random()*2-1)*4;z=-6;y=0;vx=vz=vy=0;face=0;claims=[];gone={};H=null;pendC={};pendR=-1;myRound=-1;wonShown=-1;bots=[];CAMP.x=0;CAMP.z=-13.5;netJoin('w3-party');STAT.add('plays3d',1);};
   function botStep(dt,S){
     if(!bots.length)for(var i=0;i<3;i++){var a=i*2.1+0.6;bots.push({k:'bot'+i,x:Math.cos(a)*8,z:Math.sin(a)*8,y:0,vx:0,vz:0,face:0,step:0,c:BOTC[i],n:BOTN[i],sp:5.4+i*0.45,think:0,tx:0,tz:0});}
     bots.forEach(function(b){
@@ -4289,17 +4292,33 @@ GAMES.party=(function(){
     }
     H.left-=dt;
     if(H.ph==='play'){
-      /* every player's claims, mine included; first one the host sees wins the star */
-      var all=[{peer:me(),cl:claims}];
+      /* every player's claims, mine included. A claim says when that player touched the star ([round, star, time]).
+         The host waits a moment (CWAIT) after the first claim on a star, then the earliest touch wins, so the host's own
+         claims (which it sees first) get no head start. A claim without a time (an older version), or with a time far
+         from when it arrived (a clock that is off), counts from when it arrived. */
+      var all=[{peer:me(),cl:claims}],tn=Date.now();
+      if(pendR!==H.r){pendR=H.r;pendC={};}
       NET.peers.forEach(function(p){if(!p.sameTab&&p.kind==='viewer'&&p.presence&&Array.isArray(p.presence.cl))all.push({peer:p.peer,cl:p.presence.cl});});
       all.forEach(function(a){
         a.cl.slice(-8).forEach(function(c){
           if(!Array.isArray(c)||(c[0]|0)!==H.r)return;
-          for(var i=0;i<H.ss.length;i++)if(H.ss[i][0]===(c[1]|0)){
-            H.sc[a.peer]=(H.sc[a.peer]||0)+1;
-            var p=spot();H.ss[i]=[H.nx++,p[0],p[1]];break;
-          }
+          var id=c[1]|0,live=false;
+          for(var i=0;i<H.ss.length;i++)if(H.ss[i][0]===id)live=true;
+          if(!live)return;
+          var pc=pendC[id]||(pendC[id]={at:tn,c:{}});
+          if(pc.c[a.peer]!==undefined)return;
+          var ct=netNum(c[2],0,1e14,0)-starOff();
+          pc.c[a.peer]=(ct>0&&Math.abs(ct-tn)<1500)?Math.min(ct,tn):tn;
         });
+      });
+      Object.keys(pendC).forEach(function(id){
+        var pc=pendC[id];if(tn-pc.at<(netOthers().length?CWAIT:0))return;
+        delete pendC[id];
+        var win=null;Object.keys(pc.c).forEach(function(k){if(win===null||pc.c[k]<pc.c[win]||(pc.c[k]===pc.c[win]&&k<win))win=k;});
+        for(var i=0;i<H.ss.length;i++)if(H.ss[i][0]===(+id)){
+          if(win!==null)H.sc[win]=(H.sc[win]||0)+1;
+          var p=spot();H.ss[i]=[H.nx++,p[0],p[1]];break;
+        }
       });
       if(H.left<=0){H.ph='end';H.left=BREAK;}
     }else if(H.left<=0){H=newRound(H.r+1);}
@@ -4330,7 +4349,7 @@ GAMES.party=(function(){
     if(S&&S.ph==='play')S.ss.forEach(function(s){
       if(gone[s[0]])return;
       if(Math.hypot(x-s[1],z-s[2])<1.2&&y<1.6){
-        gone[s[0]]=1;claims.push([S.r,s[0]]);if(claims.length>8)claims.shift();
+        gone[s[0]]=1;claims.push([S.r,s[0],Date.now()+starOff()]);if(claims.length>8)claims.shift();
         STAT.add('stars',1);beep(900,0.12,'square',0.05,1.5);flash=0.15;
       }
     });
