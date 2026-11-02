@@ -762,6 +762,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><span class="b3d">3D</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#eaf4ff" width="88" height="88"/><polygon points="0,30 88,58 88,88 0,88" fill="#cfe2f6"/><rect x="10" y="22" width="4" height="22" fill="#14213d"/><polygon points="14,22 26,26 14,30" fill="#ff5a4d"/><rect x="66" y="40" width="4" height="22" fill="#14213d"/><polygon points="70,40 82,44 70,48" fill="#3f8cff"/><polygon points="44,12 54,28 34,28" fill="#2ea06e" stroke="#14213d" stroke-width="2"/><rect x="42" y="28" width="4" height="6" fill="#9a6b45"/><rect x="30" y="60" width="26" height="7" fill="#ff5a4d" stroke="#14213d" stroke-width="2"/><rect x="36" y="46" width="12" height="14" fill="#3f8cff" stroke="#14213d" stroke-width="2"/><rect x="38" y="38" width="8" height="8" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/></svg></span>
           <span class="tt">Block Sled</span><span class="ts"><span id="best-sled">Best 0</span> · Snowy slalom</span>
         </button>
+        <button class="tile" type="button" data-game="escape" data-name="maze escape labyrinth keys exit 3d" style="--c:#b9a4ff">
+          <span class="thumb"><span class="b3d">3D</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#c9b8ff" width="88" height="88"/><path d="M10 10H78V78H10ZM10 30H52M30 30V58M30 58H66M52 10V30M66 44V78M10 58H18" fill="none" stroke="#14213d" stroke-width="5"/><rect x="62" y="64" width="12" height="10" fill="#5ed88a" stroke="#14213d" stroke-width="2"/><circle cx="42" cy="44" r="5" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="46" y="42" width="10" height="4" fill="#ffd23f" stroke="#14213d" stroke-width="1.5"/><rect x="16" y="16" width="8" height="10" fill="#3f8cff" stroke="#14213d" stroke-width="2"/></svg></span>
+          <span class="tt">Maze Escape</span><span class="ts"><span id="best-escape">Best 0</span> · Find the keys</span>
+        </button>
         <button class="tile" type="button" data-game="tag" data-name="block tag online multiplayer 3d chase" style="--c:#ff9a3c">
           <span class="thumb"><span class="b3d">3D</span><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#ffd79a" width="88" height="88"/><rect x="12" y="34" width="16" height="26" fill="#ff5a4d" stroke="#14213d" stroke-width="3"/><rect x="14" y="22" width="12" height="12" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><rect x="54" y="38" width="16" height="24" fill="#3f8cff" stroke="#14213d" stroke-width="3"/><rect x="56" y="26" width="12" height="12" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><polygon points="34,44 48,38 48,50" fill="#14213d"/></svg></span>
           <span class="tt">Block Tag</span><span class="ts">Online · Chase and tag</span>
@@ -1096,6 +1100,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
             <rect x="38" y="38" width="8" height="8" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/>
           </svg>
           <span class="txt"><strong>Block Sled</strong><span class="tag">Race downhill between the flags. Dodge the trees!</span><span class="best" id="m3-best-sled">Best 0</span></span>
+        </button>
+        <button class="card" type="button" data-game="escape" style="background:var(--lilac)">
+          <svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#c9b8ff" width="88" height="88"/><path d="M10 10H78V78H10ZM10 30H52M30 30V58M30 58H66M52 10V30M66 44V78M10 58H18" fill="none" stroke="#14213d" stroke-width="5"/><rect x="62" y="64" width="12" height="10" fill="#5ed88a" stroke="#14213d" stroke-width="2"/><circle cx="42" cy="44" r="5" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="46" y="42" width="10" height="4" fill="#ffd23f" stroke="#14213d" stroke-width="1.5"/><rect x="16" y="16" width="8" height="10" fill="#3f8cff" stroke="#14213d" stroke-width="2"/></svg>
+          <span class="txt"><strong>Maze Escape</strong><span class="tag">Find 3 keys and get out before time runs out.</span><span class="best" id="m3-best-escape">Best 0</span></span>
         </button>
       </div>
       <p class="note">Tip: tap the eye at the top of a 3D game to see your player from behind, from the front, or through their eyes.</p>
@@ -8882,6 +8890,240 @@ GAMES.sled=(function(){
   return g;
 })();
 
+/* ===== Maze Escape (3D solo): find the 3 keys in a block maze, then run to the exit before the clock runs out.
+   Every escape builds a bigger maze and adds time. Clocks give +5 seconds, sentries take 5. The map in the corner
+   shows the parts you have seen. ===== */
+HUBBEST['best-escape']='by.escape';
+GAMES.escape=(function(){
+  var g={kind:'canvas',title:'Maze Escape',lw:400,is3d:true};
+  var CS=3.2,WT=0.5,WH=1.8,SPD=7.4,GR=30,JV=9;
+  var N,cells,walls,seen,keys,clocks,sents,exit,got,st,t,x,z,y,vx,vz,vy,face,step,left,lvl,best,newBest,overT,flash,msg,msgT,inv,CAMP={x:0,z:0},parts=[];
+  function cx(i){return (i-(N-1)/2)*CS;}
+  function ci(v){return clampN(Math.round(v/CS+(N-1)/2),0,N-1);}
+  /* a perfect maze: every cell can reach every other cell by exactly one path */
+  function build(){
+    N=5+lvl*2;if(N>15)N=15;
+    cells=[];var i,j;
+    for(i=0;i<N;i++){cells.push([]);for(j=0;j<N;j++)cells[i].push({e:true,s:true,v:false});}
+    var stack=[[0,0]];cells[0][0].v=true;
+    while(stack.length){
+      var c=stack[stack.length-1],nb=[];
+      [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){var a=c[0]+d[0],b=c[1]+d[1];if(a>=0&&b>=0&&a<N&&b<N&&!cells[a][b].v)nb.push([a,b,d]);});
+      if(!nb.length){stack.pop();continue;}
+      var n=nb[Math.random()*nb.length|0],d=n[2];
+      if(d[0]===1)cells[c[0]][c[1]].e=false;else if(d[0]===-1)cells[n[0]][n[1]].e=false;
+      else if(d[1]===1)cells[c[0]][c[1]].s=false;else cells[n[0]][n[1]].s=false;
+      cells[n[0]][n[1]].v=true;stack.push([n[0],n[1]]);
+    }
+    /* a few extra openings so there is more than one way round */
+    for(var k=0;k<N;k++){var a=Math.random()*(N-1)|0,b=Math.random()*(N-1)|0;if(Math.random()<0.5)cells[a][b].e=false;else cells[a][b].s=false;}
+    /* walls as boxes [x, z, width, depth]: each cell owns its east (+x) and south (+z) side, plus the outer edge */
+    walls=[];var L=N*CS;
+    for(i=0;i<N;i++)for(j=0;j<N;j++){
+      if(cells[i][j].e&&i<N-1)walls.push([cx(i)+CS/2,cx(j),WT,CS+WT,i,j]);
+      if(cells[i][j].s&&j<N-1)walls.push([cx(i),cx(j)+CS/2,CS+WT,WT,i,j]);
+    }
+    walls.push([0,-L/2,L+WT,WT,-1,-1],[0,L/2,L+WT,WT,-1,-1],[-L/2,0,WT,L+WT,-1,-1],[L/2,0,WT,L+WT,-1,-1]);
+    seen=[];for(i=0;i<N;i++){seen.push([]);for(j=0;j<N;j++)seen[i].push(false);}
+    /* keys go in the cells furthest along the paths, the exit in the far corner */
+    var dist=paths(0,0),list=[];
+    for(i=0;i<N;i++)for(j=0;j<N;j++)if(!(i===N-1&&j===N-1)&&dist[i][j]>N)list.push([i,j,dist[i][j]+Math.random()*N]);
+    list.sort(function(p,q){return q[2]-p[2];});
+    keys=[];
+    for(k=0;k<list.length&&keys.length<3;k++){var c2=list[k];if(keys.every(function(q){return Math.abs(q.i-c2[0])+Math.abs(q.j-c2[1])>2;}))keys.push({i:c2[0],j:c2[1],got:false});}
+    while(keys.length<3)keys.push({i:Math.random()*N|0,j:Math.random()*N|0,got:false});
+    clocks=[];for(k=0;k<2;k++)clocks.push({i:1+(Math.random()*(N-2)|0),j:1+(Math.random()*(N-2)|0),got:false});
+    exit={i:N-1,j:N-1};
+    sents=[];
+    for(k=0;k<Math.min(4,lvl-1);k++){var si=2+(Math.random()*(N-3)|0),sj=2+(Math.random()*(N-3)|0);sents.push({x:cx(si),z:cx(sj),i:si,j:sj,ti:si,tj:sj,ph:Math.random()*6});}
+    got=0;x=cx(0);z=cx(0);y=0;vx=vz=vy=0;face=0;CAMP.x=x;CAMP.z=z;CAM3.snap=true;parts=[];
+    look();
+  }
+  /* how many steps from cell (a, b) to every cell */
+  function paths(a,b){
+    var d=[],i,j,q=[[a,b]];
+    for(i=0;i<N;i++){d.push([]);for(j=0;j<N;j++)d[i].push(-1);}
+    d[a][b]=0;
+    while(q.length){var c=q.shift();open(c[0],c[1]).forEach(function(n){if(d[n[0]][n[1]]<0){d[n[0]][n[1]]=d[c[0]][c[1]]+1;q.push(n);}});}
+    return d;
+  }
+  /* the cells you can walk to from cell (i, j) */
+  function open(i,j){
+    var o=[];
+    if(i<N-1&&!cells[i][j].e)o.push([i+1,j]);
+    if(i>0&&!cells[i-1][j].e)o.push([i-1,j]);
+    if(j<N-1&&!cells[i][j].s)o.push([i,j+1]);
+    if(j>0&&!cells[i][j-1].s)o.push([i,j-1]);
+    return o;
+  }
+  function look(){var i=ci(x),j=ci(z);seen[i][j]=true;open(i,j).forEach(function(n){seen[n[0]][n[1]]=true;});}
+  function reset(){lvl=1;left=60;newBest=false;overT=0;flash=0;msg='';msgT=0;inv=0;t=0;st='ready';build();}
+  g.start=function(){best=lsGet('by.escape',0);PAD.reset();reset();STAT.add('plays3d',1);};
+  g.stop=function(){PAD.reset();};
+  g.down=function(px,py,id){
+    if(CAM3.hit(px,py)){CAM3.cycle(face);return;}
+    if(st==='over'){if(overT>0.7){reset();PAD.reset();}return;}
+    if(st==='ready')st='run';
+    PAD.down(px,py,id);
+  };
+  g.move=function(px,py,id){PAD.move(px,py,id);};
+  g.up=function(px,py,id){PAD.up(px,py,id);};
+  g.key=function(c,d){
+    if(st==='over'){if(d){if(c==='KeyV')CAM3.cycle(face);else if(overT>0.7){reset();PAD.reset();}}return;}
+    if(d&&st==='ready'&&c!=='KeyV')st='run';
+    PAD.key(c,d);
+  };
+  /* push the player out of the walls near them */
+  function push(o,r){
+    var i=ci(o.x),j=ci(o.z);
+    for(var k=0;k<walls.length;k++){
+      var w=walls[k];
+      if(w[4]>=0&&(Math.abs(w[4]-i)>1||Math.abs(w[5]-j)>1))continue;
+      var dx=o.x-w[0],dz=o.z-w[1],ox=w[2]/2+r-Math.abs(dx),oz=w[3]/2+r-Math.abs(dz);
+      if(ox>0&&oz>0){if(ox<oz)o.x+=dx<0?-ox:ox;else o.z+=dz<0?-oz:oz;}
+    }
+  }
+  function burst(px,py,pz,c,n){for(var k=0;k<n;k++)parts.push({x:px,y:py,z:pz,vx:(Math.random()-0.5)*6,vy:2+Math.random()*4,vz:(Math.random()-0.5)*6,l:0.6+Math.random()*0.3,c:c});}
+  function over(){
+    st='over';overT=0;flash=0.4;
+    var s=lvl-1;if(s>best){best=s;newBest=true;lsSet('by.escape',best);}
+    beep(160,0.5,'sawtooth',0.07,0.4);
+  }
+  g.update=function(dt){
+    t+=dt;if(flash>0)flash-=dt;if(msgT>0)msgT-=dt;if(inv>0)inv-=dt;CAM3.tick(dt);
+    for(var p=parts.length-1;p>=0;p--){var q=parts[p];q.l-=dt;if(q.l<=0){parts.splice(p,1);continue;}q.vy-=14*dt;q.x+=q.vx*dt;q.y+=q.vy*dt;q.z+=q.vz*dt;}
+    if(st==='over'){overT+=dt;return;}
+    var moving=PAD.axes(),jp=PAD.take(),mv=CAM3.dir(PAD.ax,PAD.ay);
+    if(st!=='run')return;
+    if(!cheatOn('god'))left-=dt;
+    if(left<=0){left=0;over();return;}
+    var sp=SPD*cheatSpd(),acc=60;
+    vx+=clampN(mv[0]*sp-vx,-acc*dt,acc*dt);vz+=clampN(mv[1]*sp-vz,-acc*dt,acc*dt);
+    var o={x:x+vx*dt,z:z+vz*dt};push(o,0.4);x=o.x;z=o.z;
+    var s2=Math.hypot(vx,vz);if(s2>0.7){face=Math.atan2(vx,vz);step+=dt*s2*1.5;}
+    if(jp&&y===0){vy=JV*cheatJump();beep(520,0.08,'square',0.03,1.8);}
+    if(y>0||vy>0){vy-=GR*dt;y+=vy*dt;if(y<=0){y=0;vy=0;}}
+    look();
+    var i=ci(x),j=ci(z),k;
+    keys.forEach(function(q){
+      if(!q.got&&Math.hypot(x-cx(q.i),z-cx(q.j))<1.1){q.got=true;got++;burst(cx(q.i),1,cx(q.j),[255,210,63],14);beep(880+got*120,0.14,'square',0.05,1.6);msg=got<3?'Key '+got+' of 3':'The exit is open!';msgT=1.4;}
+    });
+    clocks.forEach(function(q){
+      if(!q.got&&Math.hypot(x-cx(q.i),z-cx(q.j))<1.1){q.got=true;left+=5;burst(cx(q.i),1,cx(q.j),[94,216,138],10);beep(990,0.12,'square',0.05,1.5);msg='+5 seconds';msgT=1;}
+    });
+    /* sentries walk from cell to cell, picking a new way at every corner */
+    sents.forEach(function(s){
+      var tx=cx(s.ti),tz=cx(s.tj),dx=tx-s.x,dz=tz-s.z,d=Math.hypot(dx,dz),ss=2.6+lvl*0.2;
+      if(d<0.05){s.i=s.ti;s.j=s.tj;var nb=open(s.i,s.j),back=nb.length>1?nb.filter(function(n){return !(n[0]===s.pi&&n[1]===s.pj);}):nb,n=back[Math.random()*back.length|0];s.pi=s.i;s.pj=s.j;s.ti=n[0];s.tj=n[1];}
+      else{var m=Math.min(d,ss*dt);s.x+=dx/d*m;s.z+=dz/d*m;}
+      if(inv<=0&&y<0.9&&Math.hypot(x-s.x,z-s.z)<0.95){
+        inv=1.4;if(!cheatOn('god')){left=Math.max(0,left-5);flash=0.3;msg='-5 seconds!';msgT=1.2;beep(200,0.25,'sawtooth',0.06,0.5);}
+        var kd=Math.hypot(x-s.x,z-s.z)||1;vx=(x-s.x)/kd*10;vz=(z-s.z)/kd*10;
+      }
+    });
+    if(got>=3&&i===exit.i&&j===exit.j&&Math.hypot(x-cx(exit.i),z-cx(exit.j))<1.2){
+      lvl++;left+=30+N*2;msg='Escaped! Maze '+lvl;msgT=1.8;beep(660,0.12,'square',0.05,1.6);setTimeout(function(){beep(990,0.2,'square',0.05,1.8);},120);
+      build();
+    }
+  };
+  g.draw=function(){
+    R3.sky('#5a4a8a','#c9b8ff',V.h);
+    R3.fog([201,184,255],18,46);
+    var m=CAM3.mode,fr=m===1,ez=fr?z+4.5:z-4.5;
+    if(CAM3.snap){CAMP.x=x;CAMP.z=ez;CAM3.snap=false;}
+    else{CAMP.x+=(x-CAMP.x)*0.14;CAMP.z+=(ez-CAMP.z)*0.14;}
+    if(m===2)R3.camera(x,y+1.45,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
+    else R3.look(CAMP.x,15,CAMP.z,CAMP.x,0,CAMP.z+(fr?-6:6),V.w*0.8,V.w/2,V.h*0.56);
+    var i0=ci(x),j0=ci(z),R=m===2?6:4,i,j,k;
+    for(i=Math.max(0,i0-R);i<=Math.min(N-1,i0+R);i++)for(j=Math.max(0,j0-R);j<=Math.min(N-1,j0+R);j++){
+      var ex=i===exit.i&&j===exit.j;
+      R3.box(cx(i),-0.5,cx(j),CS,0.5,CS,ex?(got>=3?[94,216,138]:[120,110,150]):(((i+j)&1)?[150,140,190]:[138,128,178]),0,true);
+    }
+    for(k=0;k<walls.length;k++){
+      var w=walls[k];
+      if(Math.abs(w[0]-x)>R*CS+3||Math.abs(w[1]-z)>R*CS+3)continue;
+      R3.box(w[0],0,w[1],w[2],WH,w[3],[112,96,176]);
+    }
+    keys.forEach(function(q){if(!q.got){var b=Math.sin(t*3+q.i)*0.15;R3.box(cx(q.i),0.8+b,cx(q.j),0.5,0.5,0.18,[255,210,63],t*2);R3.box(cx(q.i),0.4+b,cx(q.j),0.16,0.5,0.16,[255,210,63],t*2);}});
+    clocks.forEach(function(q){if(!q.got)R3.box(cx(q.i),0.7+Math.sin(t*3)*0.1,cx(q.j),0.55,0.55,0.2,[94,216,138],t*1.5);});
+    if(got<3)R3.box(cx(exit.i),0,cx(exit.j),CS*0.7,0.2,CS*0.7,[80,70,110]);
+    else{R3.box(cx(exit.i),0.05+Math.abs(Math.sin(t*4))*0.2,cx(exit.j),1.2,0.12,1.2,[220,255,230],t);}
+    sents.forEach(function(s){var b=Math.abs(Math.sin(t*6+s.ph))*0.08;R3.box(s.x,b,s.z,0.9,1.1,0.9,[255,90,77],t*1.2);R3.box(s.x,b+1.1,s.z,0.4,0.3,0.4,[255,200,190],t*1.2);R3.shadow(s.x,0.02,s.z,0.5);});
+    parts.forEach(function(q){R3.box(q.x,q.y,q.z,0.18,0.18,0.18,q.c);});
+    var col=hex2rgb(SKIN.col(P.blue));
+    if(m!==2&&(inv<=0||Math.floor(t*14)%2===0))blockPerson(x,y,z,face,col,step,false,myAv3());
+    R3.shadow(x,0.02,z,0.45);
+    R3.flush();
+    minimap();
+    txt('Time',12,20,13,'#fff','left');
+    txt(Math.ceil(left)+'s',12,42,24,left<10?P.brick:P.sun,'left');
+    txt('Maze '+lvl+'  ·  Keys '+got+'/3',12,64,12,'#fff','left');
+    if(msgT>0&&msg)txt(msg,V.w/2,90,17,P.sun);
+    if(st==='ready')card3([['MAZE ESCAPE',32,P.sun],['Find the 3 keys, then run to the green exit.',14],
+      [keys3()?'Move: arrows or W A S D. Clocks give +5 seconds':'Clocks give +5 seconds. Red sentries take 5!',14]]);
+    if(st==='over')card3([['TIME UP',34,P.brick],['Mazes escaped: '+(lvl-1),22],[newBest?'NEW BEST!':'Best '+best,17,newBest?P.sun:'#fff'],
+      [overT>0.7?(keys3()?'Press any key to try again':'Tap to try again'):'',17]],0.5);
+    if(flash>0){ctx.fillStyle='rgba(255,90,77,'+(flash/0.4*0.4)+')';ctx.fillRect(0,0,V.w,V.h);}
+    if(st!=='over')stick();
+    CAM3.draw(st==='ready');
+  };
+  /* the map in the top right: only the cells you have seen */
+  function minimap(){
+    var sz=Math.min(60,V.h*0.38),c=sz/N,x0=V.w-sz-10,y0=10,i,j;
+    ctx.save();
+    ctx.fillStyle='rgba(20,33,61,0.6)';ctx.fillRect(x0-3,y0-3,sz+6,sz+6);
+    ctx.strokeStyle='#e8e0ff';ctx.lineWidth=1.2;
+    for(i=0;i<N;i++)for(j=0;j<N;j++){
+      if(!seen[i][j])continue;
+      var px=x0+i*c,py=y0+j*c;
+      ctx.fillStyle=(i===exit.i&&j===exit.j)?(got>=3?'#5ed88a':'#6a6090'):'rgba(150,140,190,0.55)';ctx.fillRect(px,py,c,c);
+      ctx.beginPath();
+      if(cells[i][j].e){ctx.moveTo(px+c,py);ctx.lineTo(px+c,py+c);}
+      if(cells[i][j].s){ctx.moveTo(px,py+c);ctx.lineTo(px+c,py+c);}
+      if(i===0){ctx.moveTo(px,py);ctx.lineTo(px,py+c);}
+      if(j===0){ctx.moveTo(px,py);ctx.lineTo(px+c,py);}
+      ctx.stroke();
+    }
+    keys.forEach(function(q){if(!q.got&&seen[q.i][q.j]){ctx.fillStyle='#ffd23f';ctx.fillRect(x0+q.i*c+c*0.25,y0+q.j*c+c*0.25,c*0.5,c*0.5);}});
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x0+(x/CS+(N-1)/2+0.5)*c,y0+(z/CS+(N-1)/2+0.5)*c,Math.max(2,c*0.32),0,6.2832);ctx.fill();
+    ctx.restore();
+  }
+  /* the stick only: jumping is just for fun here, so it stays on Space and the A button */
+  function stick(){
+    ctx.save();
+    ctx.globalAlpha=Math.min(1,0.55*TSET.alpha);
+    var pb=padBase(),bx=PAD.sid>=0?PAD.bx:pb[0],by=PAD.sid>=0?PAD.by:pb[1];
+    ctx.fillStyle='rgba(255,255,255,0.35)';ctx.strokeStyle=P.ink;ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(bx,by,PAD.R,0,6.2832);ctx.fill();ctx.stroke();
+    var kx=PAD.sid>=0?PAD.sx:bx,ky=PAD.sid>=0?PAD.sy:by,dx=kx-bx,dy=ky-by,l=Math.sqrt(dx*dx+dy*dy);
+    if(l>PAD.R){kx=bx+dx/l*PAD.R;ky=by+dy/l*PAD.R;}
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(kx,ky,18*TSET.stick,0,6.2832);ctx.fill();ctx.stroke();
+    ctx.restore();
+  }
+  /* test bots: play for real. Walk the maze path to the nearest key (then the exit), one cell at a time */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){tb.only([]);if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [(lvl-1)*3+got,'keys'];}
+    m.o=0;
+    if(st==='ready'){tb.k('ArrowUp');return [0,'keys'];}
+    var i=ci(x),j=ci(z),d=paths(i,j),tg=null;
+    keys.forEach(function(q){if(!q.got&&(!tg||d[q.i][q.j]<d[tg[0]][tg[1]]))tg=[q.i,q.j];});
+    if(!tg)tg=[exit.i,exit.j];
+    /* walk back from the target to find the next cell */
+    var c=tg,guard=0;
+    while(d[c[0]][c[1]]>1&&guard++<400){var nb=open(c[0],c[1]),nx=null;nb.forEach(function(n){if(d[n[0]][n[1]]===d[c[0]][c[1]]-1)nx=n;});if(!nx)break;c=nx;}
+    var tx=cx(c[0]),tz=cx(c[1]);
+    if(d[c[0]][c[1]]===0){tx=cx(tg[0]);tz=cx(tg[1]);}
+    /* stay in the middle of the corridor so corners do not catch */
+    var cxm=cx(i),czm=cx(j),ddx=tx-x,ddz=tz-z;
+    if(Math.abs(tx-cxm)>0.1&&Math.abs(z-czm)>0.35)ddx=0,ddz=czm-z;
+    else if(Math.abs(tz-czm)>0.1&&Math.abs(x-cxm)>0.35)ddz=0,ddx=cxm-x;
+    tbWalk(tb,ddx,ddz);
+    return [(lvl-1)*3+got,'keys'];
+  };
+  return g;
+})();
+
 /* ===== Block Tag (online): one player is It. Tag someone else to pass it on. ===== */
 GAMES.tag=(function(){
   var g={kind:'canvas',title:'Block Tag',lw:400,is3d:true};
@@ -9877,6 +10119,7 @@ function open3D(){
   var gf=lsGet('by.golf',0);$('m3-best-golf').textContent=gf?('Best '+gf+' shots'):'Not played';
   $('m3-best-dive').textContent='Best '+lsGet('by.dive',0);
   $('m3-best-sled').textContent='Best '+lsGet('by.sled',0);
+  if($('m3-best-escape'))$('m3-best-escape').textContent='Best '+lsGet('by.escape',0);
 }
 $('m3-back').addEventListener('click',toHub);
 
