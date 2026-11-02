@@ -174,6 +174,7 @@ select{min-height:44px;padding:6px 10px;border:3px solid var(--ink);border-radiu
     h+='<div class="big">'+(probs?'<span class="chip bad">'+probs+(probs===1?' problem':' problems')+'</span>':'<span class="chip ok">All '+games+' games OK</span>')+
       '<span>Last run '+esc(when(REP.at))+'</span></div>';
     h+='<p class="note">Version tested: '+esc(REP.ver||'unknown')+(REP.secs?' · took '+Math.round(REP.secs/60)+' min':'')+'</p>';
+    if(REP.live)h+=REP.live.ok?'<p class="note">The live website matches main.</p>':'<p class="note err">The live website does not match main yet: '+esc(REP.live.fails.join('; ')||'the check failed')+'</p>';
     if(Date.now()-new Date(REP.at).getTime()>36*3600e3)h+='<p class="note err">The daily test hasn\'t run for over a day. Open the GitHub link below to check on it.</p>';
     REP.runs.forEach(function(x){
       if(!x.problems.length)return;
