@@ -62,7 +62,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800&family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800&family=Press+Start+2P&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: one-screen app. Hub = title + three chunky game cards. Play = top bar + stage (canvas) or story sheet. */
 :root{
@@ -214,6 +214,302 @@ button{touch-action:manipulation}
 .msg{max-width:84%;padding:7px 12px;border:3px solid var(--ink);border-radius:14px;background:#fff;font-weight:700;font-size:16px;line-height:1.3;overflow-wrap:anywhere}
 .msg.me{align-self:flex-end;background:var(--sun)}
 .msg small{display:block;font-size:12px;font-weight:800;opacity:.7}
+/* Chat: the Squadline look (friends and parties on the side, the conversation in the middle, people on the right) */
+#chat-body.sqx{overflow:hidden;padding:0;gap:0}
+a.choice.sqlink{display:flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:var(--ink)}
+.sq{--side:#181b21;--main:#1f2229;--raise:#272b33;--input:#2a2e37;--float:#14171c;--stage:#0d0f12;--tile:#1b1e24;--rail:#111318;
+  --hover:rgba(255,255,255,.045);--active:rgba(255,255,255,.085);--line:rgba(255,255,255,.075);
+  --fg:#e7e9ee;--fg2:#aab1bd;--fg3:#7b8390;--acc:#2cc5d8;--acc-ink:#04262b;--acc-soft:rgba(44,197,216,.15);
+  --online:#43b581;--idle:#e8b13b;--danger:#e5484d;--ment:rgba(232,177,59,.08);--ment-bar:#e8b13b;--shadow:0 12px 32px rgba(0,0,0,.5);
+  --f-d:"Bricolage Grotesque","Lilita One",system-ui,sans-serif;--f-b:"Figtree","Nunito",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  position:relative;flex:1;min-height:0;display:flex;background:var(--main);color:var(--fg);font:15px/1.4 var(--f-b);border-radius:16px;overflow:hidden;
+  border:1px solid var(--line);box-shadow:0 6px 0 rgba(0,0,0,.28);color-scheme:dark;-webkit-font-smoothing:antialiased}
+:root[data-mode="light"] .sq{--side:#ebeef2;--main:#fbfcfd;--raise:#fff;--input:#e9ecf1;--float:#fff;--stage:#e8ebf0;--tile:#dde1e8;--rail:#dde1e8;
+  --hover:rgba(18,28,45,.045);--active:rgba(18,28,45,.085);--line:rgba(18,28,45,.11);--fg:#181c24;--fg2:#4a5260;--fg3:#737b89;
+  --acc:#04899a;--acc-ink:#fff;--acc-soft:rgba(4,137,154,.12);--online:#23935a;--idle:#b97f06;--danger:#d0343a;--ment:rgba(185,127,6,.10);--ment-bar:#b97f06;
+  --shadow:0 12px 32px rgba(18,28,45,.18);color-scheme:light;box-shadow:0 5px 0 var(--ink)}
+:where(.sq) button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:inherit}
+.sq button:disabled{cursor:not-allowed;opacity:.45}
+.sq :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.sq .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sqi{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;display:block}
+.sqi.sm{width:17px;height:17px}.sqi.xs{width:14px;height:14px}
+.sq .vchk{width:15px;height:15px;margin-left:4px;vertical-align:-2px}
+.sq .blur{filter:blur(4px)}
+/* avatars with a status dot */
+.sq-avw{position:relative;display:inline-flex;flex:none;width:34px;height:34px}
+.sq-avw>svg,.sq-avw>.ltr{width:100%;height:100%;border-radius:50%;overflow:hidden;display:grid;place-items:center;color:#fff;font:800 15px/1 var(--f-b)}
+.sq-avw.sm{width:24px;height:24px}.sq-avw.sm>.ltr{font-size:11px}
+.sq-avw.xs{width:16px;height:16px}.sq-avw.xs>.ltr{font-size:8px}
+.sq-avw.md{width:40px;height:40px}.sq-avw.md>.ltr{font-size:17px}
+.sq-avw.xl{width:84px;height:84px}.sq-avw.xl>.ltr{font-size:34px}
+.sq-avw .st{right:-3px;bottom:-3px;width:14px;height:14px;border:3px solid var(--side)}
+.sq-avw.sm .st{width:11px;height:11px;border-width:2px;right:-3px;bottom:-3px}
+.sq-main .sq-avw .st{border-color:var(--main)}
+.sq-avw svg.botav{border-radius:50%}
+/* side: chats list */
+.sq-side{width:268px;flex:none;display:flex;flex-direction:column;min-height:0;background:var(--side)}
+.sq-shead{height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px 0 16px;border-bottom:1px solid var(--line)}
+.sq-shead>b{flex:1;font:800 18px/1 var(--f-d);letter-spacing:-.01em}
+.sq-link{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:999px;background:var(--acc-soft);color:var(--acc);font:700 12.5px/1 var(--f-b);text-decoration:none;white-space:nowrap}
+.sq-link:hover{background:var(--acc);color:var(--acc-ink)}
+.sq-ib{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;color:var(--fg2);flex:none;cursor:pointer}
+.sq-ib:hover:not(:disabled){background:var(--hover);color:var(--fg)}
+.sq-ib.on{color:var(--acc);background:var(--acc-soft)}
+.sq-ib.bad{color:var(--danger)}
+.sq-ib.xs{width:22px;height:22px;border-radius:6px}
+.sq-sbody{flex:1;min-height:0;overflow-y:auto;padding:4px 8px 14px;overscroll-behavior:contain}
+.sq-cat{display:flex;align-items:center;justify-content:space-between;margin:0;padding:16px 8px 6px;font:700 11.5px/1 var(--f-b);letter-spacing:.07em;text-transform:uppercase;color:var(--fg3)}
+.sq-sempty{margin:2px 8px 8px;color:var(--fg3);font-size:13px;line-height:1.45}
+.sq-ch{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:6px 8px;border-radius:8px;color:var(--fg3);cursor:pointer}
+.sq-ch:hover{background:var(--hover);color:var(--fg2)}
+.sq-ch.on{background:var(--active);color:var(--fg)}
+.sq-ch.unread{color:var(--fg)}
+.sq-ch.unread::before{content:"";position:absolute;left:-8px;top:50%;width:4px;height:8px;margin-top:-4px;border-radius:0 4px 4px 0;background:var(--fg)}
+.sq-ch.off .sq-avw{opacity:.55}
+.sq-cht{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25;text-align:left}
+.sq-cht b{display:block;font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+.sq-ch.unread .sq-cht b,.sq-ch.on .sq-cht b{font-weight:700}
+.sq-cht small{display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sq-pav{width:34px;height:34px;flex:none;border-radius:12px;display:grid;place-items:center;background:var(--acc-soft);color:var(--acc);font:800 15px/1 var(--f-d)}
+.sq-badge{flex:none;min-width:20px;height:19px;padding:0 6px;border-radius:10px;background:var(--danger);color:#fff;font:700 11px/19px var(--f-b);font-style:normal;text-align:center}
+.sq-bot{margin-left:6px;padding:1px 5px;border-radius:4px;background:var(--acc);color:var(--acc-ink);font:800 9.5px/1.3 var(--f-b);font-style:normal;vertical-align:2px}
+.sq-incall{color:var(--online);flex:none;display:grid}
+.sq-vc{flex:none;display:flex;align-items:center;gap:8px;padding:10px 8px 10px 14px;border-top:1px solid var(--line)}
+.sq-vci{flex:1;min-width:0}
+.sq-vci b{display:block;font:700 13px/1.25 var(--f-b);color:var(--online)}
+.sq-vci b.ring{color:var(--idle)}
+.sq-vcn{display:block;max-width:100%;font-size:12.5px;color:var(--fg2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.sq-vcn:hover{color:var(--fg);text-decoration:underline}
+.sq-vct{font:600 12px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--fg3);font-variant-numeric:tabular-nums}
+.sq-mep{flex:none;display:flex;align-items:center;gap:2px;padding:8px;background:var(--rail)}
+.sq-mep .sq-avw .st{border-color:var(--rail)}
+.sq-meid{flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:4px 6px;border-radius:8px;cursor:pointer}
+.sq-meid:hover{background:var(--hover)}
+/* main */
+.sq-main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;background:var(--main)}
+.sq-top{height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 8px 0 16px;border-bottom:1px solid var(--line)}
+.sq-ttl{flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+.sq-ttl h3{margin:0;font:700 16px/1.2 var(--f-b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--fg)}
+.sq-tic{color:var(--fg3);display:grid}
+.sq-tav{display:grid;cursor:pointer}
+.sq-topic{min-width:0;padding-left:12px;border-left:1px solid var(--line);color:var(--fg3);font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sq-tools2{display:flex;align-items:center;gap:4px}
+.sq-banner{flex:none;margin:10px 16px 0;padding:9px 12px;border-radius:8px;background:var(--acc-soft);color:var(--fg);font-size:13.5px;line-height:1.4}
+.sq-lnk{color:var(--acc)!important;font-weight:700!important;text-decoration:underline!important;cursor:pointer}
+.sq-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.sq-msgs{padding:4px 0 18px}
+.sq-note{margin:16px;color:var(--fg3);font-size:14px}
+.sq-note.err{color:var(--danger)}
+.sq-wel{padding:26px 16px 6px;max-width:760px}
+.sq-wel h2{margin:12px 0 6px;font:800 clamp(24px,4vw,30px)/1.1 var(--f-d);letter-spacing:-.015em;color:var(--fg)}
+.sq-wel p{margin:0;color:var(--fg2);max-width:62ch}
+.sq-wel b{color:var(--fg)}
+.sq-wbadge{width:68px;height:68px;border-radius:50%;display:grid;place-items:center;background:var(--raise);border:1px solid var(--line);color:var(--acc)}
+.sq-wbadge .sqi{width:36px;height:36px}
+.sq-div{display:flex;align-items:center;gap:8px;margin:22px 16px 6px;color:var(--fg3);font:600 12px/1 var(--f-b)}
+.sq-div::before,.sq-div::after{content:"";flex:1;height:1px;background:var(--line)}
+.sq-div.new{color:var(--danger);margin-top:14px}
+.sq-div.new::before,.sq-div.new::after{background:var(--danger);opacity:.55}
+.sq-div.new span{padding:3px 6px;border-radius:4px;background:var(--danger);color:#fff;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase}
+.sq-msg{position:relative;padding:2px 16px 2px 72px}
+.sq-msg.head{margin-top:14px;padding-top:3px}
+.sq-msg:hover{background:var(--hover)}
+.sq-msg.ment{background:var(--ment);box-shadow:inset 2px 0 0 var(--ment-bar)}
+.sq-msg.flash{animation:sqflash 1.8s ease}
+@keyframes sqflash{0%,35%{background:var(--acc-soft)}100%{background:transparent}}
+.sq-lead{position:absolute;left:16px;top:5px;display:grid;cursor:pointer}
+.sq-st{position:absolute;left:0;width:62px;top:2px;text-align:right;font:500 10.5px/22px var(--f-b);color:var(--fg3);opacity:0;font-variant-numeric:tabular-nums}
+.sq-msg:hover .sq-st{opacity:1}
+.sq-meta{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;line-height:22px;min-height:22px}
+.sq-name{font-weight:600!important;font-size:15px;color:var(--fg)!important;cursor:pointer}
+.sq-name:hover{text-decoration:underline}
+.sq-meta time{font-size:12px;color:var(--fg3)}
+.sq-bd{font-size:14px}
+.sq-text{line-height:1.45;overflow-wrap:anywhere;color:var(--fg);min-height:22px;font-size:15px}
+.sq-msg.head .sq-text{min-height:0}
+.sq-text.jumbo{font-size:42px;line-height:1.2}
+.sq-text strong{font-weight:700}
+.sq-edited{margin-left:5px;font-size:11px;color:var(--fg3)}
+.sq-ment{padding:0 3px;border-radius:4px;background:var(--acc-soft);color:var(--acc);font-weight:600}
+.sq-ment.sq-mme{background:rgba(232,177,59,.2);color:var(--idle)}
+.sq-code{padding:1px 5px;border-radius:4px;background:var(--input);font:.86em/1.3 ui-monospace,Menlo,Consolas,monospace}
+.sq-spoil{border-radius:4px;background:var(--fg3);color:transparent;cursor:pointer}
+.sq-spoil *{visibility:hidden}
+.sq-spoil.shown{background:var(--active);color:inherit;cursor:auto}
+.sq-spoil.shown *{visibility:visible}
+.sq-rref{position:relative;display:flex;align-items:center;gap:6px;margin:0 0 3px;font-size:13px;color:var(--fg2);cursor:pointer;min-width:0;max-width:100%}
+.sq-rref::before{content:"";position:absolute;left:-38px;top:9px;width:30px;height:12px;border:2px solid var(--fg3);opacity:.5;border-right:0;border-bottom:0;border-top-left-radius:6px}
+.sq-rref b{font-weight:600;color:var(--fg);white-space:nowrap}
+.sq-rref>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sq-rref:hover>span:last-child{color:var(--fg)}
+.sq-tools{position:absolute;right:16px;top:-16px;display:none;padding:2px;border-radius:8px;background:var(--raise);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.22);z-index:2}
+.sq-msg:hover .sq-tools,.sq-msg:focus-within .sq-tools{display:flex}
+.sq-tools button{width:32px;height:30px;display:grid;place-items:center;border-radius:6px;color:var(--fg2);cursor:pointer}
+.sq-tools button:hover{background:var(--hover);color:var(--fg)}
+.sq-tools button.del:hover{color:var(--danger)}
+.sq-rxs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.sq-rx{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 8px!important;border-radius:8px;background:var(--raise)!important;border:1px solid var(--line)!important;font-size:15px;line-height:1;cursor:pointer}
+.sq-rx b{font:600 12.5px/1 var(--f-b);color:var(--fg2)}
+.sq-rx:hover{border-color:var(--fg3)!important}
+.sq-rx.on{background:var(--acc-soft)!important;border-color:var(--acc)!important}
+.sq-rx.on b{color:var(--acc)}
+.sq-edit textarea{width:100%;resize:none;border:0;border-radius:8px;background:var(--input);color:var(--fg);padding:9px 12px;font:15px/1.45 var(--f-b);outline:none;display:block;max-height:220px}
+.sq-edit textarea:focus{box-shadow:0 0 0 1px var(--acc)}
+.sq-ehint{margin:4px 0 2px;font-size:12px;color:var(--fg3)}
+.sq-ehint button{color:var(--acc)!important;cursor:pointer}
+.sq-jump{position:absolute;left:50%;transform:translateX(-50%);bottom:96px;padding:7px 16px!important;border-radius:999px;background:var(--acc)!important;color:var(--acc-ink)!important;font-weight:700!important;font-size:13px;box-shadow:var(--shadow);z-index:3;cursor:pointer}
+.sq-compw{flex:none;position:relative;padding:0 16px}
+.sq-replyb{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 14px;border-radius:10px 10px 0 0;background:var(--raise);border:1px solid var(--line);border-bottom:0;font-size:13.5px;color:var(--fg2)}
+.sq-replyb b{color:var(--fg)}
+.sq-rbt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sq-comp{display:flex;align-items:flex-end;gap:2px;padding:2px 6px 2px 14px;border-radius:10px;background:var(--input)}
+.sq-comp.att{border-top-left-radius:0;border-top-right-radius:0}
+.sq-comp:focus-within{box-shadow:0 0 0 1px rgba(44,197,216,.5)}
+.sq-comp textarea{flex:1;min-width:0;resize:none;border:0;outline:none;background:transparent;color:var(--fg);font:15px/22px var(--f-b);padding:11px 0;max-height:160px;display:block}
+.sq-comp textarea::placeholder{color:var(--fg3)}
+.sq-comp textarea:focus-visible,.sq-edit textarea:focus-visible{outline:none}
+.sq-comp .sq-ib{width:36px;height:44px}
+.sq-send{width:36px;height:36px;margin:4px 0!important;border-radius:50%;background:var(--acc)!important;color:var(--acc-ink)!important;display:grid;place-items:center;flex:none;cursor:pointer}
+.sq-under{display:flex;justify-content:space-between;gap:8px;min-height:26px;padding:4px 4px 6px;font-size:12.5px;color:var(--fg2)}
+.sq-typing{display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden;white-space:nowrap}
+.sq-typing b{color:var(--fg);font-weight:600}
+.sq-dots{display:inline-flex;gap:3px}
+.sq-dots i{width:5px;height:5px;border-radius:50%;background:var(--fg2);animation:sqbob 1.2s infinite}
+.sq-dots i:nth-child(2){animation-delay:.15s}.sq-dots i:nth-child(3){animation-delay:.3s}
+@keyframes sqbob{0%,60%,100%{opacity:.35;transform:none}30%{opacity:1;transform:translateY(-2px)}}
+.sq-count{font-variant-numeric:tabular-nums;color:var(--fg3)}
+.sq-count.over{color:var(--danger);font-weight:600}
+.sq-mpop{position:absolute;left:16px;right:16px;bottom:100%;margin-bottom:4px;padding:6px;border-radius:10px;background:var(--float);border:1px solid var(--line);box-shadow:var(--shadow);z-index:5}
+.sq-mpt{margin:0;padding:4px 8px 6px;font:700 11.5px/1 var(--f-b);letter-spacing:.07em;text-transform:uppercase;color:var(--fg3)}
+.sq-mpi{display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px!important;border-radius:6px;cursor:pointer}
+.sq-mpi b{font-weight:600}
+.sq-mpi small{color:var(--fg3);font-size:12.5px}
+.sq-mpi.sel,.sq-mpi:hover{background:var(--active)}
+.sq-mpi .st{border-color:var(--float)}
+/* empty state */
+.sq-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px 20px;text-align:center}
+.sq-ebadge{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;background:var(--raise);border:1px solid var(--line);color:var(--acc)}
+.sq-ebadge .sqi{width:40px;height:40px}
+.sq-empty h3{margin:6px 0 0;font:800 26px/1.15 var(--f-d);color:var(--fg)}
+.sq-empty p{margin:0;max-width:46ch;color:var(--fg2);line-height:1.5}
+.sq-card{margin-top:10px;display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:12px;background:var(--raise);border:1px solid var(--line);color:var(--fg);text-decoration:none;text-align:left}
+.sq-card:hover{border-color:var(--acc)}
+.sq-card b{display:block;font:800 16px/1.2 var(--f-d)}
+.sq-card small{display:block;color:var(--fg3);font-size:12.5px}
+.sq-card .sqi{color:var(--acc)}
+/* party pages */
+.sq-page{flex:1;min-height:0;overflow-y:auto;padding:8px 16px 24px;max-width:720px;width:100%}
+.sq-ph h3{margin:16px 0 4px;font:800 23px/1.15 var(--f-d);color:var(--fg)}
+.sq-ph p{margin:0 0 6px;color:var(--fg2);line-height:1.5}
+.sq-lbl{display:block;margin:18px 0 6px;font:700 11.5px/1 var(--f-b);letter-spacing:.07em;text-transform:uppercase;color:var(--fg2)}
+.sq-field{width:100%;height:42px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--input);color:var(--fg);font:15px var(--f-b);outline:none}
+.sq-field:focus{border-color:var(--acc)}
+.sq-prow{display:flex;align-items:center;gap:10px;padding:6px 6px;border-radius:10px}
+.sq-prow+.sq-prow{box-shadow:inset 0 1px 0 var(--line)}
+.sq-prow:hover{background:var(--hover)}
+.sq-pmain{flex:1;min-width:0;display:flex;align-items:center;gap:10px;cursor:pointer}
+.sq-pmain .st{border-color:var(--main)}
+.sq-pnote{margin:14px 0 0;color:var(--fg3);font-size:13px;line-height:1.45}
+.sq-pnote.err{color:var(--danger)}.sq-pnote.good{color:var(--online)}
+.sq-pacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.sq-pacts.end{justify-content:flex-end}
+.sq-btn{display:inline-flex!important;align-items:center;justify-content:center;gap:7px;height:38px;padding:0 16px!important;border-radius:8px;font-weight:600!important;font-size:14px;background:var(--input)!important;border:1px solid var(--line)!important;color:var(--fg)!important;cursor:pointer;white-space:nowrap}
+.sq-btn:hover:not(:disabled){background:var(--active)!important}
+.sq-btn.sm{height:32px;padding:0 12px!important;font-size:13px}
+.sq-btn.pri{background:var(--acc)!important;color:var(--acc-ink)!important;border-color:transparent!important}
+.sq-btn.bad{color:var(--danger)!important}
+.sq-btn.bad.solid{background:var(--danger)!important;color:#fff!important;border-color:transparent!important}
+.sq-btn.wide{width:calc(100% - 16px);margin:4px 8px!important}
+/* members */
+.sq-mem{width:240px;flex:none;overflow-y:auto;padding:0 8px 16px;background:var(--side);border-left:1px solid var(--line)}
+.sq-mhead{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font:800 15px/1 var(--f-d);color:var(--fg2)}
+.sq-mrow{display:flex;align-items:center;gap:11px;width:100%;padding:5px 8px!important;border-radius:8px;min-height:46px;cursor:pointer}
+.sq-mrow:hover{background:var(--hover)}
+.sq-mrow.off{opacity:.45}
+.sq-you{font-style:normal;font-weight:400;color:var(--fg3)}
+/* call stage */
+.sq-stage{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--stage)}
+.sq-tiles{flex:1;min-height:0;overflow:auto;display:grid;gap:12px;padding:20px 16px;align-content:center;justify-content:center;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),340px))}
+.sq-tile{position:relative;aspect-ratio:16/10;border-radius:14px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 24%,var(--tile));transition:box-shadow .12s ease}
+.sq-tile.speaking{box-shadow:inset 0 0 0 3px var(--online)}
+.sq-tile.ringing .sq-avw{animation:sqpulse 1.5s ease-in-out infinite;border-radius:50%}
+@keyframes sqpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.4)}60%{box-shadow:0 0 0 16px transparent}}
+.sq-tag{position:absolute;left:10px;bottom:10px;max-width:calc(100% - 20px);display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:7px;background:rgba(0,0,0,.58);color:#fff;font-size:13px;font-weight:600}
+.sq-tag span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sq-tag .sqi{color:#ff9090}
+.sq-chip{position:absolute;top:10px;right:10px;padding:3px 9px;border-radius:999px;background:rgba(0,0,0,.58);color:#fff;font-size:12px;font-weight:600}
+.sq-snote{margin:0 auto;padding:0 16px;max-width:62ch;text-align:center;color:var(--fg3);font-size:13px;line-height:1.45}
+.sq-board{margin:12px auto 0;padding:10px;border-radius:12px;background:var(--raise);border:1px solid var(--line);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;width:min(calc(100% - 32px),520px)}
+.sq-sb{display:flex!important;flex-direction:column;align-items:center;gap:5px;padding:10px 4px!important;border-radius:8px;background:var(--input)!important;font-size:12.5px;font-weight:600;color:var(--fg2)!important;text-align:center!important;cursor:pointer}
+.sq-sb span{font-size:22px;line-height:1}
+.sq-sb:hover:not(:disabled){background:var(--active)!important;color:var(--fg)!important}
+.sq-sb:active{transform:scale(.96)}
+.sq-ctls{flex:none;display:flex;justify-content:center;flex-wrap:wrap;gap:12px;padding:16px 16px 22px}
+.sq-ctl{width:56px;height:56px;border-radius:50%;display:grid!important;place-items:center;background:var(--raise)!important;color:var(--fg)!important;border:1px solid var(--line)!important;cursor:pointer}
+.sq-ctl:hover{background:var(--active)!important}
+.sq-ctl.bad{color:var(--danger)!important;border-color:rgba(229,72,77,.45)!important}
+.sq-ctl.on{background:var(--acc-soft)!important;color:var(--acc)!important;border-color:var(--acc)!important}
+.sq-ctl.leave{width:76px;border-radius:28px;background:var(--danger)!important;color:#fff!important;border-color:transparent!important}
+.sq-ctl .sqi{width:24px;height:24px}
+.sq-join{height:48px;padding:0 26px!important;border-radius:12px;background:var(--online)!important;color:#fff!important;font-weight:700!important;cursor:pointer}
+/* popovers */
+.sq-pop{position:absolute;z-index:20;border-radius:12px;background:var(--float);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden}
+.sq-emg{display:grid;grid-template-columns:repeat(8,36px);gap:2px;padding:8px}
+.sq-emg button{width:36px;height:36px;border-radius:6px;font-size:20px;display:grid;place-items:center;cursor:pointer}
+.sq-emg button:hover{background:var(--active)}
+.sq-modal{position:absolute;inset:0;z-index:30;display:grid;place-items:center;padding:16px;background:rgba(5,8,12,.6)}
+.sq-mcard{width:min(100%,440px);max-height:calc(100% - 32px);overflow:auto;border-radius:14px;background:var(--raise);border:1px solid var(--line);box-shadow:var(--shadow);padding:22px 22px 18px}
+.sq-mcard h3{margin:0 0 8px;font:800 22px/1.15 var(--f-d);color:var(--fg)}
+.sq-mcard p{margin:0 0 12px;color:var(--fg2);line-height:1.5}
+.sq-delp{padding:10px 12px;border-radius:8px;background:var(--input);color:var(--fg2);font-size:14px;overflow-wrap:anywhere}
+/* phones: one pane at a time */
+@media (max-width:820px){
+  .sq{border-radius:14px}
+  .sq-side{width:100%}
+  .sq-main{display:none}
+  .sq.open .sq-side{display:none}
+  .sq.open .sq-main{display:flex}
+  .sq-mem{position:absolute;top:0;bottom:0;right:0;z-index:12;width:min(280px,85%);box-shadow:var(--shadow)}
+  .sq-msg{padding-left:62px;padding-right:12px}
+  .sq-lead{left:12px}
+  .sq-st{width:54px}
+  .sq-topic{display:none}
+  .sq-compw{padding:0 10px}
+  .sq-tools{right:8px}
+  .sq-top{padding-left:12px}
+  .sq-emg{grid-template-columns:repeat(6,38px)}
+}
+@media (min-width:821px) and (max-width:1060px){.sq-side{width:230px}.sq-mem{position:absolute;top:0;bottom:0;right:0;z-index:12;box-shadow:var(--shadow)}}
+@media (hover:none){.sq-msg:hover{background:none}.sq-msg:hover .sq-tools,.sq-msg:focus-within .sq-tools{display:none}.sq-msg.sel{background:var(--hover)}.sq-msg.sel .sq-tools{display:flex}.sq-msg.sel .sq-st{opacity:1}}
+@media (prefers-reduced-motion:reduce){.sq *,.sq-inc *{animation:none!important;transition:none!important}}
+/* a call ringing (anywhere in the arcade), and the little bar while you are in a call */
+.sq-inc{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px;background:rgba(5,8,12,.6);font-family:"Figtree","Nunito",system-ui,sans-serif}
+.sq-inc.sq-incmini{inset:auto 0 auto 0;top:calc(env(safe-area-inset-top,0px) + 10px);background:none;pointer-events:none}
+.sq-inc.sq-incmini .sq-inccard{pointer-events:auto;padding:14px 18px;flex-direction:row;gap:12px;width:auto;max-width:calc(100vw - 24px)}
+.sq-inc.sq-incmini .sq-incav{width:44px;height:44px}
+.sq-inc.sq-incmini b{margin:0}
+.sq-inc.sq-incmini .sq-incact{margin:0 0 0 8px;gap:10px}
+.sq-inc.sq-incmini .sq-incact i{display:none}
+.sq-inc.sq-incmini .sq-round{width:44px;height:44px}
+.sq-inccard{width:min(100%,300px);padding:28px 20px 22px;border-radius:18px;background:#14171c;color:#e7e9ee;text-align:center;box-shadow:0 12px 32px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;align-items:center}
+.sq-incav{width:84px;height:84px;border-radius:50%;overflow:hidden;display:grid;place-items:center;animation:sqpulse 1.5s ease-in-out infinite}
+.sq-incav>svg,.sq-incav>.ltr{width:100%;height:100%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:32px;line-height:1}
+.sq-inccard b{margin:14px 0 2px;font:800 21px/1.2 "Bricolage Grotesque","Lilita One",system-ui,sans-serif;overflow-wrap:anywhere}
+.sq-inccard small{color:#aab1bd;font-size:14px}
+.sq-incact{display:flex;justify-content:center;gap:32px;margin-top:22px}
+.sq-incact span{display:flex;flex-direction:column;align-items:center}
+.sq-incact i{margin-top:6px;font-size:12px;font-style:normal;color:#aab1bd}
+.sq-round{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;border:0;cursor:pointer;color:#fff}
+.sq-round.no{background:#e5484d}.sq-round.yes{background:#43b581}
+.sq-round .sqi{width:26px;height:26px}
+.sq-pill{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);z-index:250;display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:#14171c;color:#e7e9ee;border:1px solid rgba(255,255,255,.12);box-shadow:0 8px 24px rgba(0,0,0,.45);font:600 13px/1.2 "Figtree","Nunito",system-ui,sans-serif;max-width:calc(100vw - 24px)}
+.sq-pill button{display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:999px;border:0;background:none;color:inherit;cursor:pointer;min-width:0}
+.sq-pill button:hover{background:rgba(255,255,255,.08)}
+.sq-pill b{color:#43b581;white-space:nowrap}
+.sq-pill span{color:#aab1bd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sq-pill .bad{width:34px;padding:0;justify-content:center;background:#e5484d;color:#fff}
+.sq-pill .bad:hover{background:#e5484d;filter:brightness(1.1)}
 .av.pic{background:none;overflow:visible!important;position:relative}
 .av.pic svg{border-radius:50%}
 .st{position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;border:2.5px solid var(--bg);z-index:2}
@@ -13454,8 +13750,7 @@ function vRefresh(skipCmd){
   syncAcct();
   if(!social.hidden&&SOC.tab!=='add')render();
   if(!chatEl.hidden){
-    if(CH.view==='conv'&&CH.friend){$('chat-title').innerHTML='@'+esc(CH.friend.name)+vmark(CH.friend.id);msgsRender();}
-    else chatList();
+    chatList();
   }
   if(!$('lobby').hidden)lobRender();
   if(!skipCmd&&!cmdEl.hidden&&CMD.admin)cmdRender();
@@ -13564,7 +13859,7 @@ function avInit(){
 function avRefresh(){
   syncAcct();
   if(!social.hidden&&SOC.tab!=='add')render();
-  if(!chatEl.hidden&&CH.view==='list')chatList();
+  if(!chatEl.hidden)chatList();
   if(!shopEl.hidden&&SH.tab==='avatar')shopRender();
 }
 function avOwned(it){return !it.id||!!W.owned[it.id];}
@@ -13613,8 +13908,19 @@ function avatarTabPic(sw){
 }
 
 /* ===== Friend chat ===== */
-var CH={view:'list',key:null,friend:null,party:null,msgs:[],loaded:false,failed:false,first:true,unsub:null,prev:{},prevSubs:{},reg:{},lastSend:0};
-var CTRL=/[\u0000-\u001f\u007f]/g;
+/* The Chat screen looks and works like Squadline (the Discord-style chat page): friends and parties down the side, the
+   conversation in the middle and, in a party, the people on the right. Replies, emoji reactions, editing and deleting
+   your own messages, @mentions, typing dots, and calls. This page cannot use microphones, so a call carries a
+   soundboard instead of voices (the same as Squadline): everyone in the call hears the sounds.
+   Saved:  chats/<key>/msgs/<id> {from,text,at,bd,re,e}   key = two friends' ids joined by ~, or a party id
+           chats/<key>/rx/<your id> {m:{<message id>:[emoji]},at}   everyone's reactions live in their own doc
+           rings/<caller id> {k,to,at}   a call that is ringing          rings/d_<your id> {id,at}   you said no
+   Live, never saved: one room per chat for typing dots, who is in the call, and soundboard presses. ===== */
+var SQ_LINK='https://claude.ai/artifact/8PmXaxrDoU9wRb8YgDj6tv';
+var CH={view:'list',key:null,friend:null,party:null,msgs:[],loaded:false,failed:false,first:true,unsub:null,prev:{},prevSubs:{},reg:{},lastSend:0,
+  rx:{},rxUnsub:null,reply:null,edit:null,ment:null,mems:null,newAt:0,tyOn:false,tyT:0,grew:false,built:'',pop:null,del:null};
+var CTRL=/[\u0000-\u001f\u007f]/g,MCTRL=/[\u0000-\u0009\u000b-\u001f\u007f]/g,MSG_MAX=500;
+var SQEMO=['👍','👎','😂','❤️','🔥','🎉','😮','😢','😡','👀','💯','🙏','😎','🤔','🥳','😅','🙌','✨','💀','🤝','👋','😍','🫡','🤯','🍕','🎮','🎵','⚡','✅','❌','⭐','🌈'];
 function chatKey(a,b){return a<b?a+'~'+b:b+'~'+a;}
 function readMap(){var m=lsGet('chat.read',{});return (m&&typeof m==='object'&&!Array.isArray(m))?m:{};}
 function markRead(key,at){var m=readMap();if((m[key]||0)<at){m[key]=at;lsSet('chat.read',m);}}
@@ -13624,13 +13930,14 @@ function chatBadge(){
   b.hidden=n===0;b.textContent=String(n);
   renderFrow();
 }
-function cleanMsg(d,key,party){
+function cleanMsg(d,key,party,id){
   if(!d||typeof d!=='object'||typeof d.from!=='string'||typeof d.text!=='string')return null;
   if(party){if(!party.m[d.from])return null;}
   else if(key.split('~').indexOf(d.from)<0)return null;
-  var t=d.text.replace(CTRL,' ').trim().slice(0,200);
+  var t=d.text.replace(MCTRL,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim().slice(0,MSG_MAX);
   if(!t)return null;
-  return {from:d.from,text:t,at:(typeof d.at==='number'&&isFinite(d.at))?d.at:0,bd:badgeSym(typeof d.bd==='string'?d.bd:'')};
+  var re=(d.re&&typeof d.re==='object'&&typeof d.re.id==='string'&&d.re.id.length<=40&&typeof d.re.from==='string'&&d.re.from.length<=64)?{id:d.re.id,from:d.re.from}:null;
+  return {id:typeof id==='string'?id:'',from:d.from,text:t,at:(typeof d.at==='number'&&isFinite(d.at))?d.at:0,bd:badgeSym(typeof d.bd==='string'?d.bd:''),e:(typeof d.e==='number'&&isFinite(d.e))?d.e:0,re:re};
 }
 function fmtTime(at){
   if(!at)return '';
@@ -13641,8 +13948,326 @@ function fmtTime(at){
     return d.toLocaleDateString([], {month:'short',day:'numeric'})+' '+tm;
   }catch(_){return '';}
 }
-/* ===== Parties: a chat with a few friends at once.
-   Each person's parties live under their own uid, so nobody can change a party they did not make. ===== */
+
+/* ----- small pieces: icons, names, times, text */
+var SQI={
+  hash:'<path d="M5 9h15M4 15h15M10 3 8 21M16 3l-2 18"/>',
+  speaker:'<path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
+  mic:'<rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5"/>',
+  micOff:'<path d="M15 9.5v-4a3 3 0 0 0-5.7-1.3M9 9v2.5a3 3 0 0 0 4.9 2.3"/><path d="M19 11a7 7 0 0 1-1.2 3.9M5 11a7 7 0 0 0 10.8 5.9M12 18v3.5"/><path d="M3 3l18 18"/>',
+  head:'<path d="M4 16v-4a8 8 0 0 1 16 0v4"/><rect x="3" y="14" width="4.5" height="7" rx="1.5"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.5"/>',
+  headOff:'<path d="M4 16v-4a8 8 0 0 1 13.2-6.1M20 12v4"/><rect x="3" y="14" width="4.5" height="7" rx="1.5"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.5"/><path d="M3 3l18 18"/>',
+  sliders:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
+  phone:'<path d="M6.5 3.5h3l1.5 4.5-2 1.5a12 12 0 0 0 5.5 5.5l1.5-2 4.5 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2Z"/>',
+  hangup:'<path d="M3 14.2c5-4.6 13-4.6 18 0l-1.8 2.8-3.7-1.2-.4-2.6a11 11 0 0 0-6.2 0l-.4 2.6-3.7 1.2Z"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4M17.5 14.2A6.5 6.5 0 0 1 21.5 20"/>',
+  smile:'<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01"/>',
+  smilePlus:'<path d="M20.5 12A8.5 8.5 0 1 1 12 3.5"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01M19 2v5M16.5 4.5h5"/>',
+  reply:'<path d="M9.5 7 4.5 12l5 5"/><path d="M4.5 12H14a6 6 0 0 1 6 6v1"/>',
+  pencil:'<path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/>',
+  trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  music:'<path d="M9 18V5.5l11-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  send:'<path d="M4 12 20 4l-5 16-3.5-6.5Z"/><path d="M11.5 13.5 20 4"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+  chat:'<path d="M5.5 5h13A2.5 2.5 0 0 1 21 7.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-5 3.5V18h-.5A2.5 2.5 0 0 1 3 15.5v-8A2.5 2.5 0 0 1 5.5 5Z"/>',
+  vol:'<path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
+  volOff:'<path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M16 9l5 6M21 9l-5 6"/>'
+};
+function sqIc(n,c){return '<svg class="sqi'+(c?' '+c:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(SQI[n]||'')+'</svg>';}
+function sqMe(){return SOC.account?SOC.account.username:'You';}
+function sqHandle(uid){
+  if(uid&&uid===SOC.uid)return sqMe();
+  var p=CH.party;if(p&&p.m[uid])return safeName(p.m[uid]);
+  if(CH.friend&&CH.friend.id===uid)return CH.friend.name;
+  var f=friendsList().filter(function(x){return x.id===uid;})[0];if(f)return f.name;
+  var ks=Object.keys(PTY.all);for(var i=0;i<ks.length;i++){var q=PTY.all[ks[i]];if(q.m[uid])return safeName(q.m[uid]);}
+  return safeName(AVN[uid]||'');
+}
+function sqName(uid){return dispOf(uid,sqHandle(uid));}
+function sqKeyName(key){var p=PTY.all[key];if(p)return p.n;var o=key.split('~').filter(function(u){return u!==SOC.uid;})[0];return o?sqName(o):'Chat';}
+function sqKeyMembers(key){var p=PTY.all[key];if(p)return Object.keys(p.m);return key.split('~');}
+function sqMemberOf(key,uid){if(!key||!uid)return false;var p=PTY.all[key];if(p)return !!p.m[uid];return key.indexOf('~')>0&&key.split('~').indexOf(uid)>=0;}
+function sqMembers(){return CH.key?sqKeyMembers(CH.key):[];}
+function sqUidOf(handle){
+  var h=String(handle).toLowerCase(),list=sqMembers();
+  for(var i=0;i<list.length;i++)if(sqHandle(list[i]).toLowerCase()===h)return list[i];
+  return '';
+}
+function sqMentionsMe(text){if(!SOC.account)return false;try{return new RegExp('(^|[^\\w])@'+SOC.account.username+'(?![\\w])','i').test(text);}catch(e){return false;}}
+function sqSnip(x){var s=String(x||'').replace(/[*_~`|]/g,'').replace(/\s+/g,' ').trim();return s.length>80?s.slice(0,80)+'…':s;}
+function sqDay(t){
+  var d=new Date(t),k=d.toDateString();
+  if(k===new Date().toDateString())return 'Today';
+  if(k===new Date(Date.now()-864e5).toDateString())return 'Yesterday';
+  try{return d.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'});}catch(e){return k;}
+}
+function sqTm(t){try{return new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}catch(e){return '';}}
+function sqWhen(t){
+  var d=new Date(t),k=d.toDateString(),tm=sqTm(t);
+  if(k===new Date().toDateString())return 'Today at '+tm;
+  if(k===new Date(Date.now()-864e5).toDateString())return 'Yesterday at '+tm;
+  try{return d.toLocaleDateString([],{month:'numeric',day:'numeric',year:'numeric'})+' '+tm;}catch(e){return tm;}
+}
+function sqDur(ms){var s=Math.max(0,Math.floor(ms/1000)),m=Math.floor(s/60),r=s%60;return (m<10?'0':'')+m+':'+(r<10?'0':'')+r;}
+var SQ_EMO1=null,SQ_EMOG=null;
+try{SQ_EMO1=new RegExp('^(?:\\p{Extended_Pictographic}|\\p{Emoji_Modifier}|\\u200d|\\ufe0f|\\s)+$','u');SQ_EMOG=new RegExp('\\p{Extended_Pictographic}','gu');}catch(e){}
+function sqJumbo(x){if(!SQ_EMO1||x.length>40||!SQ_EMO1.test(x))return false;var n=(x.match(SQ_EMOG)||[]).length;return n>0&&n<=8;}
+/* message text: bad words hidden, then **bold**, *italics*, ~~strike~~, `code`, ||spoiler|| and @mentions */
+function sqFmt(raw){
+  var ph=[],hold=function(h){return '\u0001'+(ph.push(h)-1)+'\u0001';};
+  var s=String(raw).replace(/\u0001/g,'');
+  s=s.replace(/`([^`\n]+)`/g,function(_,c){return hold('<code class="sq-code">'+cleanHtml(c)+'</code>');});
+  s=s.replace(/@([A-Za-z0-9_]{3,16})(?![A-Za-z0-9_])/g,function(all,n){var u=sqUidOf(n);return u?hold('<span class="sq-ment'+(u===SOC.uid?' sq-mme':'')+'">@'+esc(sqHandle(u))+'</span>'):all;});
+  s=cleanHtml(s);
+  s=s.replace(/\|\|(.+?)\|\|/g,'<span class="sq-spoil" tabindex="0" role="button" aria-label="Spoiler. Tap to show it.">$1</span>');
+  s=s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/~~(.+?)~~/g,'<s>$1</s>');
+  s=s.replace(/(^|[^*\w])\*(?!\s)([^*\n]+?)\*(?!\w)/g,'$1<em>$2</em>');
+  s=s.replace(/(^|[^_\w])_(?!\s)([^_\n]+?)_(?!\w)/g,'$1<em>$2</em>');
+  s=s.replace(/\n/g,'<br>');
+  s=s.replace(/\u0001(\d+)\u0001/g,function(_,i){return ph[+i]||'';});
+  return s;
+}
+
+/* ----- sounds: the soundboard, ringing, joining and leaving (made with the browser's synthesizer, like Squadline) */
+var SQA={m:null,nb:null};
+function sqAud(){
+  if(!soundOn||(typeof TB!=='undefined'&&TB.on))return null;
+  initAudio();if(!AC||AC.state!=='running')return null;
+  if(!SQA.m){try{var comp=AC.createDynamicsCompressor();SQA.m=AC.createGain();SQA.m.gain.value=0.7;SQA.m.connect(comp);comp.connect(AC.destination);}catch(e){return null;}}
+  return AC;
+}
+function sqOsc(type,f,t0,dur,vol,o){
+  o=o||{};var s=AC.currentTime+t0,n=AC.createOscillator(),g=AC.createGain(),node=n;
+  n.type=type;n.frequency.setValueAtTime(f,s);if(o.f2)n.frequency.exponentialRampToValueAtTime(o.f2,s+dur);
+  g.gain.setValueAtTime(0.0001,s);g.gain.exponentialRampToValueAtTime(vol,s+0.012);
+  if(o.sustain!==false)g.gain.setValueAtTime(vol,s+Math.max(0.02,dur*0.6));
+  g.gain.exponentialRampToValueAtTime(0.0001,s+dur);
+  if(o.filter){var b=AC.createBiquadFilter();b.type='lowpass';b.frequency.value=o.filter;n.connect(b);node=b;}
+  node.connect(g);g.connect(SQA.m);n.start(s);n.stop(s+dur+0.05);return n;
+}
+function sqVib(n,rate,depth,dur,t0){var l=AC.createOscillator(),g=AC.createGain(),s=AC.currentTime+(t0||0);l.frequency.value=rate;g.gain.value=depth;l.connect(g);g.connect(n.frequency);l.start(s);l.stop(s+dur+0.05);}
+function sqNz(t0,dur,vol,type,freq,q){
+  if(!SQA.nb){var len=AC.sampleRate*2;SQA.nb=AC.createBuffer(1,len,AC.sampleRate);var d=SQA.nb.getChannelData(0);for(var i=0;i<len;i++)d[i]=Math.random()*2-1;}
+  var src=AC.createBufferSource(),b=AC.createBiquadFilter(),g=AC.createGain(),s=AC.currentTime+t0;
+  src.buffer=SQA.nb;b.type=type;b.frequency.value=freq;b.Q.value=q;
+  g.gain.setValueAtTime(0.0001,s);g.gain.exponentialRampToValueAtTime(vol,s+0.005);g.gain.exponentialRampToValueAtTime(0.0001,s+dur);
+  src.connect(b);b.connect(g);g.connect(SQA.m);src.start(s,Math.random());src.stop(s+dur+0.05);
+}
+var SQSFX={
+  horn:function(){[[0,0.32],[0.42,0.95]].forEach(function(x){[349.2,440,523.3].forEach(function(f){sqOsc('sawtooth',f*0.96,x[0],x[1],0.07,{f2:f,filter:2600});});});},
+  ding:function(){sqOsc('sine',1318.5,0,1.5,0.22,{sustain:false});sqOsc('sine',2637,0,0.7,0.05,{sustain:false});},
+  rimshot:function(){sqOsc('sine',210,0,0.22,0.5,{f2:80,sustain:false});sqOsc('sine',150,0.17,0.26,0.5,{f2:60,sustain:false});sqNz(0.38,1.1,0.25,'highpass',6500,0.7);sqOsc('triangle',330,0.38,0.12,0.12,{sustain:false});},
+  boing:function(){var n=sqOsc('sine',130,0,0.8,0.32,{f2:440});sqVib(n,13,45,0.8);},
+  trombone:function(){[392,370,349.2,329.6].forEach(function(f,i){var last=i===3,n=sqOsc('sawtooth',f,i*0.42,last?1.4:0.38,0.08,{filter:1100});if(last)sqVib(n,5.5,9,1.4,i*0.42);});},
+  applause:function(){for(var i=0;i<80;i++)sqNz(Math.random()*1.8,0.04+Math.random()*0.05,0.05+Math.random()*0.1,'bandpass',1100+Math.random()*2600,1.1);},
+  zap:function(){sqOsc('square',1600,0,0.32,0.06,{f2:90,sustain:false});sqOsc('square',1150,0.08,0.28,0.045,{f2:70,sustain:false});},
+  fanfare:function(){[523.3,659.3,784,1046.5].forEach(function(f,i){sqOsc('square',f,i*0.13,i===3?0.85:0.16,0.055,{filter:3400});});sqOsc('triangle',523.3,0.39,0.85,0.09);},
+  join:function(){sqOsc('sine',587.3,0,0.12,0.12,{sustain:false});sqOsc('sine',880,0.09,0.2,0.12,{sustain:false});},
+  leave:function(){sqOsc('sine',880,0,0.12,0.12,{sustain:false});sqOsc('sine',587.3,0.09,0.2,0.12,{sustain:false});},
+  mute:function(){sqOsc('triangle',520,0,0.08,0.08,{sustain:false});},
+  unmute:function(){sqOsc('triangle',780,0,0.08,0.08,{sustain:false});},
+  ring:function(){for(var k=0;k<2;k++){sqOsc('sine',988,k*0.5,0.17,0.15);sqOsc('sine',784,k*0.5+0.19,0.22,0.15);}},
+  ringback:function(){sqOsc('sine',440,0,1.1,0.045);sqOsc('sine',480,0,1.1,0.045);}
+};
+var SQSOUNDS=[['horn','📯','Horn'],['ding','🔔','Ding'],['rimshot','🥁','Rimshot'],['boing','🌀','Boing'],['trombone','🎺','Sad trombone'],['applause','👏','Applause'],['zap','⚡','Zap'],['fanfare','🎉','Fanfare']];
+var SQSND={};SQSOUNDS.forEach(function(s){SQSND[s[0]]=1;});
+function sqSfx(id){if(!sqAud())return;try{if(SQSFX[id])SQSFX[id]();}catch(e){}}
+var SQRT={ring:0,back:0};
+function sqRingtone(on){clearInterval(SQRT.ring);SQRT.ring=0;if(!on)return;var go=function(){if(!(typeof MYBIO!=='undefined'&&MYBIO.st==='dnd'))sqSfx('ring');};go();SQRT.ring=setInterval(go,2600);}
+function sqRingback(on){clearInterval(SQRT.back);SQRT.back=0;if(!on)return;sqSfx('ringback');SQRT.back=setInterval(function(){sqSfx('ringback');},3000);}
+
+/* ----- live rooms: one per chat you have open or are calling in */
+var SQR={};
+function sqRoomName(key){
+  function h(s,x){x=x>>>0;for(var i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619)>>>0;}return ('0000000'+x.toString(16)).slice(-8);}
+  return 'chat-'+h(key,2166136261)+h(key,3735928559);
+}
+function sqRoomsSync(){
+  if(SOLO||!SOC.ok||!SOC.account)return;
+  var want={};
+  if(CH.key&&(CH.view==='conv'||CH.view==='party'||CH.view==='call'||CH.view==='people'))want[CH.key]=1;
+  if(SQC.key)want[SQC.key]=1;
+  Object.keys(SQR).forEach(function(k){if(!want[k])sqRoomOff(k);});
+  Object.keys(want).forEach(function(k){if(!SQR[k])sqRoomOn(k);else sqPres(k);});
+}
+function sqRoomOn(key){
+  var o={name:sqRoomName(key),r:null,off:null,peers:[],dead:false};SQR[key]=o;
+  getRoom().then(function(room){
+    if(o.dead||!room||typeof room.join!=='function')return null;
+    return room.join(o.name);
+  }).then(function(r){
+    if(!r)return;
+    if(o.dead){if(!SQR[key])try{r.leave().catch(function(){});}catch(e){}return;}
+    o.r=r;
+    o.off=r.onPeers(function(c){o.peers=(c&&c.peers?c.peers:r.peers()).slice();sqOnPeers(key,c||{});},function(){});
+    sqPres(key);
+  }).catch(function(){});
+}
+function sqRoomOff(key){
+  var o=SQR[key];if(!o)return;delete SQR[key];o.dead=true;
+  if(o.off)try{o.off();}catch(e){}
+  if(o.r)try{o.r.leave().catch(function(){});}catch(e){}
+}
+function sqPres(key){
+  var o=SQR[key];if(!o||!o.r)return;var inc=SQC.key===key;
+  try{o.r.presence({ty:(CH.key===key&&CH.tyOn)?1:0,c:inc?1:0,mu:inc&&SQC.mu?1:0,df:inc&&SQC.df?1:0,s:inc?{id:SQC.s.id,n:SQC.s.n}:null}).catch(function(){});}catch(e){}
+}
+function sqPeers(key){var o=SQR[key];if(!o)return [];return o.peers.filter(function(p){return p&&p.kind==='viewer'&&p.by&&!p.isMe&&sqMemberOf(key,p.by);});}
+function sqOnPeers(key,c){
+  if(SQC.key===key){
+    (c.joined||[]).concat(c.updated||[]).forEach(function(p){
+      if(!p||p.isMe||p.kind!=='viewer'||!p.by||!sqMemberOf(key,p.by))return;
+      var pr=p.presence||{},s=pr.s,prev=SQC.seen[p.peer]||{};
+      if(pr.c===1&&s&&typeof s.n==='number'&&typeof prev.n==='number'&&s.n!==prev.n&&SQSND[s.id]){if(!SQC.df)sqSfx(s.id);sqSpeak(p.by);}
+      if(pr.c===1&&prev.c!==1&&SQC.ready)sqSfx('join');
+      if(prev.c===1&&pr.c!==1)sqSfx('leave');
+      SQC.seen[p.peer]={n:s&&typeof s.n==='number'?s.n:null,c:pr.c};
+    });
+    (c.left||[]).forEach(function(p){if(p&&SQC.seen[p.peer]&&SQC.seen[p.peer].c===1)sqSfx('leave');if(p)delete SQC.seen[p.peer];});
+    if(!SQC.ready&&!SQC.readyT)SQC.readyT=setTimeout(function(){SQC.ready=true;SQC.readyT=0;},1500);
+    sqCallTick();
+  }
+  if(CH.key===key)sqTypingRender();
+  if(CH.view==='call'&&SQC.key===key)sqStage();
+  sqVc();sqSide();sqMem();
+}
+
+/* ----- calls */
+var SQC={key:'',since:0,mu:false,df:false,sb:false,s:{id:'',n:0},ring:null,had:false,seen:{},ready:false,inc:null,declined:{},speak:{},t:0};
+var RINGS={sub:false,all:{},t:0};
+function sqCallPeople(){
+  if(!SQC.key)return [];
+  var out=[{uid:SOC.uid,mu:SQC.mu,df:SQC.df}],seen={};seen[SOC.uid]=1;
+  sqPeers(SQC.key).forEach(function(p){var pr=p.presence||{};if(pr.c!==1||seen[p.by])return;seen[p.by]=1;out.push({uid:p.by,mu:pr.mu===1,df:pr.df===1});});
+  return out;
+}
+function sqInCall(key,uid){if(!SQR[key])return false;return sqPeers(key).some(function(p){return p.by===uid&&(p.presence||{}).c===1;});}
+function sqSpeak(uid){SQC.speak[uid]=Date.now();if(CH.view==='call')sqStage();setTimeout(function(){if(CH.view==='call')sqStage();},1450);}
+function sqSpeaking(uid){var t=SQC.speak[uid];return !!t&&Date.now()-t<1400;}
+function sqCallStart(key){
+  if(SOLO||!SOC.db||!SOC.account){gpToast('Calls need the online version of Blockyard.');return;}
+  if(SOC.canWrite===false){gpToast('You cannot start calls on this page yet.');return;}
+  if(SQC.key===key){sqOpenCall();return;}
+  var to=sqKeyMembers(key).filter(function(u){return u!==SOC.uid&&statusOf(u)!=='off';});
+  if(!to.length){gpToast(PTY.all[key]?'Nobody else in the party is online right now.':sqKeyName(key)+' is offline right now.');return;}
+  if(SQC.key)sqHang(true);
+  var at=Date.now();
+  SQC.key=key;SQC.since=at;SQC.had=false;SQC.mu=false;SQC.df=false;SQC.sb=false;SQC.seen={};SQC.ready=false;SQC.s={id:'',n:0};
+  SQC.ring={at:at,to:to,id:SOC.uid+':'+at};
+  SOC.db.doc('rings/'+SOC.uid).set({k:key,to:to,at:at}).catch(function(){});
+  initAudio();sqRingback(true);sqTimer();
+  sqOpenCall();sqRoomsSync();sqVc();sqSide();sqPill();
+}
+function sqTimer(){clearInterval(SQC.t);SQC.t=setInterval(function(){sqCallTick();var el=$('sq-vct');if(el)el.textContent=sqDur(Date.now()-SQC.since);sqPill();},1000);}
+function sqOpenCall(){
+  if(!SQC.key)return;
+  if(chatEl.hidden){if(cur)closeGame();openScreen(chatEl);}
+  if(CH.key!==SQC.key){var p=PTY.all[SQC.key];if(p)partyOpen(p.id);else{var o=SQC.key.split('~').filter(function(u){return u!==SOC.uid;})[0];convOpen(o);}}
+  CH.view='call';chatList();
+}
+function sqCallOthers(){return sqCallPeople().filter(function(p){return p.uid!==SOC.uid;});}
+function sqCallTick(){
+  if(!SQC.key)return;
+  if(sqCallOthers().length){if(SQC.ring){sqRingback(false);sqRingClear();sqStage();sqVc();}SQC.had=true;return;}
+  if(SQC.ring){if(Date.now()-SQC.ring.at>30000){var dm=!PTY.all[SQC.key];sqHang(false);gpToast(dm?'No answer.':'Nobody joined the call.');}return;}
+  if(SQC.had){sqHang(false);gpToast('The call ended.');return;}
+  if(Date.now()-SQC.since>12000){sqHang(false);gpToast('Nobody is in the call any more.');}
+}
+/* join a call someone else is in (from the ring, or the Join button) */
+function sqJoin(key){
+  if(SQC.key&&SQC.key!==key)sqHang(true);
+  SQC.key=key;SQC.since=Date.now();SQC.had=false;SQC.mu=false;SQC.df=false;SQC.sb=false;SQC.seen={};SQC.ready=false;SQC.s={id:'',n:0};SQC.ring=null;
+  initAudio();sqSfx('join');sqTimer();
+}
+function sqRingClear(){if(!SQC.ring)return;SQC.ring=null;if(SOC.db)SOC.db.doc('rings/'+SOC.uid).set({k:'',to:[],at:0}).catch(function(){});}
+function sqHang(quiet){
+  if(!SQC.key)return;
+  sqRingback(false);if(SQC.ring)sqRingClear();
+  SQC.key='';SQC.ring=null;SQC.had=false;SQC.sb=false;SQC.seen={};SQC.mu=false;SQC.df=false;clearInterval(SQC.t);SQC.t=0;
+  if(!quiet)sqSfx('leave');
+  if(CH.view==='call'){CH.view=CH.party?'party':(CH.friend?'conv':'list');}
+  sqRoomsSync();
+  if(!chatEl.hidden)chatList();
+  sqPill();
+}
+function sqAccept(){
+  var inc=SQC.inc;if(!inc)return;
+  SQC.inc=null;SQC.declined[inc.id]=1;sqRingtone(false);sqIncRender();
+  sqJoin(inc.k);
+  sqOpenCall();sqRoomsSync();
+}
+function sqDecline(){
+  var inc=SQC.inc;if(!inc)return;
+  SQC.declined[inc.id]=1;SQC.inc=null;sqRingtone(false);sqIncRender();
+  if(SOC.db&&SOC.canWrite!==false)SOC.db.doc('rings/d_'+SOC.uid).set({id:inc.id,at:Date.now()}).catch(function(){});
+}
+function ringSub(){
+  if(RINGS.sub||!SOC.db||!SOC.uid||SOLO)return;
+  RINGS.sub=true;
+  SOC.db.collection('rings').onSnapshot(function(s){
+    var all={};s.docs.slice(0,300).forEach(function(d){all[d.id]=d.data()||{};});
+    RINGS.all=all;sqRingCheck();
+  },function(){});
+}
+function sqRingCheck(){
+  var me=SOC.uid,now=Date.now(),inc=null;
+  if(!me)return;
+  Object.keys(RINGS.all).forEach(function(id){
+    if(inc||id.indexOf('d_')===0||id===me)return;
+    var r=RINGS.all[id];
+    if(!r||typeof r.k!=='string'||!r.k||!Array.isArray(r.to)||r.to.indexOf(me)<0)return;
+    var at=+r.at||0;if(!(now-at<40000&&at-now<60000))return;
+    if(!sqMemberOf(r.k,me)||!sqMemberOf(r.k,id))return;
+    if(!PTY.all[r.k]&&!friendsList().some(function(f){return f.id===id;}))return;
+    var rid=id+':'+at;if(SQC.declined[rid]||SQC.key===r.k)return;
+    inc={from:id,k:r.k,at:at,id:rid};
+  });
+  if(SQC.ring&&!PTY.all[SQC.key]&&SQC.ring.to.length===1){
+    var who=SQC.ring.to[0],d=RINGS.all['d_'+who];
+    if(d&&d.id===SQC.ring.id){sqHang(false);gpToast(sqName(who)+' cannot talk right now.');}
+  }
+  if((inc&&inc.id)!==(SQC.inc&&SQC.inc.id)){SQC.inc=inc;sqIncRender();sqRingtone(!!inc);}
+  clearTimeout(RINGS.t);
+  if(inc)RINGS.t=setTimeout(sqRingCheck,Math.max(600,40000-(now-inc.at)));
+}
+function sqIncRender(){
+  var el=$('sq-inc'),inc=SQC.inc;
+  if(!inc){if(el)el.hidden=true;return;}
+  if(!el){
+    el=document.createElement('div');el.id='sq-inc';document.body.appendChild(el);
+    el.addEventListener('click',function(e){var b=e.target.closest?e.target.closest('[data-inc]'):null;if(!b)return;initAudio();if(b.getAttribute('data-inc')==='yes')sqAccept();else sqDecline();});
+  }
+  var p=PTY.all[inc.k];
+  el.className='sq-inc'+(cur?' sq-incmini':'');
+  el.innerHTML='<div class="sq-inccard" role="alertdialog" aria-labelledby="sq-incn" aria-describedby="sq-incs"><span class="sq-incav">'+avFor(inc.from,sqHandle(inc.from))+'</span>'+
+    '<b id="sq-incn">'+cleanHtml(sqName(inc.from))+'</b><small id="sq-incs">'+(p?'Calling '+cleanHtml(p.n)+'…':'Incoming call…')+'</small>'+
+    '<div class="sq-incact"><span><button class="sq-round no" type="button" data-inc="no" aria-label="Decline">'+sqIc('hangup')+'</button><i>Decline</i></span>'+
+    '<span><button class="sq-round yes" type="button" data-inc="yes" aria-label="Accept">'+sqIc('phone')+'</button><i>Accept</i></span></div></div>';
+  el.hidden=false;
+}
+/* while you are in a call but not looking at the Chat screen, a little bar shows it */
+function sqPill(){
+  var el=$('sq-pill');
+  if(!SQC.key||!chatEl.hidden){if(el)el.hidden=true;return;}
+  if(!el){
+    el=document.createElement('div');el.id='sq-pill';el.className='sq-pill';document.body.appendChild(el);
+    el.addEventListener('click',function(e){var b=e.target.closest?e.target.closest('[data-pill]'):null;if(!b)return;if(b.getAttribute('data-pill')==='hang')sqHang(false);else sqOpenCall();});
+  }
+  el.innerHTML='<button type="button" data-pill="open">'+sqIc('speaker','xs')+'<b>'+(SQC.ring?'Calling…':'In a call')+'</b><span>'+cleanHtml(sqKeyName(SQC.key))+' · '+sqDur(Date.now()-SQC.since)+'</span></button><button type="button" class="bad" data-pill="hang" aria-label="Leave the call">'+sqIc('hangup','xs')+'</button>';
+  el.hidden=false;
+}
+function sqPlay(id){
+  if(!SQC.key||!SQSND[id])return;
+  if(SQC.mu){gpToast('You are muted. Unmute to play sounds.');return;}
+  initAudio();if(!SQC.df)sqSfx(id);sqSpeak(SOC.uid);
+  SQC.s={id:id,n:SQC.s.n+1};sqPres(SQC.key);
+}
+
+/* ----- parties: a chat with a few friends at once. Each person's parties live under their own id, so nobody can
+   change a party they did not make. ===== */
 var PTY={mine:{},all:{},subbed:false,pick:{},name:'',busy:false,msg:null};
 function ptyHidden(){var m=lsGet('party.hide',{});return (m&&typeof m==='object'&&!Array.isArray(m))?m:{};}
 function ptyHide(pid){var m=ptyHidden();m[pid]=1;lsSet('party.hide',m);}
@@ -13668,7 +14293,7 @@ function ptyList(){
     if(!p.m[SOC.uid]||hid[pid])return;
     out.push(p);
   });
-  return out.sort(function(a,b){return b.at-a.at;});
+  return out.sort(function(a,b){var x=(CH.prev[a.id]||{}).at||a.at,y=(CH.prev[b.id]||{}).at||b.at;return y-x;});
 }
 function ptySub(){
   if(PTY.subbed||!SOC.db||!SOC.uid)return;
@@ -13685,12 +14310,13 @@ function ptySub(){
     });
     PTY.all=all;
     chatSync();
-    if(!chatEl.hidden&&CH.view==='list')chatList();
-    if(!chatEl.hidden&&CH.view==='party'&&CH.party){
+    if(CH.party){
       var cur2=PTY.all[CH.party.id];
-      if(!cur2||!cur2.m[SOC.uid]){chatLeave();chatList();}
-      else{CH.party=cur2;$('chat-title').textContent=cur2.n;}
+      if(!cur2||!cur2.m[SOC.uid]){if(SQC.key===CH.party.id)sqHang(true);chatLeave();}
+      else CH.party=cur2;
     }
+    if(!chatEl.hidden)chatList();
+    sqRingCheck();
   },function(){});
 }
 function ptySave(list){
@@ -13705,23 +14331,24 @@ function ptyMineList(){
   });
   return out;
 }
+function sqPersonRow(id,nm,right,sub){
+  return '<div class="sq-prow"><button class="sq-pmain" type="button" data-sq="prof" data-id="'+esc(id)+'" data-nm="'+esc(nm)+'"><span class="sq-avw">'+avFor(id,nm)+stDot(statusOf(id))+'</span>'+
+    '<span class="sq-cht"><b>'+cleanHtml(dispOf(id,nm))+vmark(id)+'</b><small>@'+esc(nm)+(sub?' · '+sub:'')+'</small></span></button>'+(right||'')+'</div>';
+}
 function ptyNewView(){
   var f=friendsList();
-  var h='<div class="sheet"><h3>Start a party</h3><p>Pick the friends you want in it. Everyone in a party sees every message.</p></div>';
-  if(!f.length)return h+'<p class="note">You need a friend first.</p><button class="choice" type="button" data-ch="friends">Find players</button>'+
-    '<button class="choice alt" type="button" data-ch="cancel">Back to chats</button>';
-  h+='<label class="lbl" for="pty-name">Party name</label>';
-  h+='<input class="field" id="pty-name" maxlength="24" autocomplete="off" placeholder="Saturday squad" value="'+esc(PTY.name)+'">';
-  h+='<p class="lbl">Friends ('+Object.keys(PTY.pick).filter(function(k){return PTY.pick[k];}).length+' picked)</p>';
+  var h='<div class="sq-ph"><h3>Start a party</h3><p>Pick the friends you want in it. Everyone in a party sees every message and can join its calls.</p></div>';
+  if(!f.length)return h+'<p class="sq-pnote">You need a friend first.</p><div class="sq-pacts"><button class="sq-btn pri" type="button" data-sq="friends">Find players</button><button class="sq-btn" type="button" data-sq="cancel">Back to chats</button></div>';
+  h+='<label class="sq-lbl" for="pty-name">Party name</label>';
+  h+='<input class="sq-field" id="pty-name" maxlength="24" autocomplete="off" placeholder="Saturday squad" value="'+esc(PTY.name)+'">';
+  h+='<p class="sq-lbl">Friends ('+Object.keys(PTY.pick).filter(function(k){return PTY.pick[k];}).length+' picked)</p>';
   f.forEach(function(x){
     var on=!!PTY.pick[x.id];
-    h+='<div class="row"><span class="ava">'+avFor(x.id,x.name)+stDot(statusOf(x.id))+'</span>'+
-       '<span class="who">'+cleanHtml(dispOf(x.id,x.name))+vmark(x.id)+'<small>@'+esc(x.name)+'</small></span>'+
-       '<button class="mini'+(on?' ok':'')+'" type="button" data-ch="pick" data-id="'+esc(x.id)+'" aria-pressed="'+on+'">'+(on?'In ✓':'Add')+'</button></div>';
+    h+=sqPersonRow(x.id,x.name,'<button class="sq-btn sm'+(on?' pri':'')+'" type="button" data-sq="pick" data-id="'+esc(x.id)+'" aria-pressed="'+on+'">'+(on?'In ✓':'Add')+'</button>');
   });
-  if(PTY.msg)h+='<p class="note '+PTY.msg.t+'" role="status">'+esc(PTY.msg.s)+'</p>';
-  h+='<button class="choice" type="button" data-ch="mkparty"'+(PTY.busy?' disabled':'')+'>'+(PTY.busy?'Making it...':'Create party')+'</button>';
-  h+='<button class="choice alt" type="button" data-ch="cancel">Cancel</button>';
+  if(PTY.msg)h+='<p class="sq-pnote '+PTY.msg.t+'" role="status">'+esc(PTY.msg.s)+'</p>';
+  h+='<div class="sq-pacts"><button class="sq-btn pri" type="button" data-sq="mkparty"'+(PTY.busy?' disabled':'')+'>'+(PTY.busy?'Making it...':'Create party')+'</button>';
+  h+='<button class="sq-btn" type="button" data-sq="cancel">Cancel</button></div>';
   return h;
 }
 function ptyCreate(){
@@ -13732,6 +14359,7 @@ function ptyCreate(){
   if(picked.length>11){PTY.msg={t:'err',s:'A party holds up to 12 people.'};chatList();return;}
   var mine=ptyMineList();
   if(Object.keys(mine).length>=8){PTY.msg={t:'err',s:'You already have 8 parties. Delete one first.'};chatList();return;}
+  var inp=$('pty-name');if(inp)PTY.name=inp.value;
   var nm=(PTY.name||'').replace(CTRL,' ').trim().slice(0,24);
   if(!nm)nm='Party';
   if(isBadName(nm)){PTY.msg={t:'err',s:'Pick a different party name.'};chatList();return;}
@@ -13753,97 +14381,72 @@ function ptyCreate(){
     PTY.busy=false;PTY.msg={t:'err',s:failText(e)};chatList();
   });
 }
-function partyOpen(pid){
-  var p=PTY.all[pid];
-  if(!p||!p.m[SOC.uid]||!SOC.db)return;
-  chatLeave();
-  CH.view='party';CH.key=pid;CH.party=p;CH.msgs=[];CH.loaded=false;CH.failed=false;CH.first=true;CH.reg={};
-  $('chat-title').textContent=p.n;
-  chatBody.classList.add('conv');
-  var ro=SOC.canWrite===false;
-  chatBody.innerHTML='<div class="ptybar"><span class="ptyn">'+esc(p.n)+'<small>'+Object.keys(p.m).length+' people</small></span>'+
-    '<button class="mini" type="button" data-ch="people">People</button></div>'+
-    '<div class="msgs" id="msgs" aria-live="polite"></div><p class="note" id="chat-note" hidden></p>'+
-    '<div class="sendrow"><input class="field" id="chat-in" maxlength="200" autocomplete="off" enterkeyhint="send" placeholder="'+(ro?'You can read but not send yet':'Message the party')+'"'+(ro?' disabled':'')+'>'+
-    '<button class="mini ok" id="chat-send" type="button"'+(ro?' disabled':'')+'>Send</button></div>';
-  msgsRender();
-  CH.unsub=SOC.db.collection('chats/'+pid+'/msgs').orderBy('at','desc').limit(60).onSnapshot(function(s){
-    if(CH.key!==pid)return;
-    CH.failed=false;CH.loaded=true;
-    CH.msgs=s.docs.map(function(d){return cleanMsg(d.data(),pid,CH.party);}).filter(Boolean).reverse();
-    msgsRender();
-  },function(){if(CH.key!==pid)return;CH.failed=true;msgsRender();});
-}
-function ptyPeopleView(){
-  var p=CH.party;if(!p)return;
+function ptyPeopleView(){if(!CH.party)return;CH.view='people';chatList();}
+function ptyPeopleHtml(){
+  var p=CH.party;if(!p)return '';
   var mine=p.by===SOC.uid,ids=Object.keys(p.m);
-  var h='<div class="sheet"><h3>'+esc(p.n)+'</h3><p>Made by @'+esc(p.byName)+'. '+ids.length+' people can see this chat.</p></div>';
+  var h='<div class="sq-ph"><h3>'+cleanHtml(p.n)+'</h3><p>Made by @'+esc(p.byName)+'. '+ids.length+' people can see this chat.</p></div>';
   ids.forEach(function(u){
     var nm=p.m[u];
-    h+='<div class="row"><span class="ava">'+avFor(u,nm)+stDot(statusOf(u))+'</span>'+
-       '<span class="who">'+cleanHtml(dispOf(u,nm))+vmark(u)+'<small>@'+esc(nm)+(u===p.by?' · made the party':'')+'</small></span>'+
-       '<button class="mini" type="button" data-ch="prof" data-id="'+esc(u)+'" data-nm="'+esc(nm)+'">Profile</button>'+
-       ((mine&&u!==SOC.uid)?'<button class="mini bad" type="button" data-ch="kick" data-id="'+esc(u)+'">Remove</button>':'')+'</div>';
+    h+=sqPersonRow(u,nm,(mine&&u!==SOC.uid)?'<button class="sq-btn sm bad" type="button" data-sq="kick" data-id="'+esc(u)+'">Remove</button>':'',u===p.by?'made the party':'');
   });
   if(mine){
     var add=friendsList().filter(function(x){return !p.m[x.id];});
     if(add.length&&ids.length<12){
-      h+='<p class="lbl">Add a friend</p>';
-      add.forEach(function(x){
-        h+='<div class="row"><span class="ava">'+avFor(x.id,x.name)+'</span><span class="who">'+cleanHtml(dispOf(x.id,x.name))+'<small>@'+esc(x.name)+'</small></span>'+
-           '<button class="mini ok" type="button" data-ch="invite" data-id="'+esc(x.id)+'">Invite</button></div>';
-      });
+      h+='<p class="sq-lbl">Add a friend</p>';
+      add.forEach(function(x){h+=sqPersonRow(x.id,x.name,'<button class="sq-btn sm pri" type="button" data-sq="invite" data-id="'+esc(x.id)+'">Invite</button>');});
     }
   }
-  if(PTY.msg)h+='<p class="note '+PTY.msg.t+'" role="status">'+esc(PTY.msg.s)+'</p>';
-  h+='<button class="choice alt" type="button" data-ch="backparty">Back to the party</button>';
-  h+='<button class="choice" type="button" data-ch="leave">'+(mine?'Delete this party':'Leave this party')+'</button>';
-  h+='<p class="note">Party messages are saved on this page, so keep them friendly and do not share private info.</p>';
-  CH.view='people';
-  chatBody.classList.remove('conv');
-  if(CH.unsub){try{CH.unsub();}catch(_){}CH.unsub=null;}
-  chatBody.innerHTML=h;
+  if(PTY.msg)h+='<p class="sq-pnote '+PTY.msg.t+'" role="status">'+esc(PTY.msg.s)+'</p>';
+  h+='<div class="sq-pacts"><button class="sq-btn pri" type="button" data-sq="backparty">Back to the party</button>';
+  h+='<button class="sq-btn bad" type="button" data-sq="leave">'+(mine?'Delete this party':'Leave this party')+'</button></div>';
+  h+='<p class="sq-pnote">Party messages are saved on this page, so keep them friendly and do not share private info.</p>';
+  return h;
 }
 function ptyEdit(fn,okMsg){
   if(!CH.party||CH.party.by!==SOC.uid||PTY.busy)return;
   var mine=ptyMineList(),p=mine[CH.party.id];
   if(!p)return;
-  if(fn(p)===false)return;
-  PTY.busy=true;PTY.msg=null;ptyPeopleView();
+  if(fn(p)===false){chatList();return;}
+  PTY.busy=true;PTY.msg=null;chatList();
   ptySave(mine).then(function(){
     PTY.busy=false;PTY.msg=okMsg?{t:'good',s:okMsg}:null;
     CH.party.m=p.m;CH.party.n=p.n;
     PTY.all[CH.party.id]=CH.party;
-    ptyPeopleView();
-  },function(e){PTY.busy=false;PTY.msg={t:'err',s:failText(e)};ptyPeopleView();});
+    chatList();
+  },function(e){PTY.busy=false;PTY.msg={t:'err',s:failText(e)};chatList();});
 }
 function ptyLeave(){
   var p=CH.party;if(!p)return;
+  if(SQC.key===p.id)sqHang(true);
   if(p.by===SOC.uid){
     var mine=ptyMineList();
     delete mine[p.id];
-    PTY.busy=true;ptyPeopleView();
+    PTY.busy=true;chatList();
     ptySave(mine).then(function(){
       PTY.busy=false;delete PTY.all[p.id];chatLeave();chatList();
-    },function(e){PTY.busy=false;PTY.msg={t:'err',s:failText(e)};ptyPeopleView();});
+    },function(e){PTY.busy=false;PTY.msg={t:'err',s:failText(e)};chatList();});
   }else{
     ptyHide(p.id);chatLeave();chatList();
   }
 }
 
+/* ----- the last message of every chat (for the list and the red badge), and calls ringing */
 function chatSync(){
   if(!SOC.db||!SOC.uid||!SOC.account)return;
-  ptySub();
+  ptySub();ringSub();
+  function seen(key,d){
+    if(d)CH.prev[key]=d;else delete CH.prev[key];
+    if(!chatEl.hidden&&CH.key===key&&(CH.view==='conv'||CH.view==='party')&&d&&document.visibilityState!=='hidden')markRead(key,d.at);
+    chatBadge();
+    if(!chatEl.hidden)sqSide();
+  }
   ptyList().forEach(function(p){
     if(CH.prevSubs[p.id])return;
     CH.prevSubs[p.id]=1;
     SOC.db.collection('chats/'+p.id+'/msgs').orderBy('at','desc').limit(1).onSnapshot(function(s){
       var party=PTY.all[p.id]||p;
-      var d=s.docs.length?cleanMsg(s.docs[0].data(),p.id,party):null;
-      if(d)CH.prev[p.id]=d;else delete CH.prev[p.id];
-      if(!chatEl.hidden&&CH.view==='party'&&CH.key===p.id&&d)markRead(p.id,d.at);
-      chatBadge();
-      if(!chatEl.hidden&&CH.view==='list')chatList();
+      seen(p.id,s.docs.length?cleanMsg(s.docs[0].data(),p.id,party,s.docs[0].id):null);
     },function(){});
   });
   friendsList().slice(0,24).forEach(function(f){
@@ -13851,175 +14454,563 @@ function chatSync(){
     if(CH.prevSubs[key])return;
     CH.prevSubs[key]=1;
     SOC.db.collection('chats/'+key+'/msgs').orderBy('at','desc').limit(1).onSnapshot(function(s){
-      var d=s.docs.length?cleanMsg(s.docs[0].data(),key):null;
-      if(d)CH.prev[key]=d;else delete CH.prev[key];
-      if(!chatEl.hidden&&CH.view==='conv'&&CH.key===key&&d)markRead(key,d.at);
-      chatBadge();
-      if(!chatEl.hidden&&CH.view==='list')chatList();
+      seen(key,s.docs.length?cleanMsg(s.docs[0].data(),key,null,s.docs[0].id):null);
     },function(){});
   });
   chatBadge();
 }
+
+/* ----- drawing the Chat screen */
+function sqWide(){return window.innerWidth>820;}
+function sqLinkHtml(){return '<a class="choice alt sqlink" href="'+SQ_LINK+'" target="_blank" rel="noopener">Open Squadline, the group chat page ↗</a>';}
+function sqShell(){
+  if($('sq'))return;
+  chatBody.classList.add('sqx');chatBody.classList.remove('conv');
+  chatBody.innerHTML='<div class="sq" id="sq"><aside class="sq-side" aria-label="Chats"><div class="sq-shead"><b>Chats</b>'+
+    '<a class="sq-link" href="'+SQ_LINK+'" target="_blank" rel="noopener" title="Open Squadline, the group chat page">'+sqIc('ext','xs')+'Squadline</a>'+
+    '<button class="sq-ib" type="button" data-sq="newparty" aria-label="Create a party" title="Create a party">'+sqIc('plus')+'</button></div>'+
+    '<div class="sq-sbody" id="sq-list"></div><div class="sq-vc" id="sq-vc" hidden></div><div class="sq-mep" id="sq-me"></div></aside>'+
+    '<section class="sq-main" id="sq-main" aria-label="Conversation"></section><aside class="sq-mem" id="sq-mem" aria-label="People in this party" hidden></aside>'+
+    '<div class="sq-pop" id="sq-pop" hidden></div><div class="sq-modal" id="sq-modal" hidden></div></div>';
+  CH.built='';
+}
 function chatList(){
-  var h;
-  chatBody.classList.remove('conv');
-  if(!SOC.ok)h='<div class="sheet"><p>'+esc(offText('Chat and friends'))+'</p></div>';
-  else if(!SOC.account)h='<div class="sheet"><h3>Make an account first</h3><p>Chat is for friends, so you need a username.</p></div><button class="choice" type="button" data-ch="acct">Make account</button>';
-  else{
-    var f=friendsList();
-    if(CH.view==='newparty'){chatBody.innerHTML=ptyNewView();return;}
-    h='<button class="choice party" type="button" data-ch="newparty">\u2795 Create party</button>';
-    if(typeof botOn==='function'&&botOn()){
-      h+='<p class="lbl">Your bots</p>';
-      BOTS.list.forEach(function(b){
-        var d=BOTS.d[b[0]],last=d&&d.days.length?d.days[d.days.length-1]:null,un=botUnread(b[0]);
-        h+='<div class="row"><span class="ava">'+botAv(b[0])+'</span><span class="who">'+b[1]+'<span class="botbadge">BOT</span><small>'+(last?esc(rqTime(last.at)+' \u00b7 '+(last.p.length?last.p.length+(last.p.length===1?' problem':' problems'):'all working')):'No report yet')+'</small></span>'+(un?'<span class="chip">New</span>':'')+
-           '<button class="mini ok" type="button" data-ch="bot" data-id="'+b[0]+'">Open</button></div>';
-      });
-    }
-    var ps=ptyList();
-    if(ps.length){
-      h+='<p class="lbl">Your parties</p>';
-      ps.forEach(function(p){
-        var pv=CH.prev[p.id],un=isUnread(p.id);
-        var who=pv?((pv.from===SOC.uid?'You: ':(safeName(p.m[pv.from])+': '))+pv.text):'No messages yet';
-        h+='<div class="row"><span class="ava pty">'+String(Object.keys(p.m).length)+'</span>'+
-           '<span class="who">'+cleanHtml(p.n)+'<small>'+cleanHtml(who)+'</small></span>'+(un?'<span class="chip">New</span>':'')+
-           '<button class="mini ok" type="button" data-ch="pty" data-id="'+esc(p.id)+'">Open</button></div>';
-      });
-    }
-    if(!f.length)h+='<div class="sheet"><h3>No friends yet</h3><p>Add a friend, then you can chat with them here.</p></div><button class="choice" type="button" data-ch="friends">Add friend</button>';
-    else{
-      h+='<p class="lbl">Pick a friend</p>';
-      f.forEach(function(x){
-        var key=chatKey(SOC.uid,x.id),p=CH.prev[key],un=isUnread(key);
-        var pv=p?((p.from===SOC.uid?'You: ':'')+p.text):'No messages yet';
-        h+='<div class="row"><span class="ava">'+avFor(x.id,x.name)+'</span><span class="who">@'+esc(x.name)+vmark(x.id)+'<small>'+cleanHtml(pv)+'</small></span>'+(un?'<span class="chip">New</span>':'')+
-           '<button class="mini ok" type="button" data-ch="open" data-id="'+esc(x.id)+'">Chat</button></div>';
-      });
-      h+='<p class="note">Chats are saved on this page, so anyone who can open the page could read them. Keep them friendly and do not share private info.</p>';
-    }
+  if(!SOC.ok||!SOC.account){
+    chatBody.classList.remove('sqx','conv');
+    var h=!SOC.ok?'<div class="sheet"><p>'+esc(offText('Chat and friends'))+'</p></div>':'<div class="sheet"><h3>Make an account first</h3><p>Chat is for friends, so you need a username.</p></div><button class="choice" type="button" data-sq="acct">Make account</button>';
+    chatBody.innerHTML=h+sqLinkHtml();
+    return;
   }
-  chatBody.innerHTML=h;
+  sqShell();sqSide();sqVc();sqMeRender();sqMain();
 }
-function chatNote(s,t){
-  var el=$('chat-note');
-  if(!el)return;
-  el.hidden=!s;el.className='note'+(t?' '+t:'');el.textContent=s||'';
-}
-function msgsRender(){
-  var el=$('msgs');
-  if(!el||(!CH.friend&&!CH.party))return;
-  var near=CH.first||(el.scrollHeight-el.scrollTop-el.clientHeight<90),h='';
-  if(CH.failed)h='<p class="note err">Could not load this chat. Check your connection.</p>';
-  else if(!CH.loaded)h='<p class="note">Loading...</p>';
-  else if(!CH.msgs.length)h='<p class="note">No messages yet. '+(CH.party?'Say hi to the party!':'Say hi to @'+esc(CH.friend.name)+'!')+'</p>';
-  CH.msgs.forEach(function(m){
-    var mine=m.from===SOC.uid,tm=fmtTime(m.at),who;
-    if(mine)who='You'+vmark(SOC.uid);
-    else if(CH.party)who=cleanHtml(dispOf(m.from,CH.party.m[m.from]))+vmark(m.from);
-    else who='@'+esc(CH.friend.name)+vmark(CH.friend.id);
-    h+='<div class="msg'+(mine?' me':'')+'"><small>'+who+(m.bd?' '+esc(m.bd):'')+(tm?' \u00b7 '+esc(tm):'')+'</small>'+cleanHtml(m.text)+'</div>';
+function sqSide(){
+  var el=$('sq-list');if(!el)return;
+  var h='',f=friendsList(),ps=ptyList();
+  if(typeof botOn==='function'&&botOn()){
+    h+='<p class="sq-cat"><span>Bots</span></p>';
+    BOTS.list.forEach(function(b){
+      var d=BOTS.d[b[0]],last=d&&d.days.length?d.days[d.days.length-1]:null,un=botUnread(b[0]);
+      h+='<button class="sq-ch'+(un?' unread':'')+'" type="button" data-sq="bot" data-id="'+b[0]+'"><span class="sq-avw">'+botAv(b[0])+stDot('on')+'</span>'+
+        '<span class="sq-cht"><b>'+b[1]+'<i class="sq-bot">BOT</i></b><small>'+(last?esc(rqTime(last.at)+' · '+(last.p.length?last.p.length+(last.p.length===1?' problem':' problems'):'all working')):'No report yet')+'</small></span>'+(un?'<i class="sq-badge">New</i>':'')+'</button>';
+    });
+  }
+  h+='<p class="sq-cat"><span>Parties</span><button class="sq-ib xs" type="button" data-sq="newparty" aria-label="Create a party">'+sqIc('plus','xs')+'</button></p>';
+  if(!ps.length)h+='<p class="sq-sempty">Make a party to chat with a few friends at once.</p>';
+  ps.forEach(function(p){
+    var pv=CH.prev[p.id],un=isUnread(p.id),on=CH.key===p.id&&CH.view!=='list',n=Object.keys(p.m).length;
+    var who=pv?((pv.from===SOC.uid?'You: ':(dispOf(pv.from,p.m[pv.from])+': '))+sqSnip(pv.text)):n+' people';
+    h+='<button class="sq-ch'+(on?' on':'')+(un?' unread':'')+'" type="button" data-sq="pty" data-id="'+esc(p.id)+'"><span class="sq-pav" aria-hidden="true">'+n+'</span>'+
+      '<span class="sq-cht"><b>'+cleanHtml(p.n)+'</b><small>'+cleanHtml(who)+'</small></span>'+(SQC.key===p.id?'<i class="sq-incall" title="Your call">'+sqIc('speaker','xs')+'</i>':'')+
+      (un?'<i class="sq-badge">'+(sqMentionsMe(pv.text)?'@':'New')+'</i>':'')+'</button>';
+  });
+  h+='<p class="sq-cat"><span>Friends</span><button class="sq-ib xs" type="button" data-sq="friends" aria-label="Add a friend">'+sqIc('plus','xs')+'</button></p>';
+  if(!f.length)h+='<p class="sq-sempty">Add a friend, then you can chat here.</p><button class="sq-btn pri wide" type="button" data-sq="friends">Add friend</button>';
+  f.slice().sort(function(a,b){
+    var x=(CH.prev[chatKey(SOC.uid,a.id)]||{}).at||0,y=(CH.prev[chatKey(SOC.uid,b.id)]||{}).at||0;
+    return (y-x)||(a.name.toLowerCase()<b.name.toLowerCase()?-1:1);
+  }).forEach(function(x){
+    var key=chatKey(SOC.uid,x.id),p=CH.prev[key],un=isUnread(key),on=CH.key===key&&CH.view!=='list',st=statusOf(x.id),pl=playingOf(x.id);
+    var sub=p?((p.from===SOC.uid?'You: ':'')+sqSnip(p.text)):(pl?'Playing '+(pl.t||'a game'):STN[st]);
+    h+='<button class="sq-ch'+(on?' on':'')+(un?' unread':'')+(st==='off'?' off':'')+'" type="button" data-sq="open" data-id="'+esc(x.id)+'"><span class="sq-avw">'+avFor(x.id,x.name)+stDot(st)+'</span>'+
+      '<span class="sq-cht"><b>'+cleanHtml(dispOf(x.id,x.name))+vmark(x.id)+'</b><small>'+cleanHtml(sub)+'</small></span>'+(SQC.key===key?'<i class="sq-incall" title="Your call">'+sqIc('speaker','xs')+'</i>':'')+
+      (un?'<i class="sq-badge">'+(sqMentionsMe(p.text)?'@':'New')+'</i>':'')+'</button>';
   });
   el.innerHTML=h;
-  if(near)el.scrollTop=el.scrollHeight;
+}
+function sqMeRender(){
+  var el=$('sq-me');if(!el)return;
+  var me=sqMe(),st=statusOf(SOC.uid),lbl=(typeof MYBIO!=='undefined'&&MYBIO.st==='invis')?'Invisible':STN[st];
+  el.innerHTML='<button class="sq-meid" type="button" data-sq="prof" data-id="'+esc(SOC.uid)+'" data-nm="'+esc(me)+'" title="Your profile and status"><span class="sq-avw">'+avFor(SOC.uid,me)+stDot(st)+'</span>'+
+    '<span class="sq-cht"><b>'+cleanHtml(dispOf(SOC.uid,me))+'</b><small>'+esc(lbl)+'</small></span></button>'+
+    '<button class="sq-ib'+(soundOn?'':' bad')+'" type="button" data-sq="snd" aria-pressed="'+soundOn+'" aria-label="'+(soundOn?'Sound on':'Sound off')+'" title="'+(soundOn?'Sound on':'Sound off')+'">'+sqIc(soundOn?'vol':'volOff')+'</button>';
+}
+function sqVc(){
+  var el=$('sq-vc');if(!el)return;
+  if(!SQC.key){el.hidden=true;el.innerHTML='';return;}
+  el.hidden=false;
+  el.innerHTML='<span class="sq-vci"><b class="'+(SQC.ring?'ring':'')+'">'+(SQC.ring?'Calling…':'In a call')+'</b><button class="sq-vcn" type="button" data-sq="opencall">'+cleanHtml(sqKeyName(SQC.key))+'</button></span>'+
+    '<span class="sq-vct" id="sq-vct">'+sqDur(Date.now()-SQC.since)+'</span><button class="sq-ib bad" type="button" data-sq="hang" aria-label="Leave the call" title="Leave the call">'+sqIc('hangup')+'</button>';
+}
+function sqEmpty(){
+  return '<div class="sq-empty"><div class="sq-ebadge">'+sqIc('chat')+'</div><h3>Pick a chat</h3><p>Choose a friend or a party. You can reply to messages, react with emoji, @mention people and start a call with a soundboard.</p>'+
+    '<a class="sq-card" href="'+SQ_LINK+'" target="_blank" rel="noopener"><span><b>Squadline</b><small>Open the group chat page on Claude</small></span>'+sqIc('ext')+'</a></div>';
+}
+function sqMain(){
+  var m=$('sq-main'),sq=$('sq');if(!m||!sq)return;
+  sq.classList.toggle('open',CH.view!=='list');
+  var want=CH.view+'|'+(CH.key||'');
+  if(CH.built!==want){
+    CH.built=want;sqPopClose();
+    if(CH.view==='conv'||CH.view==='party'){
+      m.innerHTML='<header class="sq-top" id="sq-top"></header><div class="sq-banner" id="sq-banner" hidden></div>'+
+        '<div class="sq-scroll" id="sq-scroll"><div class="sq-msgs" id="sq-msgs" aria-live="polite"></div></div>'+
+        '<button class="sq-jump" type="button" id="sq-jump" data-sq="jump" hidden>New messages below</button>'+
+        '<div class="sq-compw"><div class="sq-mpop" id="sq-mpop" role="listbox" aria-label="Mention someone" hidden></div><div class="sq-replyb" id="sq-replyb" hidden></div>'+
+        '<form class="sq-comp" id="sq-comp" autocomplete="off"><label class="sr" for="chat-in">Message</label><textarea id="chat-in" rows="1" maxlength="'+MSG_MAX+'" enterkeyhint="send"></textarea>'+
+        '<button class="sq-ib" type="button" data-sq="emoji" aria-label="Add an emoji" title="Emoji">'+sqIc('smile')+'</button><button class="sq-send" id="chat-send" type="submit" aria-label="Send">'+sqIc('send')+'</button></form>'+
+        '<div class="sq-under"><span class="sq-typing" id="sq-typing" aria-live="polite"></span><span class="sq-count" id="sq-count"></span></div></div>';
+      var ta=$('chat-in');ta.value=sqDrafts()[CH.key]||'';sqSize(ta);
+      var sc=$('sq-scroll');sc.addEventListener('scroll',function(){if(sc.scrollHeight-sc.scrollTop-sc.clientHeight<60){var j=$('sq-jump');if(j)j.hidden=true;}},{passive:true});
+    }else if(CH.view==='call'){
+      m.innerHTML='<header class="sq-top" id="sq-top"></header><div class="sq-stage"><div class="sq-tiles" id="sq-tiles"></div><p class="sq-snote" id="sq-snote"></p><div class="sq-board" id="sq-board" hidden></div><div class="sq-ctls" id="sq-ctls"></div></div>';
+    }else if(CH.view==='newparty'||CH.view==='people'){
+      m.innerHTML='<header class="sq-top" id="sq-top"></header><div class="sq-page" id="sq-page"></div>';
+    }else m.innerHTML=sqEmpty();
+  }
+  sqTop();
+  if(CH.view==='conv'||CH.view==='party'){sqBanner();sqMsgs();sqComposer();sqTypingRender();}
+  else if(CH.view==='call')sqStage();
+  else if(CH.view==='newparty')$('sq-page').innerHTML=ptyNewView();
+  else if(CH.view==='people')$('sq-page').innerHTML=ptyPeopleHtml();
+  sqMem();
+  var t=$('chat-title');
+  if(t){if(!sqWide()&&CH.key&&CH.view!=='list')t.innerHTML=cleanHtml(sqKeyName(CH.key));else if(!sqWide()&&CH.view==='newparty')t.textContent='New party';else t.textContent='Chat';}
+}
+function sqTop(){
+  var el=$('sq-top');if(!el)return;
+  var h='',tools='';
+  if(CH.view==='newparty'){h='<span class="sq-tic">'+sqIc('users')+'</span><h3>Create a party</h3>';tools='<button class="sq-ib" type="button" data-sq="cancel" aria-label="Close" title="Close">'+sqIc('x')+'</button>';}
+  else if(CH.friend){
+    var fr=CH.friend,st=statusOf(fr.id),pl=playingOf(fr.id);
+    h='<button class="sq-tav" type="button" data-sq="prof" data-id="'+esc(fr.id)+'" data-nm="'+esc(fr.name)+'"><span class="sq-avw sm">'+avFor(fr.id,fr.name)+stDot(st)+'</span></button>'+
+      '<h3>'+cleanHtml(dispOf(fr.id,fr.name))+vmark(fr.id)+'</h3><span class="sq-topic">'+(CH.view==='call'?'Call':esc(pl?'Playing '+(pl.t||'a game'):STN[st]))+'</span>';
+  }else if(CH.party){
+    var p=CH.party,ids=Object.keys(p.m),onl=ids.filter(function(u){return statusOf(u)!=='off';}).length;
+    h='<span class="sq-tic">'+sqIc(CH.view==='call'?'speaker':'users')+'</span><h3>'+cleanHtml(p.n)+'</h3><span class="sq-topic">'+(CH.view==='call'?'Party call':ids.length+' people · '+onl+' online')+'</span>';
+  }
+  if(CH.view==='conv'||CH.view==='party'){
+    var inCall=SQC.key===CH.key;
+    tools='<button class="sq-ib'+(inCall?' on':'')+'" type="button" data-sq="call" aria-label="'+(inCall?'Open the call':'Start a call')+'" title="'+(inCall?'Open the call':'Start a call')+'">'+sqIc('phone')+'</button>';
+    if(CH.party){
+      tools+='<button class="sq-ib'+(sqMemsOn()?' on':'')+'" type="button" data-sq="mems" aria-pressed="'+sqMemsOn()+'" aria-label="People" title="People">'+sqIc('users')+'</button>';
+      tools+='<button class="sq-ib" type="button" data-sq="people" aria-label="Party settings" title="Party settings">'+sqIc('sliders')+'</button>';
+    }
+  }else if(CH.view==='call'){
+    tools='<button class="sq-btn sm" type="button" data-sq="chatview">'+sqIc('chat','xs')+'Show chat</button>';
+  }else if(CH.view==='people'){
+    tools='<button class="sq-ib" type="button" data-sq="backparty" aria-label="Back to the party" title="Back to the party">'+sqIc('x')+'</button>';
+  }
+  el.innerHTML='<div class="sq-ttl">'+h+'</div><div class="sq-tools2">'+tools+'</div>';
+}
+function sqBanner(){
+  var el=$('sq-banner');if(!el)return;
+  var s='';
+  if(SOC.canWrite===false)s='You can read this chat, but this page does not let you send messages yet.';
+  else if(SQC.key&&SQC.key===CH.key)s='You are in a call here. <button class="sq-lnk" type="button" data-sq="opencall">Open the call</button>';
+  el.hidden=!s;el.innerHTML=s;
+}
+function sqWelcome(){
+  if(CH.friend){
+    var fr=CH.friend;
+    return '<div class="sq-wel"><span class="sq-avw xl">'+avFor(fr.id,fr.name)+'</span><h2>'+cleanHtml(dispOf(fr.id,fr.name))+vmark(fr.id)+'</h2><p>This is the start of your chat with <b>@'+esc(fr.name)+'</b>. Chats are saved on this page, so keep them friendly and do not share private info.</p></div>';
+  }
+  var p=CH.party;if(!p)return '';
+  return '<div class="sq-wel"><span class="sq-wbadge">'+sqIc('users')+'</span><h2>'+cleanHtml(p.n)+'</h2><p>Welcome to the party! Everyone here sees every message. Type <b>@</b> to mention someone, or press the phone to start a call.</p></div>';
+}
+function sqRxFor(mid){
+  var out={},order=[];
+  Object.keys(CH.rx).forEach(function(u){
+    var l=CH.rx[u][mid];if(!l)return;
+    l.forEach(function(e){if(!out[e]){out[e]=[];order.push(e);}out[e].push(u);});
+  });
+  return order.map(function(e){return [e,out[e]];});
+}
+function sqMsgHTML(m,head){
+  var mine=m.from===SOC.uid,hd=sqHandle(m.from),nm=dispOf(m.from,hd),ment=!mine&&sqMentionsMe(m.text);
+  var h='<div class="sq-msg'+(head?' head':'')+(ment?' ment':'')+(CH.flash===m.id?' flash':'')+'" id="sqm-'+esc(m.id)+'" data-mid="'+esc(m.id)+'">';
+  if(m.re){
+    var o=null;for(var i=0;i<CH.msgs.length;i++)if(CH.msgs[i].id===m.re.id){o=CH.msgs[i];break;}
+    h+='<button class="sq-rref" type="button" data-sq="goto" data-id="'+esc(m.re.id)+'"><span class="sq-avw xs">'+avFor(m.re.from,sqHandle(m.re.from))+'</span><b>'+cleanHtml(sqName(m.re.from))+'</b><span>'+(o?cleanHtml(sqSnip(o.text)):'<i>That message is too old to show here, or it was deleted.</i>')+'</span></button>';
+  }
+  if(head)h+='<button class="sq-lead" type="button" data-sq="prof" data-id="'+esc(m.from)+'" data-nm="'+esc(hd)+'" aria-label="'+esc(nm)+'"><span class="sq-avw md">'+avFor(m.from,hd)+'</span></button>'+
+    '<div class="sq-meta"><button class="sq-name" type="button" data-sq="prof" data-id="'+esc(m.from)+'" data-nm="'+esc(hd)+'">'+cleanHtml(nm)+'</button>'+vmark(m.from)+(m.bd?'<span class="sq-bd">'+esc(m.bd)+'</span>':'')+'<time>'+esc(sqWhen(m.at))+'</time></div>';
+  else h+='<time class="sq-st">'+esc(sqTm(m.at))+'</time>';
+  if(CH.edit&&CH.edit.id===m.id){
+    h+='<div class="sq-edit"><textarea class="sq-edta" id="sq-edta" maxlength="'+MSG_MAX+'" aria-label="Edit your message">'+esc(CH.edit.text)+'</textarea>'+
+      '<p class="sq-ehint">Esc to <button type="button" data-sq="edcancel">cancel</button> · Enter to <button type="button" data-sq="edsave">save</button></p></div>';
+  }else h+='<div class="sq-text'+(sqJumbo(m.text)?' jumbo':'')+'">'+sqFmt(m.text)+(m.e?'<span class="sq-edited" title="'+esc(sqWhen(m.e))+'">(edited)</span>':'')+'</div>';
+  var rx=sqRxFor(m.id);
+  if(rx.length){
+    h+='<div class="sq-rxs">';
+    rx.forEach(function(r){var on=r[1].indexOf(SOC.uid)>=0,who=r[1].map(sqName).join(', ');
+      h+='<button class="sq-rx'+(on?' on':'')+'" type="button" data-sq="rx" data-id="'+esc(m.id)+'" data-e="'+esc(r[0])+'" aria-pressed="'+on+'" title="'+esc(who)+'">'+r[0]+'<b>'+r[1].length+'</b></button>';});
+    h+='</div>';
+  }
+  if(!(CH.edit&&CH.edit.id===m.id)){
+    var ro=SOC.canWrite===false;
+    h+='<div class="sq-tools">'+(ro?'':'<button type="button" data-sq="react" data-id="'+esc(m.id)+'" aria-label="Add a reaction" title="Add a reaction">'+sqIc('smilePlus','sm')+'</button>'+
+      '<button type="button" data-sq="reply" data-id="'+esc(m.id)+'" aria-label="Reply" title="Reply">'+sqIc('reply','sm')+'</button>')+
+      (mine&&!ro?'<button type="button" data-sq="edit" data-id="'+esc(m.id)+'" aria-label="Edit" title="Edit">'+sqIc('pencil','sm')+'</button><button class="del" type="button" data-sq="del" data-id="'+esc(m.id)+'" aria-label="Delete" title="Delete">'+sqIc('trash','sm')+'</button>':'')+'</div>';
+  }
+  return h+'</div>';
+}
+function sqMsgs(){
+  var el=$('sq-msgs'),sc=$('sq-scroll');if(!el||!sc)return;
+  var near=CH.first||(sc.scrollHeight-sc.scrollTop-sc.clientHeight<120);
+  var ed=$('sq-edta'),edFocus=ed&&document.activeElement===ed,edPos=ed?ed.selectionStart:0;
+  var h='';
+  if(CH.failed)h+='<p class="sq-note err">Could not load this chat. Check your connection.</p>';
+  else if(!CH.loaded)h+='<p class="sq-note">Loading…</p>';
+  else if(CH.msgs.length<60)h+=sqWelcome();
+  var prev=null,day='',shownNew=false;
+  CH.msgs.forEach(function(m){
+    var d=new Date(m.at).toDateString();
+    if(d!==day){day=d;h+='<div class="sq-div"><span>'+esc(sqDay(m.at))+'</span></div>';prev=null;}
+    if(!shownNew&&CH.newAt&&m.at>CH.newAt&&m.from!==SOC.uid){shownNew=true;h+='<div class="sq-div new"><span>New</span></div>';prev=null;}
+    var head=!prev||prev.from!==m.from||m.at-prev.at>7*60000||!!m.re;
+    h+=sqMsgHTML(m,head);prev=m;
+  });
+  el.innerHTML=h;
+  var ed2=$('sq-edta');if(ed2&&edFocus){ed2.focus();try{ed2.setSelectionRange(edPos,edPos);}catch(e){}}
+  if(near){sc.scrollTop=sc.scrollHeight;var j=$('sq-jump');if(j)j.hidden=true;}
+  else if(CH.grew){var j2=$('sq-jump');if(j2)j2.hidden=false;}
+  CH.grew=false;
   if(CH.loaded)CH.first=false;
   var last=CH.msgs[CH.msgs.length-1];
-  if(last){markRead(CH.key,last.at);chatBadge();}
+  if(last&&document.visibilityState!=='hidden'){markRead(CH.key,last.at);chatBadge();}
+}
+function sqComposer(){
+  var ta=$('chat-in'),b=$('chat-send');if(!ta)return;
+  var ro=SOC.canWrite===false;
+  ta.disabled=ro;if(b)b.disabled=ro;
+  ta.placeholder=ro?'You can read but not send yet':(CH.friend?'Message @'+CH.friend.name:'Message '+(CH.party?CH.party.n:'the party'));
+  sqReplyBar();sqCount();
+}
+function sqReplyBar(){
+  var el=$('sq-replyb'),f=$('sq-comp');if(!el)return;
+  if(!CH.reply){el.hidden=true;el.innerHTML='';if(f)f.classList.remove('att');return;}
+  el.hidden=false;if(f)f.classList.add('att');
+  el.innerHTML='<span class="sq-rbt">Replying to <b>'+cleanHtml(sqName(CH.reply.from))+'</b></span><button class="sq-ib xs" type="button" data-sq="noreply" aria-label="Cancel reply">'+sqIc('x','xs')+'</button>';
+}
+function sqCount(){var ta=$('chat-in'),el=$('sq-count');if(!ta||!el)return;var n=ta.value.length;el.textContent=n>MSG_MAX-100?(MSG_MAX-n)+' left':'';el.className='sq-count'+(n>=MSG_MAX?' over':'');}
+function sqSize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,160)+'px';}
+function sqDrafts(){var d=lsGet('chat.drafts',{});return (d&&typeof d==='object'&&!Array.isArray(d))?d:{};}
+function sqSaveDraft(){
+  var ta=$('chat-in');if(!ta||!CH.key)return;
+  var d=sqDrafts();if(ta.value.trim())d[CH.key]=ta.value.slice(0,MSG_MAX);else delete d[CH.key];
+  var ks=Object.keys(d);if(ks.length>30)ks.slice(0,ks.length-30).forEach(function(k){delete d[k];});
+  lsSet('chat.drafts',d);
+}
+function sqTyping(on){
+  clearTimeout(CH.tyT);
+  if(on)CH.tyT=setTimeout(function(){sqTyping(false);},4000);
+  if(on===CH.tyOn)return;
+  CH.tyOn=on;if(CH.key)sqPres(CH.key);
+}
+function sqTypingRender(){
+  var el=$('sq-typing');if(!el||!CH.key)return;
+  var ty=sqPeers(CH.key).filter(function(p){return (p.presence||{}).ty===1;}).map(function(p){return sqName(p.by);});
+  ty=ty.filter(function(n,i){return ty.indexOf(n)===i;});
+  if(!ty.length){el.innerHTML='';return;}
+  var who=ty.length===1?'<b>'+cleanHtml(ty[0])+'</b> is typing':(ty.length===2?'<b>'+cleanHtml(ty[0])+'</b> and <b>'+cleanHtml(ty[1])+'</b> are typing':'Several people are typing');
+  el.innerHTML='<span class="sq-dots" aria-hidden="true"><i></i><i></i><i></i></span>'+who+'…';
+}
+function sqMemsOn(){return CH.mems===null?window.innerWidth>=1180:CH.mems;}
+function sqMem(){
+  var el=$('sq-mem');if(!el)return;
+  var show=!!CH.party&&(CH.view==='party'||CH.view==='call')&&sqMemsOn();
+  el.hidden=!show;var sq=$('sq');if(sq)sq.classList.toggle('mems',show);
+  if(!show){el.innerHTML='';return;}
+  var p=CH.party,ids=Object.keys(p.m),on=[],off=[];
+  ids.forEach(function(u){(statusOf(u)==='off'?off:on).push(u);});
+  var row=function(u){
+    var nm=p.m[u],st=statusOf(u),pl=playingOf(u),inc=sqInCall(p.id,u)||(u===SOC.uid&&SQC.key===p.id);
+    var sub=inc?'In the call':(pl?'Playing '+(pl.t||'a game'):STN[st]);
+    return '<button class="sq-mrow'+(st==='off'?' off':'')+'" type="button" data-sq="prof" data-id="'+esc(u)+'" data-nm="'+esc(nm)+'"><span class="sq-avw">'+avFor(u,nm)+stDot(st)+'</span>'+
+      '<span class="sq-cht"><b>'+cleanHtml(dispOf(u,nm))+(u===SOC.uid?' <i class="sq-you">(you)</i>':'')+vmark(u)+'</b><small>'+(inc?sqIc('speaker','xs'):'')+esc(sub)+'</small></span></button>';
+  };
+  var h='<div class="sq-mhead"><span>People</span>'+(sqWide()?'':'<button class="sq-ib xs" type="button" data-sq="mems" aria-label="Close">'+sqIc('x','xs')+'</button>')+'</div>';
+  if(on.length)h+='<p class="sq-cat"><span>Online — '+on.length+'</span></p>'+on.map(row).join('');
+  if(off.length)h+='<p class="sq-cat"><span>Offline — '+off.length+'</span></p>'+off.map(row).join('');
+  el.innerHTML=h;
+}
+function sqStage(){
+  var tl=$('sq-tiles');if(!tl)return;
+  var key=CH.key,joined=SQC.key===key,h='';
+  var ps=joined?sqCallPeople():sqPeers(key).filter(function(p){return (p.presence||{}).c===1;}).map(function(p){var pr=p.presence||{};return {uid:p.by,mu:pr.mu===1,df:pr.df===1};});
+  ps.forEach(function(p){
+    var hd=sqHandle(p.uid);
+    h+='<div class="sq-tile'+(sqSpeaking(p.uid)?' speaking':'')+'" style="--c:'+esc(avCol(hd))+'"><span class="sq-avw xl">'+avFor(p.uid,hd)+'</span>'+
+      '<span class="sq-tag">'+(p.df?sqIc('headOff','xs'):(p.mu?sqIc('micOff','xs'):''))+'<span>'+cleanHtml(sqName(p.uid))+(p.uid===SOC.uid?' (you)':'')+'</span></span></div>';
+  });
+  if(joined&&SQC.ring)SQC.ring.to.forEach(function(u){
+    if(ps.some(function(p){return p.uid===u;}))return;
+    var hd=sqHandle(u);
+    h+='<div class="sq-tile ringing" style="--c:'+esc(avCol(hd))+'"><span class="sq-avw xl">'+avFor(u,hd)+'</span><span class="sq-chip">Ringing…</span><span class="sq-tag"><span>'+cleanHtml(sqName(u))+'</span></span></div>';
+  });
+  tl.innerHTML=h||'<p class="sq-note">Nobody is in this call yet.</p>';
+  var n=$('sq-snote');
+  if(n)n.textContent=joined?'This page cannot use microphones, so calls carry the soundboard instead of your voice. Everyone in the call hears it.':'Join to show up here and hear the soundboard.';
+  var sb=$('sq-board');
+  if(sb){sb.hidden=!(joined&&SQC.sb);if(!sb.hidden)sb.innerHTML=SQSOUNDS.map(function(s){return '<button class="sq-sb" type="button" data-sq="snd1" data-id="'+s[0]+'"'+(SQC.mu?' disabled':'')+'><span aria-hidden="true">'+s[1]+'</span>'+esc(s[2])+'</button>';}).join('');}
+  var c=$('sq-ctls');if(!c)return;
+  if(joined){
+    c.innerHTML='<button class="sq-ctl'+(SQC.mu?' bad':'')+'" type="button" data-sq="mute" aria-pressed="'+SQC.mu+'" aria-label="'+(SQC.mu?'Unmute':'Mute')+'" title="'+(SQC.mu?'Unmute':'Mute (stops your soundboard)')+'">'+sqIc(SQC.mu?'micOff':'mic')+'</button>'+
+      '<button class="sq-ctl'+(SQC.df?' bad':'')+'" type="button" data-sq="deaf" aria-pressed="'+SQC.df+'" aria-label="'+(SQC.df?'Undeafen':'Deafen')+'" title="'+(SQC.df?'Undeafen':'Deafen (you stop hearing sounds)')+'">'+sqIc(SQC.df?'headOff':'head')+'</button>'+
+      '<button class="sq-ctl'+(SQC.sb?' on':'')+'" type="button" data-sq="board" aria-pressed="'+SQC.sb+'" aria-label="Soundboard" title="Soundboard">'+sqIc('music')+'</button>'+
+      '<button class="sq-ctl leave" type="button" data-sq="hang" aria-label="Leave the call" title="Leave the call">'+sqIc('hangup')+'</button>';
+  }else c.innerHTML='<button class="sq-join" type="button" data-sq="joincall">Join the call</button>';
+}
+
+/* ----- opening and leaving a chat */
+function sqOpenKey(view,key,friend,party){
+  chatLeave();
+  CH.view=view;CH.key=key;CH.friend=friend||null;CH.party=party||null;CH.msgs=[];CH.loaded=false;CH.failed=false;CH.first=true;CH.reg={};
+  CH.rx={};CH.reply=null;CH.edit=null;CH.ment=null;CH.grew=false;CH.flash='';
+  CH.newAt=isUnread(key)?(readMap()[key]||1):0;
+  chatList();
+  CH.unsub=SOC.db.collection('chats/'+key+'/msgs').orderBy('at','desc').limit(60).onSnapshot(function(s){
+    if(CH.key!==key)return;
+    var lastWas=CH.msgs.length?CH.msgs[CH.msgs.length-1].id:'';
+    CH.failed=false;
+    CH.msgs=s.docs.map(function(d){return cleanMsg(d.data(),key,PTY.all[key]||null,d.id);}).filter(Boolean).reverse();
+    var ln=CH.msgs[CH.msgs.length-1];
+    CH.grew=CH.loaded&&!!ln&&ln.id!==lastWas&&ln.from!==SOC.uid;
+    if(CH.loaded&&ln&&ln.id!==lastWas&&ln.from!==SOC.uid&&!chatEl.hidden)beep(880,0.05,'sine',0.03,1.2);
+    CH.loaded=true;sqMsgs();
+  },function(){if(CH.key!==key)return;CH.failed=true;sqMsgs();});
+  CH.rxUnsub=SOC.db.collection('chats/'+key+'/rx').onSnapshot(function(s){
+    if(CH.key!==key)return;
+    var rx={};
+    s.docs.slice(0,40).forEach(function(d){if(sqMemberOf(key,d.id))rx[d.id]=sqCleanRx((d.data()||{}).m);});
+    CH.rx=rx;sqMsgs();
+  },function(){});
+  sqRoomsSync();
+  if(sqWide()){var ta=$('chat-in');if(ta&&!ta.disabled)setTimeout(function(){try{ta.focus({preventScroll:true});}catch(e){}},30);}
+}
+function sqCleanRx(m){
+  var out={};if(!m||typeof m!=='object'||Array.isArray(m))return out;
+  Object.keys(m).slice(0,120).forEach(function(k){
+    if(k.length>40||!Array.isArray(m[k]))return;
+    var l=m[k].filter(function(e,i,a){return SQEMO.indexOf(e)>=0&&a.indexOf(e)===i;}).slice(0,6);
+    if(l.length)out[k]=l;
+  });
+  return out;
 }
 function chatLeave(){
   if(CH.unsub){try{CH.unsub();}catch(_){}CH.unsub=null;}
-  CH.key=null;CH.friend=null;CH.party=null;CH.view='list';CH.msgs=[];PTY.msg=null;
-  $('chat-title').textContent='Chat';
+  if(CH.rxUnsub){try{CH.rxUnsub();}catch(_){}CH.rxUnsub=null;}
+  sqSaveDraft();
+  if(CH.tyOn){CH.tyOn=false;clearTimeout(CH.tyT);if(CH.key)sqPres(CH.key);}
+  CH.key=null;CH.friend=null;CH.party=null;CH.view='list';CH.msgs=[];CH.rx={};CH.reply=null;CH.edit=null;CH.ment=null;PTY.msg=null;
+  sqPopClose();sqRoomsSync();
+  var t=$('chat-title');if(t)t.textContent='Chat';
 }
 function convOpen(fid){
   var fr=friendsList().filter(function(x){return x.id===fid;})[0];
   if(!fr||!SOC.db)return;
-  chatLeave();
-  var key=chatKey(SOC.uid,fid);
-  CH.view='conv';CH.key=key;CH.friend=fr;CH.msgs=[];CH.loaded=false;CH.failed=false;CH.first=true;CH.reg={};
-  $('chat-title').innerHTML='@'+esc(fr.name)+vmark(fr.id);
-  chatBody.classList.add('conv');
-  var ro=SOC.canWrite===false;
-  chatBody.innerHTML='<div class="msgs" id="msgs" aria-live="polite"></div><p class="note" id="chat-note" hidden></p>'+
-    '<div class="sendrow"><input class="field" id="chat-in" maxlength="200" autocomplete="off" enterkeyhint="send" placeholder="'+(ro?'You can read but not send yet':'Type a message')+'"'+(ro?' disabled':'')+'>'+
-    '<button class="mini ok" id="chat-send" type="button"'+(ro?' disabled':'')+'>Send</button></div>';
-  msgsRender();
-  CH.unsub=SOC.db.collection('chats/'+key+'/msgs').orderBy('at','desc').limit(60).onSnapshot(function(s){
-    if(CH.key!==key)return;
-    CH.failed=false;CH.loaded=true;
-    CH.msgs=s.docs.map(function(d){return cleanMsg(d.data(),key);}).filter(Boolean).reverse();
-    msgsRender();
-  },function(){if(CH.key!==key)return;CH.failed=true;msgsRender();});
+  sqShell();sqOpenKey('conv',chatKey(SOC.uid,fid),fr,null);
 }
+function partyOpen(pid){
+  var p=PTY.all[pid];
+  if(!p||!p.m[SOC.uid]||!SOC.db)return;
+  sqShell();sqOpenKey('party',pid,null,p);
+}
+
+/* ----- sending, replying, reacting, editing, deleting */
 function chatSend(){
   var inp=$('chat-in');
   if(!inp||!CH.key||!SOC.db||SOC.canWrite===false)return;
-  var t=inp.value.replace(CTRL,' ').trim().slice(0,200);
+  var t=inp.value.replace(MCTRL,' ').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim().slice(0,MSG_MAX);
   if(!t)return;
   var now=Date.now();
-  if(now-CH.lastSend<1200){chatNote('Slow down a little.','err');return;}
+  if(now-CH.lastSend<1200){gpToast('Slow down a little.');return;}
   CH.lastSend=now;
-  var key=CH.key;
-  inp.value='';chatNote('');
+  var key=CH.key,re=CH.reply?{id:CH.reply.id,from:CH.reply.from}:null;
+  inp.value='';sqSize(inp);sqCount();CH.reply=null;sqReplyBar();sqMentClose();sqTyping(false);
+  var dr=sqDrafts();if(dr[key]){delete dr[key];lsSet('chat.drafts',dr);}
   if(!CH.reg[key]){
     CH.reg[key]=1;
     if(CH.party)SOC.db.doc('chats/'+key).set({g:1,by:CH.party.by,at:now}).catch(function(){});
     else SOC.db.doc('chats/'+key).set({a:SOC.uid,b:CH.friend.id,at:now}).catch(function(){});
   }
-  SOC.db.collection('chats/'+key+'/msgs').add({from:SOC.uid,text:t,at:now,bd:W.badge||''}).then(function(){
+  var d={from:SOC.uid,text:t,at:now,bd:W.badge||''};if(re)d.re=re;
+  var sc=$('sq-scroll');if(sc)sc.scrollTop=sc.scrollHeight;CH.first=true;
+  SOC.db.collection('chats/'+key+'/msgs').add(d).then(function(){
     STAT.add('chats',1);
   },function(e){
-    if(CH.key===key){var i2=$('chat-in');if(i2&&!i2.value)i2.value=t;chatNote(failText(e),'err');}
+    if(CH.key===key){var i2=$('chat-in');if(i2&&!i2.value){i2.value=t;sqSize(i2);}gpToast(failText(e));}
   });
 }
+function sqMsg(id){for(var i=0;i<CH.msgs.length;i++)if(CH.msgs[i].id===id)return CH.msgs[i];return null;}
+function sqReact(mid,e){
+  if(!CH.key||!SOC.db||SOC.canWrite===false||SQEMO.indexOf(e)<0||!mid)return;
+  var mine=JSON.parse(JSON.stringify(CH.rx[SOC.uid]||{})),l=mine[mid]||[],i=l.indexOf(e);
+  if(i>=0)l.splice(i,1);else{if(l.length>=6)l.shift();l.push(e);}
+  if(l.length)mine[mid]=l;else delete mine[mid];
+  var have={};CH.msgs.forEach(function(m){have[m.id]=1;});
+  var ks=Object.keys(mine);if(ks.length>80)ks.forEach(function(k){if(!have[k]&&Object.keys(mine).length>80)delete mine[k];});
+  CH.rx[SOC.uid]=mine;sqMsgs();
+  if(i<0)beep(700,0.04,'sine',0.03,1.4);
+  SOC.db.doc('chats/'+CH.key+'/rx/'+SOC.uid).set({m:mine,at:Date.now()}).catch(function(err){gpToast(failText(err));});
+}
+function sqStartEdit(id){var m=sqMsg(id);if(!m||m.from!==SOC.uid)return;CH.edit={id:id,text:m.text};sqMsgs();var t=$('sq-edta');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);sqSize(t);}}
+function sqSaveEdit(){
+  if(!CH.edit||!CH.key)return;
+  var t=$('sq-edta'),v=(t?t.value:CH.edit.text).replace(MCTRL,' ').replace(/\n{3,}/g,'\n\n').trim().slice(0,MSG_MAX),m=sqMsg(CH.edit.id);
+  if(!m){CH.edit=null;sqMsgs();return;}
+  if(!v){CH.edit=null;sqMsgs();sqAskDelete(m.id);return;}
+  CH.edit=null;
+  if(v===m.text){sqMsgs();return;}
+  m.text=v;m.e=Date.now();sqMsgs();
+  SOC.db.doc('chats/'+CH.key+'/msgs/'+m.id).update({text:v,e:m.e}).catch(function(e){gpToast(failText(e));});
+  var c=$('chat-in');if(c)c.focus();
+}
+function sqAskDelete(id){
+  var m=sqMsg(id),el=$('sq-modal');if(!m||m.from!==SOC.uid||!el)return;
+  CH.del=id;
+  el.innerHTML='<div class="sq-mcard" role="dialog" aria-modal="true" aria-labelledby="sq-mt"><h3 id="sq-mt">Delete message</h3><p>Are you sure you want to delete this message? It cannot be brought back.</p>'+
+    '<div class="sq-delp">'+sqFmt(m.text)+'</div><div class="sq-pacts end"><button class="sq-btn" type="button" data-sq="delno">Cancel</button><button class="sq-btn bad solid" type="button" data-sq="delyes">Delete</button></div></div>';
+  el.hidden=false;var b=el.querySelector('[data-sq="delyes"]');if(b)b.focus();
+}
+function sqDoDelete(){
+  var id=CH.del,el=$('sq-modal');CH.del=null;if(el)el.hidden=true;
+  var m=sqMsg(id);if(!m||m.from!==SOC.uid||!CH.key)return;
+  CH.msgs=CH.msgs.filter(function(x){return x.id!==id;});sqMsgs();
+  SOC.db.doc('chats/'+CH.key+'/msgs/'+id).delete().catch(function(e){gpToast(failText(e));});
+}
+function sqGoto(id){
+  var el=document.getElementById('sqm-'+id);
+  if(!el){gpToast('That message is too old to show here.');return;}
+  el.scrollIntoView({block:'center',behavior:'smooth'});
+  CH.flash=id;el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');
+  setTimeout(function(){if(CH.flash===id)CH.flash='';},1900);
+}
+/* @mentions: type @ and pick a name */
+function sqMentCheck(){
+  var ta=$('chat-in'),pop=$('sq-mpop');if(!ta||!pop)return;
+  var pos=ta.selectionStart,before=ta.value.slice(0,pos),m=/(^|\s)@([A-Za-z0-9_]{0,16})$/.exec(before);
+  if(!m){sqMentClose();return;}
+  var q=m[2].toLowerCase(),list=sqMembers().filter(function(u){return u!==SOC.uid;}).map(function(u){return {u:u,h:sqHandle(u)};})
+    .filter(function(x){return x.h.toLowerCase().indexOf(q)===0||dispOf(x.u,x.h).toLowerCase().indexOf(q)===0;}).slice(0,8);
+  if(!list.length){sqMentClose();return;}
+  CH.ment={start:pos-m[2].length-1,end:pos,list:list,sel:CH.ment&&CH.ment.sel<list.length?CH.ment.sel:0};
+  pop.hidden=false;
+  pop.innerHTML='<p class="sq-mpt">Members</p>'+list.map(function(x,i){return '<button class="sq-mpi'+(i===CH.ment.sel?' sel':'')+'" type="button" role="option" aria-selected="'+(i===CH.ment.sel)+'" data-sq="ment" data-i="'+i+'"><span class="sq-avw sm">'+avFor(x.u,x.h)+stDot(statusOf(x.u))+'</span><b>'+cleanHtml(dispOf(x.u,x.h))+'</b><small>@'+esc(x.h)+'</small></button>';}).join('');
+}
+function sqMentClose(){CH.ment=null;var p=$('sq-mpop');if(p){p.hidden=true;p.innerHTML='';}}
+function sqMentPick(i){
+  var ta=$('chat-in'),M=CH.ment;if(!ta||!M||!M.list[i])return;
+  var ins='@'+M.list[i].h+' ';
+  ta.value=ta.value.slice(0,M.start)+ins+ta.value.slice(M.end);
+  var p=M.start+ins.length;sqMentClose();ta.focus();try{ta.setSelectionRange(p,p);}catch(e){}sqSize(ta);sqCount();
+}
+function sqInsert(t){
+  var ta=$('chat-in');if(!ta||ta.disabled)return;
+  var a=ta.selectionStart,b=ta.selectionEnd;if(typeof a!=='number'){a=b=ta.value.length;}
+  ta.value=(ta.value.slice(0,a)+t+ta.value.slice(b)).slice(0,MSG_MAX);
+  var p=Math.min(MSG_MAX,a+t.length);ta.focus();try{ta.setSelectionRange(p,p);}catch(e){}sqSize(ta);sqCount();
+}
+/* the emoji picker, for the message box or for a reaction */
+function sqPopOpen(anchor,cb){
+  var pop=$('sq-pop'),sq=$('sq');if(!pop||!sq)return;
+  CH.pop={cb:cb};
+  pop.innerHTML='<div class="sq-emg" role="listbox" aria-label="Emoji">'+SQEMO.map(function(e){return '<button type="button" role="option" data-sq="emo" data-e="'+e+'" aria-label="'+e+'">'+e+'</button>';}).join('')+'</div>';
+  pop.hidden=false;
+  var r=anchor.getBoundingClientRect(),R=sq.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight;
+  var x=Math.min(Math.max(8,r.right-R.left-w),R.width-w-8),y=r.top-R.top-h-6;if(y<8)y=r.bottom-R.top+6;
+  pop.style.left=Math.max(8,x)+'px';pop.style.top=Math.max(8,Math.min(y,R.height-h-8))+'px';
+}
+function sqPopClose(){CH.pop=null;var p=$('sq-pop');if(p){p.hidden=true;p.innerHTML='';}}
+
+/* ----- buttons, keys and typing */
 function openChat(){
-  openScreen(chatEl);chatLeave();chatList();chatSync();
+  openScreen(chatEl);chatLeave();chatList();chatSync();sqPill();
 }
 $('chat-btn').addEventListener('click',function(){initAudio();openChat();});
 $('chat-back').addEventListener('click',function(){
-  if(CH.view==='people'){var pid=CH.party?CH.party.id:'';if(pid)partyOpen(pid);else{chatLeave();chatList();}}
-  else if(CH.view==='conv'||CH.view==='party'){chatLeave();chatList();}
-  else if(CH.view==='newparty'){CH.view='list';PTY.msg=null;chatList();}
-  else toHub();
+  if(CH.view==='people'&&CH.party){CH.view='party';PTY.msg=null;chatList();return;}
+  if(CH.view==='call'){CH.view=CH.party?'party':(CH.friend?'conv':'list');chatList();return;}
+  if(CH.view==='newparty'){CH.view='list';PTY.msg=null;chatList();return;}
+  if((CH.view==='conv'||CH.view==='party')&&!sqWide()){chatLeave();chatList();return;}
+  chatLeave();toHub();sqPill();
 });
+chatBody.addEventListener('submit',function(e){if(e.target&&e.target.id==='sq-comp'){e.preventDefault();chatSend();var i=$('chat-in');if(i)i.focus();}});
 chatBody.addEventListener('click',function(e){
-  var b=e.target.closest?e.target.closest('button'):null;
-  if(!b||b.disabled)return;
-  var a=b.getAttribute('data-ch');
-  if(b.id==='chat-send'){chatSend();var i=$('chat-in');if(i)i.focus();return;}
-  if(a==='open')convOpen(b.getAttribute('data-id'));
-  else if(a==='bot')openBot(b.getAttribute('data-id'));
+  var sp=e.target.closest?e.target.closest('.sq-spoil'):null;if(sp){sp.classList.add('shown');return;}
+  var b=e.target.closest?e.target.closest('[data-sq]'):null;
+  if(CH.pop&&!(b&&(b.getAttribute('data-sq')==='emo'||b.getAttribute('data-sq')==='emoji'||b.getAttribute('data-sq')==='react')))sqPopClose();
+  if(!b){
+    var md=$('sq-modal');if(md&&!md.hidden&&e.target===md){md.hidden=true;CH.del=null;return;}
+    /* on a phone, tap a message to show its buttons (react, reply, edit, delete) */
+    var mm=e.target.closest?e.target.closest('.sq-msg'):null;
+    if(mm&&!(e.target.closest&&e.target.closest('textarea,a'))){var was=mm.classList.contains('sel');Array.prototype.forEach.call(chatBody.querySelectorAll('.sq-msg.sel'),function(x){x.classList.remove('sel');});if(!was)mm.classList.add('sel');}
+    return;
+  }
+  if(b.disabled)return;
+  var a=b.getAttribute('data-sq'),id=b.getAttribute('data-id');
+  if(a==='open')convOpen(id);
+  else if(a==='pty')partyOpen(id);
+  else if(a==='bot')openBot(id);
   else if(a==='acct'){toHub();openSocial();}
   else if(a==='friends'){toHub();SOC.tab='add';openSocial();}
-  else if(a==='newparty'){CH.view='newparty';PTY.msg=null;PTY.pick={};PTY.name='';chatList();}
+  else if(a==='prof')openProfile(id,b.getAttribute('data-nm'));
+  else if(a==='snd'){soundOn=!soundOn;lsSet('sound',soundOn);syncSnd();initAudio();sqMeRender();}
+  else if(a==='newparty'){chatLeave();CH.view='newparty';PTY.msg=null;PTY.pick={};PTY.name='';chatList();}
   else if(a==='cancel'){CH.view='list';PTY.msg=null;chatList();}
-  else if(a==='pick'){var id=b.getAttribute('data-id');PTY.pick[id]=!PTY.pick[id];beep(PTY.pick[id]?600:380,0.04,'square',0.03,1.2);chatList();}
+  else if(a==='pick'){PTY.pick[id]=!PTY.pick[id];var pn=$('pty-name');if(pn)PTY.name=pn.value;beep(PTY.pick[id]?600:380,0.04,'square',0.03,1.2);chatList();}
   else if(a==='mkparty')ptyCreate();
-  else if(a==='pty')partyOpen(b.getAttribute('data-id'));
   else if(a==='people')ptyPeopleView();
-  else if(a==='backparty'){if(CH.party)partyOpen(CH.party.id);}
-  else if(a==='prof')openProfile(b.getAttribute('data-id'),b.getAttribute('data-nm'));
+  else if(a==='backparty'){if(CH.party){CH.view='party';PTY.msg=null;chatList();}}
   else if(a==='leave')ptyLeave();
-  else if(a==='kick'){
-    var kid=b.getAttribute('data-id');
-    ptyEdit(function(p){if(kid===SOC.uid)return false;delete p.m[kid];return true;},'Removed them from the party.');
-  }
+  else if(a==='kick')ptyEdit(function(p){if(id===SOC.uid)return false;delete p.m[id];return true;},'Removed them from the party.');
   else if(a==='invite'){
-    var iid=b.getAttribute('data-id'),fr=friendsList().filter(function(x){return x.id===iid;})[0];
+    var fr=friendsList().filter(function(x){return x.id===id;})[0];
     if(fr)ptyEdit(function(p){
       if(Object.keys(p.m).length>=12){PTY.msg={t:'err',s:'A party holds up to 12 people.'};return false;}
-      p.m[iid]=fr.name;return true;
-    },'Added @'+(fr?fr.name:'them')+' to the party.');
+      p.m[id]=fr.name;return true;
+    },'Added @'+fr.name+' to the party.');
   }
+  else if(a==='mems'){CH.mems=!sqMemsOn();sqTop();sqMem();}
+  else if(a==='call'){initAudio();sqCallStart(CH.key);}
+  else if(a==='opencall')sqOpenCall();
+  else if(a==='chatview'){CH.view=CH.party?'party':'conv';chatList();}
+  else if(a==='joincall'){if(!CH.key)return;sqJoin(CH.key);sqRoomsSync();chatList();}
+  else if(a==='hang')sqHang(false);
+  else if(a==='mute'){SQC.mu=!SQC.mu;if(!SQC.mu&&SQC.df)SQC.df=false;sqSfx(SQC.mu?'mute':'unmute');sqPres(SQC.key);sqStage();}
+  else if(a==='deaf'){SQC.df=!SQC.df;if(SQC.df)SQC.mu=true;sqSfx(SQC.df?'mute':'unmute');sqPres(SQC.key);sqStage();}
+  else if(a==='board'){SQC.sb=!SQC.sb;sqStage();}
+  else if(a==='snd1')sqPlay(id);
+  else if(a==='jump'){var sc=$('sq-scroll');if(sc)sc.scrollTop=sc.scrollHeight;b.hidden=true;}
+  else if(a==='emoji'){if(CH.pop){sqPopClose();return;}sqPopOpen(b,function(em){sqInsert(em);});}
+  else if(a==='react'){sqPopOpen(b,function(em){sqReact(id,em);});}
+  else if(a==='emo'){var cb=CH.pop&&CH.pop.cb,em=b.getAttribute('data-e');sqPopClose();if(cb)cb(em);}
+  else if(a==='rx')sqReact(id,b.getAttribute('data-e'));
+  else if(a==='reply'){var m=sqMsg(id);if(!m)return;CH.reply={id:m.id,from:m.from};sqReplyBar();var ta=$('chat-in');if(ta)ta.focus();}
+  else if(a==='noreply'){CH.reply=null;sqReplyBar();}
+  else if(a==='edit')sqStartEdit(id);
+  else if(a==='edsave')sqSaveEdit();
+  else if(a==='edcancel'){CH.edit=null;sqMsgs();}
+  else if(a==='del')sqAskDelete(id);
+  else if(a==='delno'){CH.del=null;$('sq-modal').hidden=true;}
+  else if(a==='delyes')sqDoDelete();
+  else if(a==='goto')sqGoto(id);
+  else if(a==='ment')sqMentPick(+b.getAttribute('data-i'));
 });
 chatBody.addEventListener('input',function(e){
-  if(e.target.id==='pty-name')PTY.name=e.target.value;
+  var t=e.target;
+  if(t.id==='pty-name')PTY.name=t.value;
+  else if(t.id==='chat-in'){sqSize(t);sqCount();sqMentCheck();if(t.value.trim())sqTyping(true);else sqTyping(false);clearTimeout(CH.drT);CH.drT=setTimeout(sqSaveDraft,500);}
+  else if(t.id==='sq-edta'){if(CH.edit)CH.edit.text=t.value;sqSize(t);}
 });
 chatBody.addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&e.target.id==='chat-in'){e.preventDefault();chatSend();}
-  else if(e.key==='Enter'&&e.target.id==='pty-name'){e.preventDefault();ptyCreate();}
+  var t=e.target;
+  if(t.id==='chat-in'){
+    var M=CH.ment;
+    if(M&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();M.sel=(M.sel+(e.key==='ArrowDown'?1:M.list.length-1))%M.list.length;sqMentCheck();return;}
+    if(M&&(e.key==='Enter'||e.key==='Tab')){e.preventDefault();sqMentPick(M.sel);return;}
+    if(e.key==='Escape'){if(M){sqMentClose();e.preventDefault();e.stopPropagation();return;}if(CH.reply){CH.reply=null;sqReplyBar();e.preventDefault();e.stopPropagation();return;}}
+    if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();chatSend();return;}
+    if(e.key==='ArrowUp'&&!t.value){for(var i=CH.msgs.length-1;i>=0;i--)if(CH.msgs[i].from===SOC.uid){e.preventDefault();sqStartEdit(CH.msgs[i].id);return;}}
+  }else if(t.id==='sq-edta'){
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();CH.edit=null;sqMsgs();var c=$('chat-in');if(c)c.focus();}
+    else if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();sqSaveEdit();}
+  }else if(t.id==='pty-name'&&e.key==='Enter'){e.preventDefault();ptyCreate();}
+  else if(e.key==='Escape'){var md=$('sq-modal');if(md&&!md.hidden){e.preventDefault();e.stopPropagation();md.hidden=true;CH.del=null;}else if(CH.pop){e.preventDefault();e.stopPropagation();sqPopClose();}}
+  else if((e.key==='Enter'||e.key===' ')&&t.classList&&t.classList.contains('sq-spoil')){e.preventDefault();t.classList.add('shown');}
 });
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&!chatEl.hidden&&CH.key)sqMsgs();});
+window.addEventListener('resize',function(){if(!chatEl.hidden&&$('sq')){sqMain();}});
 if(window.visualViewport){
   var vv=window.visualViewport;
   var vvFit=function(){
@@ -15266,6 +16257,7 @@ function tbMenus(){
       });
     }],
     ['Back from Settings did not go home',function(){return tbClick($('set-back'))&&!hub.hidden;}],
+    ['the Chat screen did not open',function(){return tbClick($('chat-btn'))&&!chatEl.hidden&&chatBody.children.length>0&&tbClick($('chat-back'))&&!hub.hidden;}],
     ['Charts did not open',function(){return tbClick(document.querySelector('[data-nav="charts"]'))&&!$('charts').hidden&&$('charts-body').children.length>0&&tbClick($('ch-back'))&&!hub.hidden;}],
     ['Updates did not open',function(){return tbClick($('upd-btn'))&&!$('updates').hidden&&$('upd-body').children.length>0&&tbClick($('upd-back'))&&!hub.hidden;}],
     ['Continue did not open',function(){return tbClick($('res-btn'))&&!$('resume').hidden&&tbClick($('res-back'))&&!hub.hidden;}],
@@ -15498,7 +16490,7 @@ function botSync(){
       BOTS.d[b[0]]=botClean(sn.exists?sn.data():null);
       renderFrow();
       if(!botEl.hidden&&BOTS.cur===b[0])botRender();
-      if(!chatEl.hidden&&CH.view==='list')chatList();
+      if(!chatEl.hidden)chatList();
     },function(){});
   });
 }
@@ -17431,7 +18423,7 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u56", "d": "Oct 28, 2026", "t": "Phone and controller settings", "x": ["New in Settings: Phone and tablet controls. Left-handed mode, stick size, button size, see-through, a stick that stays in one place, look speed and vibration, with a picture that shows how it will look.", "New in Settings: Controller. Change which button does what, the stick dead zone and look speed, invert look, swap sticks and rumble. A tester shows what you press.", "A button in Settings opens the Blaster Duel button editor straight away."]}, {"id": "u55", "d": "Oct 27, 2026", "t": "Smarter test bots", "x": ["The test bots now play every game for real and try to win, instead of pressing random keys.", "After the games they press every menu and shop button, and check the Blaster Duel menus and the touch-button editor.", "Every day two bots also join one Blaster Duel match online, to check that playing with a friend works.", "The Bots page shows a speed list (slowest games first), the extra checks, and how far each bot got.", "Fixed: Lantern Quest opened to a blank page.", "Fixed: Colour Sort's tubes were squashed and could not be tapped on laptop screens."]}, {"id": "u54", "d": "Oct 26, 2026", "t": "Blaster Duel update", "x": ["The round clock now shows the right time in longer fights.", "Small fixes."]}, {"id": "u53", "d": "Oct 25, 2026", "t": "Make your own button layout", "x": ["Blaster Duel: open Settings in the lobby and tap Edit touch buttons.", "Drag FIRE, AIM, JUMP, RELOAD, SLIDE and the left FIRE button anywhere you like.", "Tap a button, then make it smaller or bigger, or hide it. Tap a hidden one and press Show to bring it back.", "Reset all puts every button back where it started. Your layout is saved."]}, {"id": "u52", "d": "Oct 25, 2026", "t": "Aim help on phones", "x": ["Blaster Duel now helps you aim on phones and tablets, even more than on a controller.", "When an enemy is near your crosshair, your aim slides onto them while you move, look around or fire. The pull is strongest while you hold FIRE."]}, {"id": "u51", "d": "Oct 25, 2026", "t": "Test bot fix", "x": ["Fixed: if your phone screen turned off or you switched apps while the test bots were running, the games they were testing got reported as blank. The bots now skip those games instead.", "Target Range, Block Sumo, Traffic Dodge and Beat Blocks were never broken. They were the last 4 games in a test run when the screen went off."]}, {"id": "u50", "d": "Oct 25, 2026", "t": "Support Blockyard", "x": ["Settings has a new Support Blockyard part with a Tip on itch.io button.", "Blockyard stays free. Tips are optional real money for the maker, so ask a grown-up first. Tips do not give bricks."]}, {"id": "u49", "d": "Oct 25, 2026", "t": "Blaster Duel weapon shop", "x": ["Blaster Duel now starts you with the Assault Rifle, Handgun, Katana and Grenade.", "Everything else is in the Weapons shop. Buy weapons with bricks.", "19 new weapons: Bow, Wildcat, Crossbow, Gunblade, Flamethrower, Energy Rifle, Grenade Launcher, Minigun, Paintball Gun, Permafrost, Distortion, Spray, Flare Gun, Shorty, Daggers, Slingshot, Exogun, Energy Pistols and Warper.", "Special powers: the Bow charges up, Permafrost slows people, Paintball splats their screen, Distortion flings them, Daggers let you double jump, Warper zaps you forward, and the Energy Pistols never reload.", "Weapons you already had equipped are yours to keep.", "Guns now reload by themselves when they run out."]}, {"id": "u48", "d": "Oct 25, 2026", "t": "Blaster Duel update", "x": ["Small changes to Blaster Duel."]}, {"id": "u47", "d": "Oct 25, 2026", "t": "ClaudeBot Pro", "x": ["New in Blaster Duel Practice: ClaudeBot Pro, the gold one. It is the toughest bot yet.", "It does everything ClaudeBot does, but it is faster, aims better, reacts quicker, has two medkits and three grenades, and dodges when you aim right at it.", "It has its own lines and Pro tips, and Practice counts your wins against it.", "ClaudeBot is exactly the same as before.", "ClaudeBot's chat has a Play ClaudeBot Pro button too."]}, {"id": "u46", "d": "Oct 25, 2026", "t": "Duel ClaudeBot", "x": ["New in Blaster Duel: play ClaudeBot, the toughest bot. Open Practice, pick ClaudeBot and press Start.", "ClaudeBot strafes and hops, switches weapons for the range, backs off to heal with a medkit, and throws grenades where it last saw you.", "It talks while you play: it cheers when you get it, and gives you a tip when it gets you.", "ClaudeBot's chat has a new Play Blaster Duel with me button that drops you straight into a duel.", "Practice shows how many times you have beaten ClaudeBot."]}, {"id": "u45", "d": "Oct 25, 2026", "t": "Ask works on the website and app", "x": ["The Ask button now works on the website, the app and itch.io. Send the owner a request for a new game, a gift or a fix.", "Requests from there show up in Requests in the Claude version, marked with where they came from.", "When the owner answers, your request says Done or Not this time.", "Requests are locked on the way, so other players cannot read them.", "Your requests stay listed on your device, and you can delete them."]}, {"id": "u44", "d": "Oct 25, 2026", "t": "Online play on the website and app", "x": ["The website, the app and itch.io now have real online play. Everyone playing there meets in the same games.", "Works in Obby Race, Hill King, Paint Battle, Star Party, Yard Escape, Blaster Duel, Block Tag, Blockball and Balloon Battle matches with a code.", "If nobody else is there, the bots play with you, and they leave when a real player joins.", "Other players show with their own name and avatar colour.", "Settings has a new Online play part that shows if you are connected.", "Players on the website and app do not meet players in the Claude version. They are separate.", "Game chat stays off on the website and app, because anyone on the internet can join."]}, {"id": "u43", "d": "Oct 25, 2026", "t": "Online games work offline", "x": ["Block Tag, Blockball and Star Party now work on the website, the app and itch.io, and with no internet: bots play with you when nobody else is there.", "Block Tag: three bots play tag with you. The It bot chases, the others run away.", "Blockball: Bot Grape plays against you. Kick the ball into the blue net.", "Star Party: three bots grab stars too, so there is someone to beat.", "The bots leave as soon as a real player joins (in the Claude version).", "Copies outside Claude no longer show the game chat bubble or say they need an invite, because they have no online play."]}, {"id": "u42", "d": "Oct 25, 2026", "t": "Owner key changes and bots that investigate", "x": ["Your owner key for the website and app now changes every 5 minutes. Commands shows it with a countdown and makes a new one by itself.", "A device you unlock keeps Commands, even after the key changes. Devices you already unlocked stay unlocked.", "You can now tell the bots what to look into in their chats. TestBot checks the games you name, on the screens you name (laptop, phone, sideways or tablet), and you can watch it play right in the chat.", "ClaudeBot does the same, then looks at the pictures and answers you in its own words. It uses your Claude account to think, so the first time Claude asks you to allow it.", "Your messages and their answers stay in the chat, and anything broken also goes to Requests."]}, {"id": "u41", "d": "Oct 25, 2026", "t": "Owner tools on the website and app", "x": ["The owner can now get Commands on the website, the app and itch.io too.", "In the Claude version, open Commands and tap Show my owner key under Owner on the website and app. Copy it.", "On the website or app, open Settings, paste it under Owner and tap Unlock. Commands shows up at the top of the hub.", "There you get Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements stay in the Claude version, because they need everyone's shared data.", "The key stays with your player, so it follows your email account to your other devices."]}, {"id": "u40", "d": "Oct 25, 2026", "t": "Watch every bot at once", "x": ["Watch the bots play now opens a wall with a screen for every game, each with its own bot.", "A few bots test at the same time, then hand over to the next game, round after round, so you can see every bot testing.", "Each screen shows Bot testing now, Working or the problem it found, with a picture of the game.", "Tap a game to watch just that bot, big, with every tap and key press shown. Tap All bots to go back.", "When you leave, anything broken goes to Requests and TestBot sends you a report.", "The bots' copies of the games have no sound and never change anyone's saves."]}, {"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u57", "d": "Nov 1, 2026", "t": "New chat", "x": ["Chat has a new look, like Squadline: your friends and parties down the side and the conversation in the middle.", "Reply to a message, react with emoji, edit or delete your own messages, and type @ to mention someone.", "See when friends are typing, and a red New line shows where you stopped reading.", "Start a call from any chat. Calls play a soundboard (horn, ding, applause and more) for everyone in the call.", "A Squadline button opens the big group chat page."]}, {"id": "u56", "d": "Oct 28, 2026", "t": "Phone and controller settings", "x": ["New in Settings: Phone and tablet controls. Left-handed mode, stick size, button size, see-through, a stick that stays in one place, look speed and vibration, with a picture that shows how it will look.", "New in Settings: Controller. Change which button does what, the stick dead zone and look speed, invert look, swap sticks and rumble. A tester shows what you press.", "A button in Settings opens the Blaster Duel button editor straight away."]}, {"id": "u55", "d": "Oct 27, 2026", "t": "Smarter test bots", "x": ["The test bots now play every game for real and try to win, instead of pressing random keys.", "After the games they press every menu and shop button, and check the Blaster Duel menus and the touch-button editor.", "Every day two bots also join one Blaster Duel match online, to check that playing with a friend works.", "The Bots page shows a speed list (slowest games first), the extra checks, and how far each bot got.", "Fixed: Lantern Quest opened to a blank page.", "Fixed: Colour Sort's tubes were squashed and could not be tapped on laptop screens."]}, {"id": "u54", "d": "Oct 26, 2026", "t": "Blaster Duel update", "x": ["The round clock now shows the right time in longer fights.", "Small fixes."]}, {"id": "u53", "d": "Oct 25, 2026", "t": "Make your own button layout", "x": ["Blaster Duel: open Settings in the lobby and tap Edit touch buttons.", "Drag FIRE, AIM, JUMP, RELOAD, SLIDE and the left FIRE button anywhere you like.", "Tap a button, then make it smaller or bigger, or hide it. Tap a hidden one and press Show to bring it back.", "Reset all puts every button back where it started. Your layout is saved."]}, {"id": "u52", "d": "Oct 25, 2026", "t": "Aim help on phones", "x": ["Blaster Duel now helps you aim on phones and tablets, even more than on a controller.", "When an enemy is near your crosshair, your aim slides onto them while you move, look around or fire. The pull is strongest while you hold FIRE."]}, {"id": "u51", "d": "Oct 25, 2026", "t": "Test bot fix", "x": ["Fixed: if your phone screen turned off or you switched apps while the test bots were running, the games they were testing got reported as blank. The bots now skip those games instead.", "Target Range, Block Sumo, Traffic Dodge and Beat Blocks were never broken. They were the last 4 games in a test run when the screen went off."]}, {"id": "u50", "d": "Oct 25, 2026", "t": "Support Blockyard", "x": ["Settings has a new Support Blockyard part with a Tip on itch.io button.", "Blockyard stays free. Tips are optional real money for the maker, so ask a grown-up first. Tips do not give bricks."]}, {"id": "u49", "d": "Oct 25, 2026", "t": "Blaster Duel weapon shop", "x": ["Blaster Duel now starts you with the Assault Rifle, Handgun, Katana and Grenade.", "Everything else is in the Weapons shop. Buy weapons with bricks.", "19 new weapons: Bow, Wildcat, Crossbow, Gunblade, Flamethrower, Energy Rifle, Grenade Launcher, Minigun, Paintball Gun, Permafrost, Distortion, Spray, Flare Gun, Shorty, Daggers, Slingshot, Exogun, Energy Pistols and Warper.", "Special powers: the Bow charges up, Permafrost slows people, Paintball splats their screen, Distortion flings them, Daggers let you double jump, Warper zaps you forward, and the Energy Pistols never reload.", "Weapons you already had equipped are yours to keep.", "Guns now reload by themselves when they run out."]}, {"id": "u48", "d": "Oct 25, 2026", "t": "Blaster Duel update", "x": ["Small changes to Blaster Duel."]}, {"id": "u47", "d": "Oct 25, 2026", "t": "ClaudeBot Pro", "x": ["New in Blaster Duel Practice: ClaudeBot Pro, the gold one. It is the toughest bot yet.", "It does everything ClaudeBot does, but it is faster, aims better, reacts quicker, has two medkits and three grenades, and dodges when you aim right at it.", "It has its own lines and Pro tips, and Practice counts your wins against it.", "ClaudeBot is exactly the same as before.", "ClaudeBot's chat has a Play ClaudeBot Pro button too."]}, {"id": "u46", "d": "Oct 25, 2026", "t": "Duel ClaudeBot", "x": ["New in Blaster Duel: play ClaudeBot, the toughest bot. Open Practice, pick ClaudeBot and press Start.", "ClaudeBot strafes and hops, switches weapons for the range, backs off to heal with a medkit, and throws grenades where it last saw you.", "It talks while you play: it cheers when you get it, and gives you a tip when it gets you.", "ClaudeBot's chat has a new Play Blaster Duel with me button that drops you straight into a duel.", "Practice shows how many times you have beaten ClaudeBot."]}, {"id": "u45", "d": "Oct 25, 2026", "t": "Ask works on the website and app", "x": ["The Ask button now works on the website, the app and itch.io. Send the owner a request for a new game, a gift or a fix.", "Requests from there show up in Requests in the Claude version, marked with where they came from.", "When the owner answers, your request says Done or Not this time.", "Requests are locked on the way, so other players cannot read them.", "Your requests stay listed on your device, and you can delete them."]}, {"id": "u44", "d": "Oct 25, 2026", "t": "Online play on the website and app", "x": ["The website, the app and itch.io now have real online play. Everyone playing there meets in the same games.", "Works in Obby Race, Hill King, Paint Battle, Star Party, Yard Escape, Blaster Duel, Block Tag, Blockball and Balloon Battle matches with a code.", "If nobody else is there, the bots play with you, and they leave when a real player joins.", "Other players show with their own name and avatar colour.", "Settings has a new Online play part that shows if you are connected.", "Players on the website and app do not meet players in the Claude version. They are separate.", "Game chat stays off on the website and app, because anyone on the internet can join."]}, {"id": "u43", "d": "Oct 25, 2026", "t": "Online games work offline", "x": ["Block Tag, Blockball and Star Party now work on the website, the app and itch.io, and with no internet: bots play with you when nobody else is there.", "Block Tag: three bots play tag with you. The It bot chases, the others run away.", "Blockball: Bot Grape plays against you. Kick the ball into the blue net.", "Star Party: three bots grab stars too, so there is someone to beat.", "The bots leave as soon as a real player joins (in the Claude version).", "Copies outside Claude no longer show the game chat bubble or say they need an invite, because they have no online play."]}, {"id": "u42", "d": "Oct 25, 2026", "t": "Owner key changes and bots that investigate", "x": ["Your owner key for the website and app now changes every 5 minutes. Commands shows it with a countdown and makes a new one by itself.", "A device you unlock keeps Commands, even after the key changes. Devices you already unlocked stay unlocked.", "You can now tell the bots what to look into in their chats. TestBot checks the games you name, on the screens you name (laptop, phone, sideways or tablet), and you can watch it play right in the chat.", "ClaudeBot does the same, then looks at the pictures and answers you in its own words. It uses your Claude account to think, so the first time Claude asks you to allow it.", "Your messages and their answers stay in the chat, and anything broken also goes to Requests."]}, {"id": "u41", "d": "Oct 25, 2026", "t": "Owner tools on the website and app", "x": ["The owner can now get Commands on the website, the app and itch.io too.", "In the Claude version, open Commands and tap Show my owner key under Owner on the website and app. Copy it.", "On the website or app, open Settings, paste it under Owner and tap Unlock. Commands shows up at the top of the hub.", "There you get Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements stay in the Claude version, because they need everyone's shared data.", "The key stays with your player, so it follows your email account to your other devices."]}, {"id": "u40", "d": "Oct 25, 2026", "t": "Watch every bot at once", "x": ["Watch the bots play now opens a wall with a screen for every game, each with its own bot.", "A few bots test at the same time, then hand over to the next game, round after round, so you can see every bot testing.", "Each screen shows Bot testing now, Working or the problem it found, with a picture of the game.", "Tap a game to watch just that bot, big, with every tap and key press shown. Tap All bots to go back.", "When you leave, anything broken goes to Requests and TestBot sends you a report.", "The bots' copies of the games have no sound and never change anyone's saves."]}, {"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
 /* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in
