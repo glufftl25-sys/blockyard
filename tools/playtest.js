@@ -6,7 +6,8 @@
    Claude's database (window.claude): A sends B a message and a party message to B and C; they must read them, an
    outsider who copies a locked message must not, and the database must hold only locked copies. Then the website check:
    index.html at phone width loads with no errors, every picture loads, nothing scrolls sideways, every game card opens a
-   game that exists, and game.html#play=snake starts Block Snake.
+   game that exists, and game.html#play=snake starts Block Snake. Last, a quick look through the game code for a name
+   declared twice at the top level (tools/dupnames.js), since one would quietly overwrite the other.
    Writes <out>/report.json, a small picture of every game's last frame, and a contact sheet per size
    (sheet-laptop.jpg, sheet-phone.jpg). GitHub runs this every day (.github/workflows/test-bots.yml) and the Bots page
    (bots.html) shows the report.
@@ -385,6 +386,18 @@ function problemOf(r) {
     const fc = await friendChat(browser);
     lap.results.push(fc);
     if (!fc.ok) lap.problems.push(problemOf(fc));
+  }
+  {
+    /* static: two top-level names in the main script that overwrite each other (tools/dupnames.js) */
+    const nm = { id: 'm.names', t: 'Duplicate names in the game code', check: true, err: {}, ok: true, steps: 1, fail: '' };
+    try {
+      const d = require('./dupnames').findDups(fs.readFileSync(game, 'utf8'));
+      if (d.length) nm.fail = d.length + ' name' + (d.length === 1 ? ' is' : 's are') + ' declared twice at the top level, so one overwrites the other: ' + d.slice(0, 6).map(x => x.name + ' (lines ' + x.lines.join(', ') + ')').join('; ');
+    } catch (e) { nm.fail = 'could not read the game code: ' + String(e.message).slice(0, 80); }
+    nm.ok = !nm.fail;
+    if (!report.runs.length) report.runs.push({ size: 'laptop', w: 1280, h: 720, problems: [], results: [], lag: [], pageErrors: [] });
+    report.runs[0].results.push(nm);
+    if (!nm.ok) report.runs[0].problems.push(problemOf(nm));
   }
   if (process.env.PLAYTEST_SITE !== '0') {
     const site = await websiteCheck(browser);
