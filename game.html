@@ -3835,7 +3835,7 @@ GAMES.paint=(function(){
   var SPAWN=[[1.5,1.5],[10.5,14.5],[10.5,1.5],[1.5,14.5],[6,8],[6,1.5],[6,14.5],[1.5,8],[10.5,8],[3.5,4.5],[8.5,11.5],[8.5,4.5],[3.5,11.5],[6,5],[6,11]];
   var FONTB='system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
   var st='lobby',t=0,lx=5,ly=6.5,x=6,yy=8,stick=null,keys={},rects=[],np=1,nb=3,gsz=1,gbots=3,cfg='',mStart=0,initFor=0,saved=false,msg='',msgT=0;
-  var role='',padI=-1,gid='',jt=0,goT=0,hostSeen=0,alloc=null,botsFor=0,pingT=-9,own=[],tm=[],marks=[],bots=[],cs=20,ox=0,oy=0,lcs=24,lox=0,loy=0,lastKey='me',result=null;
+  var role='',padI=-1,gid='',jt=0,goT=0,hostSeen=0,alloc=null,botsFor=0,pingT=-9,own=[],tm=[],marks=[],bots=[],cs=20,ox=0,oy=0,lcs=24,lox=0,loy=0,lastKey='me',result=null,rmv=false,rmN=0,rmT=0,lastStart=0;
   function now(){return Date.now();}
   function myKey(){return NET.me||'me';}
   function myName(){return SOC.account?SOC.account.username:'You';}
@@ -3980,6 +3980,7 @@ GAMES.paint=(function(){
     }
   }
   function toLobby(){
+    rmv=false;rmN=0;lastStart=0;
     st='lobby';cfg='';role='';gid='';padI=-1;mStart=0;initFor=0;bots=[];alloc=null;botsFor=0;result=null;stick=null;lx=5;ly=6.5;
     netJoin('w2-paint-lobby');
   }
@@ -4028,6 +4029,7 @@ GAMES.paint=(function(){
   }
   /* the green square is full: everyone moves to the game's own room */
   function enterMatch(){
+    rmv=false;rmN=0;lastStart=0;
     cfg='g'+gid;mStart=0;initFor=0;alloc=null;botsFor=0;bots=[];result=null;setMap();clear();
     netJoin('w2-paint-'+cfg.replace(/[^A-Za-z0-9]/g,''));st='wait';role='';padI=-1;
   }
@@ -4041,6 +4043,13 @@ GAMES.paint=(function(){
     var m=groupOf(h),mine=m.some(function(e){return e.me;});
     if(!mine){msg='That game filled up';msgT=2.5;leavePad();return;}
     if(m.length>=gsz||m.some(function(e){return e.go;})){st='go';goT=0.8;beep(880,0.15,'square',0.05,1.6);}
+  }
+  /* rematch: everyone who pressed Rematch stays in the match room with the same map and plays again. The host starts
+     when they are all back, or after 6 seconds with whoever is there. The others go back to the lobby. */
+  function rmVotes(){return (rmv?1:0)+groupOthers().filter(function(p){return p.presence.rm===1;}).length;}
+  function rematch(){
+    rmN=Math.max(1,rmVotes());lastStart=mStart;rmT=now();rmv=false;
+    mStart=0;initFor=0;alloc=null;botsFor=0;bots=[];result=null;clear();st='wait';
   }
   function startMatch(){
     clear();saved=false;
@@ -4064,6 +4073,7 @@ GAMES.paint=(function(){
     else if(a.a==='back'){st='lobby';bump(padI);padI=-1;}
     else if(a.a==='unpad'){leavePad();}
     else if(a.a==='leave'){toLobby();}
+    else if(a.a==='again'){if(cfg==='solo'){nb=gbots;startSolo();}else rmv=!rmv;}
     beep(600,0.04,'square',0.03,1.2);
   }
   g.start=function(){layout();keys={};msg='';msgT=0;np=1;nb=3;toLobby();};
@@ -4129,8 +4139,8 @@ GAMES.paint=(function(){
     if(myKey()!==lastKey){var ok=lastKey,nk=myKey();own=own.map(function(k){return k===ok?nk:(k.indexOf(ok+':')===0?nk+k.slice(ok.length):k);});if(alloc)alloc.forEach(function(e){if(e[0]===ok)e[0]=nk;});lastKey=nk;}
     /* agree on the start time: the host sets it once the group is full; everyone else copies the host */
     var hp=hostPeer();
-    if(amHost()){if(!mStart&&keyList().length>=gsz){mStart=now()+3500;alloc=makeAlloc();}}
-    else if(hp&&+hp.presence.ms>0){
+    if(amHost()){if(!mStart&&(keyList().length>=(rmN||gsz)||(rmN&&now()-rmT>6000))){mStart=now()+3500;alloc=makeAlloc();}}
+    else if(hp&&+hp.presence.ms>lastStart){
       mStart=+hp.presence.ms;
       var ba=hp.presence.ba;
       if(!alloc&&Array.isArray(ba))alloc=ba.slice(0,8).filter(Array.isArray).map(function(e){return [String(e[0]),clampN(e[1]|0,0,MAXB),netNum(e[2],0,999,999)];});
@@ -4141,8 +4151,8 @@ GAMES.paint=(function(){
       if(alloc&&botsFor!==mStart&&(ns==='count'||ns==='play'))makeBots();
       /* the winner is picked 1.5 seconds into the results, once the last paint from the other devices has come in */
       if(ns==='results'&&!result&&n>=mStart+MATCH+1500)finishMatch();
-      if(ns==='done'){toLobby();return;}
-      st=ns;
+      if(ns==='done'){if(rmv&&cfg!=='solo')rematch();else{toLobby();return;}}
+      else st=ns;
     }
     if(st==='play'||(st==='results'&&!result)){
       var s=now();
@@ -4192,7 +4202,7 @@ GAMES.paint=(function(){
       }
     }
     netSend({x:Math.round(x*100)/100,z:Math.round(yy*100)/100,st:st,c:cfg,pg:myPing(),ms:amHost()?mStart:0,ba:amHost()?alloc:null,pl:(st==='play'||st==='results')?marks.slice(-MK).map(function(m){var r=[m[0],m[1]-mStart];if(m.length>2)r.push(m[2]);return r;}):[],
-      bp:bots.map(function(b){return [b.i,Math.round(b.x*100)/100,Math.round(b.y*100)/100];}),pk:inMatch()?myPk:[]});
+      bp:bots.map(function(b){return [b.i,Math.round(b.x*100)/100,Math.round(b.y*100)/100];}),pk:inMatch()?myPk:[],rm:((st==='results'&&rmv)||(st==='wait'&&rmN))?1:0});
     netFlush();
   };
   function btn(label,cx,y,w,h,a,on,fill){
@@ -4278,7 +4288,7 @@ GAMES.paint=(function(){
     var pv=makeAlloc(),top=Math.max(80,V.h*0.2),pw=panel(top,184+pv.length*18),k=keyList().length,nm={};
     groupOthers().forEach(function(p){nm[p.peer]=netName(p);});
     txt('Waiting for players',V.w/2,top+28,20,P.sun);
-    txt(k+' / '+gsz+' here',V.w/2,top+62,26,'#fff');
+    txt(k+' / '+(rmN||gsz)+' here',V.w/2,top+62,26,'#fff');
     txt(gbots+' bot'+(gbots===1?'':'s')+'  ·  best ping runs the most',V.w/2,top+92,11,'#9fb0d8');
     pv.forEach(function(e,n){
       var me=e[0]===myKey(),pt=e[2]>=999?'--':e[2]+' ms';
@@ -4333,10 +4343,13 @@ GAMES.paint=(function(){
     }
     if(st==='results'){
       var rs=result||rank,w=rs[0];
-      ctx.fillStyle='rgba(16,26,51,.85)';ctx.fillRect(0,V.h/2-80,V.w,160);
+      ctx.fillStyle='rgba(16,26,51,.85)';ctx.fillRect(0,V.h/2-80,V.w,192);
       txt(w&&w.v>0?(w.p.me?'You win!':w.p.n+' wins!'):'Nobody painted',V.w/2,V.h/2-46,28,P.sun);
       rs.slice(0,3).forEach(function(r,n){txt((n+1)+'. '+(r.p.me?'You':r.p.n)+'  '+Math.round(r.v/total*100)+'%',V.w/2,V.h/2-10+n*20,14,r.p.me?P.sun:'#fff');});
-      txt('Back to the lobby in '+Math.max(0,Math.ceil((mStart+MATCH+SHOW-now())/1000))+'s',V.w/2,V.h/2+60,12,'#9fb0d8');
+      var solo=cfg==='solo',nv=rmVotes(),hum=keyList().length;
+      btn(solo?'Play again':(rmv?'Rematch ✓ '+nv+'/'+hum:'Rematch'+(nv?' ('+nv+'/'+hum+')':'')),V.w/2-80,V.h/2+46,150,32,{a:'again'},rmv);
+      btn('Lobby',V.w/2+80,V.h/2+46,150,32,{a:'leave'});
+      txt((rmv?'Rematch in ':'Back to the lobby in ')+Math.max(0,Math.ceil((mStart+MATCH+SHOW-now())/1000))+'s',V.w/2,V.h/2+98,12,'#9fb0d8');
     }
     if(msgT>0&&msg&&st==='play'){if(wide())txt(msg,ox/2,V.h/2,16,P.sun);else txt(msg,V.w/2,oy+cs*ROWS+22,15,P.sun);}
   }
