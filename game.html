@@ -7806,11 +7806,15 @@ GAMES.maker=(function(){
 /* ===== Brick Buster: bounce the ball, clear the bricks ===== */
 GAMES.bust=(function(){
   var g={kind:'canvas',title:'Brick Buster',lw:400};
+  g.pre=function(w,h){g.lw=tallLw(w,h);}; /* fixed world height so landscape screens see the whole game */
   var st,px,bx,by,vx,vy,bricks,lives,score,level,best,newBest,t,overT,drop,pw,msg,msgT,stuck;
   var PW=72,PH=14,R=7,COLS=7;
+  /* the field is a centre column up to 520 wide, so the paddle stays a fair size on wide screens */
+  var FW=400,FX=0;
+  function colW(){FW=Math.min(V.w,520);FX=(V.w-FW)/2;}
   function layout(lv){
     bricks=[];
-    var rows=Math.min(8,4+lv),bw=(V.w-24)/COLS,bh=Math.max(16,Math.min(26,(V.h*0.30)/8));
+    var rows=Math.min(8,4+lv),bw=(FW-24)/COLS,bh=Math.max(16,Math.min(26,(V.h*0.30)/8));
     for(var r=0;r<rows;r++)for(var c=0;c<COLS;c++){
       if(lv>2&&((r+c)%7===0))continue;
       bricks.push({x:12+c*bw,y:92+r*(bh+6),w:bw-4,h:bh,hp:(lv>3&&r===0)?2:1,c:[P.brick,P.orange,P.sun,P.grass,P.blue,P.lilac,P.leaf][r%7]});
@@ -7819,23 +7823,24 @@ GAMES.bust=(function(){
   function serve(){bx=px+PW/2;by=V.h-60;vx=0;vy=0;stuck=true;}
   function reset(hard){
     if(hard){score=0;lives=3;level=1;newBest=false;}
-    st='ready';t=0;overT=0;drop=[];pw=0;msg='';msgT=0;px=V.w/2-PW/2;layout(level);serve();
+    colW();st='ready';t=0;overT=0;drop=[];pw=0;msg='';msgT=0;px=FW/2-PW/2;layout(level);serve();
   }
   g.start=function(){best=lsGet('by.bust',0);reset(true);};
   g.stop=function(){};
+  g.resize=function(){if(bricks)colW();};
   function launch(){if(stuck){stuck=false;var a=-1.15+ (Math.random()*0.5-0.25);vx=Math.cos(a)*5.4;vy=Math.sin(a)*5.4;st='run';beep(620,0.08,'square',0.04,1.6);}}
   g.down=function(x,y){
     if(st==='over'){if(overT>0.7)reset(true);return;}
-    px=clampN(x-PW/2,0,V.w-PW);if(stuck)bx=px+PW/2;
+    x-=FX;px=clampN(x-PW/2,0,FW-PW);if(stuck)bx=px+PW/2;
     launch();
   };
-  g.move=function(x,y){px=clampN(x-PW/2,0,V.w-PW);if(stuck)bx=px+PW/2;};
+  g.move=function(x,y){x-=FX;px=clampN(x-PW/2,0,FW-PW);if(stuck)bx=px+PW/2;};
   g.up=function(){};
   g.key=function(c,d){
     if(!d)return;
     if(st==='over'){if(overT>0.7)reset(true);return;}
-    if(c==='ArrowLeft'||c==='KeyA')px=clampN(px-28,0,V.w-PW);
-    if(c==='ArrowRight'||c==='KeyD')px=clampN(px+28,0,V.w-PW);
+    if(c==='ArrowLeft'||c==='KeyA')px=clampN(px-28,0,FW-PW);
+    if(c==='ArrowRight'||c==='KeyD')px=clampN(px+28,0,FW-PW);
     if(stuck)bx=px+PW/2;
     if(c==='Space')launch();
   };
@@ -7847,7 +7852,7 @@ GAMES.bust=(function(){
     for(k=0;k<n;k++){
       bx+=vx*sp*dt*60/n;by+=vy*sp*dt*60/n;
       if(bx<R){bx=R;vx=-vx;beep(400,0.04,'square',0.03,1.3);}
-      if(bx>V.w-R){bx=V.w-R;vx=-vx;beep(400,0.04,'square',0.03,1.3);}
+      if(bx>FW-R){bx=FW-R;vx=-vx;beep(400,0.04,'square',0.03,1.3);}
       if(by<40){by=40;vy=-vy;beep(400,0.04,'square',0.03,1.3);}
       var py=V.h-46;
       if(vy>0&&by+R>py&&by<py+PH+6&&bx>px-R&&bx<px+PW+R){
@@ -7886,36 +7891,39 @@ GAMES.bust=(function(){
     if(!bricks.length){level++;msg='Level '+level+'!';msgT=1.5;layout(level);serve();beep(780,0.4,'square',0.05,2);}
   };
   g.draw=function(){
-    ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
+    ctx.save();ctx.translate(FX,0);
+    ctx.fillStyle='#101a33';ctx.fillRect(-FX,0,V.w,V.h);
+    if(FX>0){ctx.fillStyle='#0a1124';ctx.fillRect(-FX,0,FX,V.h);ctx.fillRect(FW,0,FX,V.h);ctx.fillStyle='#2a3558';ctx.fillRect(-4,0,4,V.h);ctx.fillRect(FW,0,4,V.h);}
     for(var i=0;i<bricks.length;i++){var b=bricks[i];box(b.x,b.y,b.w,b.h,b.hp>1?'#cfd6e8':b.c);}
     drop.forEach(function(D){box(D.x-8,D.y-8,16,16,D.k==='wide'?P.grass:P.lilac);});
     var w=pw>0?PW+30:PW;
-    box(clampN(px-(w-PW)/2,0,V.w-w),V.h-46,w,PH,P.sun);
+    box(clampN(px-(w-PW)/2,0,FW-w),V.h-46,w,PH,P.sun);
     ctx.fillStyle='#fff';ctx.strokeStyle=P.ink;ctx.lineWidth=3;
     ctx.beginPath();ctx.arc(bx,by,R,0,6.2832);ctx.fill();ctx.stroke();
     txt('Score '+score,12,22,17,'#fff','left');
     txt('Best '+Math.max(best,score),12,42,12,P.sun,'left');
-    for(var l=0;l<lives;l++)heart(V.w-26-l*22,14,3,P.brick);
-    txt('Level '+level,V.w-12,42,12,'#fff','right');
-    if(msgT>0)txt(msg,V.w/2,V.h*0.4,22,P.sun);
-    if(stuck&&st!=='over')txt('Tap to launch',V.w/2,V.h-80,16,'#fff');
+    for(var l=0;l<lives;l++)heart(FW-26-l*22,14,3,P.brick);
+    txt('Level '+level,FW-12,42,12,'#fff','right');
+    if(msgT>0)txt(msg,FW/2,V.h*0.4,22,P.sun);
+    if(stuck&&st!=='over')txt('Tap to launch',FW/2,V.h-80,16,'#fff');
     if(st==='over'){
-      ctx.fillStyle='rgba(16,26,51,0.75)';ctx.fillRect(0,0,V.w,V.h);
-      txt('GAME OVER',V.w/2,V.h*0.36,34,P.brick);txt('Score '+score,V.w/2,V.h*0.36+42,22,'#fff');
-      txt(newBest?'NEW BEST!':'Best '+best,V.w/2,V.h*0.36+72,16,newBest?P.sun:'#fff');
-      if(overT>0.7)txt('Tap to play again',V.w/2,V.h*0.36+106,16,'#fff');
+      ctx.fillStyle='rgba(16,26,51,0.75)';ctx.fillRect(-FX,0,V.w,V.h);
+      txt('GAME OVER',FW/2,V.h*0.36,34,P.brick);txt('Score '+score,FW/2,V.h*0.36+42,22,'#fff');
+      txt(newBest?'NEW BEST!':'Best '+best,FW/2,V.h*0.36+72,16,newBest?P.sun:'#fff');
+      if(overT>0.7)txt('Tap to play again',FW/2,V.h*0.36+106,16,'#fff');
     }
+    ctx.restore();
   };
   /* test bots: play for real */
   g.tbp=function(tb,dt){
     var m=tb.m;
-    if(st==='over'){tb.up();if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    if(st==='over'){tb.up();if(overT>0.8&&!m.o){m.o=1;tb.tap(FW/2,V.h/2);}return [score,'points'];}
     m.o=0;
     var sp=Math.min(3,1+level*0.12)*60,pyl=V.h-46,tx=bx;
-    if(vy>0){var tt=(pyl-R-by)/(vy*sp),w=V.w-2*R,xx=bx+vx*sp*tt-R;xx=((xx%(2*w))+2*w)%(2*w);if(xx>w)xx=2*w-xx;tx=xx+R;}
+    if(vy>0){var tt=(pyl-R-by)/(vy*sp),w=FW-2*R,xx=bx+vx*sp*tt-R;xx=((xx%(2*w))+2*w)%(2*w);if(xx>w)xx=2*w-xx;tx=xx+R;}
     if(m.off===undefined||Math.random()<0.01)m.off=(Math.random()*2-1)*16;
-    var aim=clampN(tx+m.off,PW/2,V.w-PW/2);
-    if(!tb.pressing())tb.down(aim,V.h-40);else tb.mv(aim,V.h-40);
+    var aim=clampN(tx+m.off,PW/2,FW-PW/2);
+    if(!tb.pressing())tb.down(aim+FX,V.h-40);else tb.mv(aim+FX,V.h-40);
     return [score,'points'];
   };
   return g;
@@ -10975,6 +10983,7 @@ GAMES.catchg=(function(){
 /* ===== Rock Blaster: spin, thrust, shoot the drifting rocks ===== */
 GAMES.rocks=(function(){
   var g={kind:'canvas',title:'Rock Blaster',lw:400};
+  g.pre=function(w,h){g.lw=tallLw(w,h);}; /* fixed world height so landscape screens see the whole game */
   var sx,sy,svx,svy,ang,rocks,shots,score,best,lives,st,t,wave,newBest,inv,tl,tr,th,fireT,parts;
   function wrap(o){if(o.x<-20)o.x=V.w+20;if(o.x>V.w+20)o.x=-20;if(o.y<-20)o.y=V.h+20;if(o.y>V.h+20)o.y=-20;}
   function spawn(n){
@@ -11450,8 +11459,9 @@ GAMES.bubble=(function(){
 /* ===== Gem Digger: tunnel down for gems, keep ahead of the lava ===== */
 GAMES.dig=(function(){
   var g={kind:'canvas',title:'Gem Digger',lw:400};
+  g.pre=function(w,h){g.lw=tallLw(w,h);}; /* fixed world height so landscape screens see the whole game */
   var CW=9,S,ox,rowsMap,px,py,camY,score,gems,best,st,t,lava,newBest,msg,msgT,fuel,drag;
-  function metrics(){S=Math.floor((V.w-16)/CW);ox=(V.w-S*CW)/2;}
+  function metrics(){S=Math.floor(Math.min((V.w-16)/CW,V.h/9));ox=(V.w-S*CW)/2;}
   function rowAt(j){
     while(rowsMap.length<=j){
       var r=[],depth=rowsMap.length;
@@ -11813,6 +11823,7 @@ GAMES.cave=(function(){
 /* ===== Target Range: tap the targets before they get away ===== */
 GAMES.range=(function(){
   var g={kind:'canvas',title:'Target Range',lw:400};
+  g.pre=function(w,h){g.lw=tallLw(w,h);}; /* fixed world height so landscape screens see the whole game */
   var targets,score,best,st,t,left,spawn,newBest,hits,miss,combo,pops,acc;
   function reset(){targets=[];pops=[];score=0;st='run';t=0;left=45;spawn=0;newBest=false;hits=0;miss=0;combo=0;acc=0;}
   g.start=function(){best=lsGet('by.range',0);reset();};
