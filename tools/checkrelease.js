@@ -1,6 +1,7 @@
 /* Checks that a Blockyard release is ready and that players will get it.
    Usage: node tools/checkrelease.js            (local checks only, no network)
-          node tools/checkrelease.js --live     (also fetches the live site and compares it with main)
+          node tools/checkrelease.js --live     (also fetches the live site and compares it with main;
+                                                 behind an HTTPS_PROXY it restarts itself with NODE_USE_ENV_PROXY=1)
    Local checks:
    - index.html is exactly what tools/buildsite.js would build from game.html now
    - the UPDATES list in game.html has unique ids, newest first, and index.html shows the newest one
@@ -13,6 +14,11 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const root = path.join(__dirname, '..');
+/* Node's fetch ignores HTTPS_PROXY unless NODE_USE_ENV_PROXY=1, so restart with it when a proxy is set */
+if (process.argv.includes('--live') && (process.env.HTTPS_PROXY || process.env.https_proxy) && !process.env.NODE_USE_ENV_PROXY) {
+  const r = require('child_process').spawnSync(process.execPath, process.argv.slice(1), { stdio: 'inherit', env: Object.assign({}, process.env, { NODE_USE_ENV_PROXY: '1' }) });
+  process.exit(r.status == null ? 1 : r.status);
+}
 const SITE = 'https://glufftl25-sys.github.io/blockyard/';
 const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 let fails = 0;
@@ -77,7 +83,8 @@ if (loader) {
   const first = (src[0] || '').replace(/'/g, '');
   ok(first === SITE + 'game.html', 'itch loader loads the live game first', first || 'no SOURCES found');
   ok(/cache:\s*'no-store'/.test(loader) && /v='\+Date\.now\(\)/.test(loader), 'itch loader skips old cached copies when online');
-  ok(/localStorage\.setItem\(CACHE/.test(loader), 'itch loader keeps a copy for offline');
+  ok(/caches\.open\(BOX\)/.test(loader) && /c\.put\(KEY/.test(loader), 'itch loader keeps a copy for offline in the Cache API');
+  ok(/\}\)\.catch\(function\(\)\{return tryFrom\(i\+1\)/.test(loader), 'itch loader tries the next address when one answers with a non-game');
 }
 
 /* 6. with --live: compare the live site with main */
