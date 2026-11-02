@@ -24,6 +24,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # the live-site check compares with origin/main
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -33,6 +35,17 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Let the bots play every game
         run: node tools/playtest.js game.html bots-out
+      - name: Check that the live site matches main
+        # only reports: a live site that is behind main shows on the Bots page but never fails the run
+        continue-on-error: true
+        run: |
+          set +e
+          [ -f tools/checkrelease.js ] || exit 0
+          node tools/checkrelease.js --live > bots-out/live.txt 2>&1
+          code=$?
+          cat bots-out/live.txt
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('bots-out/report.json'));const t=fs.readFileSync('bots-out/live.txt','utf8').split('\n');r.live={ok:$code===0,fails:t.filter(l=>/^FAIL/.test(l)).map(l=>l.replace(/^FAIL\s*/,'')).slice(0,8),at:new Date().toISOString()};fs.writeFileSync('bots-out/report.json',JSON.stringify(r,null,1));"
+          exit 0
       - name: Save the report to the bots branch
         run: |
           cd bots-out
@@ -46,5 +59,5 @@ jobs:
         if: always()
         run: |
           if [ -f bots-out/report.json ]; then
-            node -e "const r=require('./bots-out/report.json');let s='## Test bots\n\nVersion '+r.ver+'\n\n';for(const x of r.runs){s+='**'+x.size+'**: '+x.results.length+' games, '+(x.problems.length?x.problems.length+' problems':'no problems')+'\n\n';x.problems.forEach(p=>s+='- '+p+'\n');s+='\n';}require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,s);"
+            node -e "const r=require('./bots-out/report.json');let s='## Test bots\n\nVersion '+r.ver+'\n\n';if(r.live)s+=(r.live.ok?'Live site matches main\n\n':'**Live site check:** '+r.live.fails.join('; ')+'\n\n');for(const x of r.runs){s+='**'+x.size+'**: '+x.results.length+' games, '+(x.problems.length?x.problems.length+' problems':'no problems')+'\n\n';x.problems.forEach(p=>s+='- '+p+'\n');s+='\n';}require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY,s);"
           fi
