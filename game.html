@@ -8701,6 +8701,11 @@ GAMES.ball=(function(){
   /* myKick: my last kick, sent with my position until the host has used it. kSeen: the kick times the host already used,
      kept apart from the ball so a kick is never used twice (not even after a goal resets the ball). wasHost: I ran the ball last frame. */
   var myKick=null,kSeen={},wasHost=false;
+  /* team play: red (side 0) scores in the blue net, blue (side 1) in the red one. After a goal there is a kickoff
+     (KO seconds: everyone goes back to their own half and the ball waits in the middle); first to GOALS wins, then after
+     WINT seconds a new match starts at 0-0. The host keeps this on the ball: k counts kickoffs, kt is the kickoff time
+     left, w is the winner (1 red, 2 blue, 0 nobody yet), wt the time left on the win screen. Older versions ignore these. */
+  var GOALS=5,KO=3,WINT=6,seenK=-1,lastSide=-1,winSeen=0;
   /* nobody else here (offline, or alone online): Bot Grape plays against you, until a real player joins.
      It gets behind the ball and kicks it at your net (the red one), and it is a little slower than you. */
   var bot=null;
@@ -8717,6 +8722,7 @@ GAMES.ball=(function(){
     b.vx+=clampN(tx/d*sp-b.vx,-50*dt,50*dt);b.vz+=clampN(tz/d*sp-b.vz,-50*dt,50*dt);
     b.x=clampN(b.x+b.vx*dt,-FW+0.5,FW-0.5);b.z=clampN(b.z+b.vz*dt,-D+0.5,D-0.5);
     var s=Math.hypot(b.vx,b.vz);if(s>0.6){b.face=Math.atan2(b.vx,b.vz);b.step+=dt*s*1.5;}
+    if(frozen(B)){b.vx=b.vz=0;return;}
     if(b.kick<=0&&Math.hypot(b.x-B.x,b.z-B.z)<1.1){
       b.kick=0.35;
       var kx=(Math.random()*2-1)*2.2-B.x,kz=gz-B.z,kl=Math.hypot(kx,kz)||1,pw=9.5+s*0.6;
@@ -8732,12 +8738,16 @@ GAMES.ball=(function(){
   function amHost(){return hostPeer()===me();}
   function cleanB(b){
     if(!b||typeof b!=='object')return null;
-    return {x:netNum(b.x,-FW,FW,0),y:netNum(b.y,0,8,0.4),z:netNum(b.z,-D,D,0),vx:netNum(b.vx,-40,40,0),vz:netNum(b.vz,-40,40,0),vy:netNum(b.vy,-40,40,0),a:netNum(b.a,0,99,0)|0,bl:netNum(b.bl,0,99,0)|0};
+    return {x:netNum(b.x,-FW,FW,0),y:netNum(b.y,0,8,0.4),z:netNum(b.z,-D,D,0),vx:netNum(b.vx,-40,40,0),vz:netNum(b.vz,-40,40,0),vy:netNum(b.vy,-40,40,0),a:netNum(b.a,0,99,0)|0,bl:netNum(b.bl,0,99,0)|0,
+      k:netNum(b.k,0,1e6,0)|0,kt:netNum(b.kt,0,KO,0),w:netNum(b.w,0,2,0)|0,wt:netNum(b.wt,0,WINT,0)};
   }
-  function reset(kickoff){B={x:0,y:0.4,z:0,vx:0,vz:0,vy:0,a:B?B.a:0,bl:B?B.bl:0};}
+  function reset(kickoff){B={x:0,y:0.4,z:0,vx:0,vz:0,vy:0,a:B?B.a:0,bl:B?B.bl:0,k:B?(B.k||0):0,kt:0,w:B?(B.w||0):0,wt:B?(B.wt||0):0};}
+  /* back to my own half for a kickoff */
+  function goHome(){x=(Math.random()*2-1)*3;z=side?6:-6;y=0;vx=vz=vy=0;face=side?Math.PI:0;CAM3.snap=true;}
+  function frozen(b){return !!b&&(b.kt>0||b.w>0);}
   g.start=function(){
     t=0;side=0;x=0;z=-10;y=0;vx=vz=vy=0;face=0;step=0;buf=0;kickT=0;flash=0;msg='';msgT=0;
-    sc={a:0,b:0};B=null;reset();hostB=null;bot=null;myKick=null;kSeen={};wasHost=false;
+    sc={a:0,b:0};B=null;reset();hostB=null;bot=null;myKick=null;kSeen={};wasHost=false;seenK=-1;lastSide=-1;winSeen=0;
     PAD.reset();netJoin('w3-ball');STAT.add('plays3d',1);
   };
   g.stop=function(){PAD.reset();netLeave();};
@@ -8766,7 +8776,18 @@ GAMES.ball=(function(){
     /* pick a side: even peers north, odd south */
     var ids=[me()].concat(netOthers().map(function(p){return p.peer;})).sort();
     side=ids.indexOf(me())%2;
+    var b=curB();
+    /* a new kickoff (or my team changed right after I came in): back to my own half */
+    if(b&&b.k!==seenK){if(seenK>=0||b.kt>0)goHome();seenK=b.k;}
+    if(side!==lastSide){if(lastSide<0||t<4||frozen(b))goHome();lastSide=side;}
+    /* someone won the match */
+    if(b&&b.w&&winSeen!==b.k+1){
+      winSeen=b.k+1;
+      if((b.w===1)===(side===0)){if(netOthers().length)lsSet('by.ballw',lsGet('by.ballw',0)+1);beep(880,0.5,'square',0.06,2);}
+      else beep(260,0.4,'sawtooth',0.05,0.6);
+    }
     var moving=PAD.axes(),jp=PAD.take(),mv=CAM3.dir(PAD.ax,PAD.ay);
+    if(b&&b.kt>0)mv=[0,0];
     var acc=y>0?30:60;
     vx+=clampN(mv[0]*SPD-vx,-acc*dt,acc*dt);vz+=clampN(mv[1]*SPD-vz,-acc*dt,acc*dt);
     x=clampN(x+vx*dt,-FW+0.5,FW-0.5);z=clampN(z+vz*dt,-D+0.5,D-0.5);
@@ -8774,9 +8795,8 @@ GAMES.ball=(function(){
     if(jp)buf=0.12;else buf-=dt;
     if(buf>0&&y===0){vy=JV;buf=0;beep(520,0.1,'square',0.04,1.8);}
     if(y>0||vy>0){vy-=GR*dt;y+=vy*dt;if(y<=0){y=0;vy=0;}}
-    var b=curB();
-    /* kicking: anyone who touches the ball pushes it, the host applies it */
-    if(b&&kickT<=0){
+    /* kicking: anyone who touches the ball pushes it, the host applies it (not during a kickoff or the win screen) */
+    if(b&&kickT<=0&&!frozen(b)){
       var d=Math.hypot(x-b.x,z-b.z);
       if(d<1.1&&Math.abs(y-b.y)<1.8){
         kickT=0.25;beep(700,0.09,'square',0.05,1.6);
@@ -8789,7 +8809,7 @@ GAMES.ball=(function(){
       /* I just took over the ball (the host left): carry on from where the old host had it, with the same score,
          and do not replay kicks that were already used */
       if(!wasHost){
-        if(hostB){B={x:hostB.x,y:hostB.y,z:hostB.z,vx:hostB.vx,vz:hostB.vz,vy:hostB.vy,a:hostB.a,bl:hostB.bl};}
+        if(hostB){B={x:hostB.x,y:hostB.y,z:hostB.z,vx:hostB.vx,vz:hostB.vz,vy:hostB.vy,a:hostB.a,bl:hostB.bl,k:hostB.k,kt:hostB.kt,w:hostB.w,wt:hostB.wt};}
         netOthers().forEach(function(p){var k=p.presence.kick;if(k&&typeof k==='object')kSeen[p.peer]=netNum(k.at,0,1e14,0);});
         myKick=null;
       }
@@ -8802,8 +8822,12 @@ GAMES.ball=(function(){
         if(!k||typeof k!=='object')return;
         var at=netNum(k.at,0,1e14,0),key=p.peer;
         if(kSeen[key]===at||!at)return;
-        kSeen[key]=at;B.vx=netNum(k.x,-40,40,0);B.vz=netNum(k.z,-40,40,0);B.vy=3.2;
+        kSeen[key]=at;if(frozen(B))return;
+        B.vx=netNum(k.x,-40,40,0);B.vz=netNum(k.z,-40,40,0);B.vy=3.2;
       });
+      /* kickoff countdown and the win screen: the ball waits in the middle */
+      if(B.kt>0){B.kt=Math.max(0,B.kt-dt);B.x=B.z=B.vx=B.vz=B.vy=0;B.y=0.4;}
+      if(B.w){B.wt-=dt;B.x=B.z=B.vx=B.vz=B.vy=0;B.y=0.4;if(B.wt<=0){B.a=0;B.bl=0;B.w=0;B.wt=0;B.k++;B.kt=KO;if(bot){bot.x=0;bot.z=6;}}}
       B.x+=B.vx*dt;B.z+=B.vz*dt;B.y+=B.vy*dt;B.vy-=GR*dt;
       if(B.y<0.4){B.y=0.4;B.vy=Math.abs(B.vy)*0.45;if(B.vy<1.2)B.vy=0;}
       var fr=Math.max(0,1-1.1*dt);B.vx*=fr;B.vz*=fr;
@@ -8812,9 +8836,12 @@ GAMES.ball=(function(){
         if(Math.abs(B.x)<3.2){
           if(B.z>0)B.a++;else B.bl++;
           reset();B.vx=B.vz=0;flash=0.5;beep(900,0.4,'square',0.06,2);
+          B.k++;
+          if(B.a>=GOALS||B.bl>=GOALS){B.w=B.a>=GOALS?1:2;B.wt=WINT;}else B.kt=KO;
+          if(bot){bot.x=0;bot.z=6;bot.vx=bot.vz=0;}
         }else{B.z=clampN(B.z,-D+0.4,D-0.4);B.vz=-B.vz*0.7;}
       }
-      netSend({x:Math.round(x*100)/100,y:Math.round(y*100)/100,z:Math.round(z*100)/100,f:Math.round(face*100)/100,side:side,b:{x:Math.round(B.x*100)/100,y:Math.round(B.y*100)/100,z:Math.round(B.z*100)/100,vx:Math.round(B.vx*10)/10,vz:Math.round(B.vz*10)/10,vy:Math.round(B.vy*10)/10,a:B.a,bl:B.bl},kick:null});
+      netSend({x:Math.round(x*100)/100,y:Math.round(y*100)/100,z:Math.round(z*100)/100,f:Math.round(face*100)/100,side:side,b:{x:Math.round(B.x*100)/100,y:Math.round(B.y*100)/100,z:Math.round(B.z*100)/100,vx:Math.round(B.vx*10)/10,vz:Math.round(B.vz*10)/10,vy:Math.round(B.vy*10)/10,a:B.a,bl:B.bl,k:B.k,kt:Math.round(B.kt*10)/10,w:B.w,wt:Math.round(B.wt*10)/10},kick:null});
     }else{
       wasHost=false;
       /* the kick rides along with my position (sending it on its own could be replaced by the next update and lost) */
@@ -8849,25 +8876,39 @@ GAMES.ball=(function(){
     R3.flush();
     netTags(tags);
     var A=b?b.a:0,Bl=b?b.bl:0;
-    txt(A+' - '+Bl,V.w/2,100,28,'#fff');
+    var ck=netCompact();
+    if(!(b&&b.w)){
+      txt(String(A),V.w/2-26,100,28,'#ff8a7a','right');txt('-',V.w/2,100,28,'#fff');txt(String(Bl),V.w/2+26,100,28,'#9db8ff','left');
+      txt('First to '+GOALS,V.w/2,ck?118:124,11,'#fff');
+    }
     txt(botsOn()&&!NET.blocked?(NET.room?'Playing with a bot until friends join':'Playing with a bot'):netStatus(),12,24,11,P.sun,'left');
-    txt(side?'Blue net is yours':'Red net is yours',V.w-12,24,11,'#fff','right');
-    txt(botsOn()?'Kick the ball into the blue net':'Run into the ball to kick it',V.w/2,netCompact()?V.h-14:Math.max(V.h*0.12,46),netCompact()?11:12,'#fff');
+    txt(side?'You are Blue':'You are Red',V.w-12,24,12,side?'#9db8ff':'#ff8a7a','right');
+    var mid=V.w/2;
+    if(b&&b.w){
+      var won=(b.w===1)===(side===0),wy=ck?84:V.h*0.3;
+      ctx.fillStyle='rgba(20,33,61,0.6)';ctx.fillRect(0,wy-22,V.w,ck?V.h-wy+22:120);
+      txt(won?'YOU WIN!':(b.w===1?'Red':'Blue')+' team wins',mid,wy+4,ck?24:32,won?P.sun:'#fff');
+      txt((b.w===1?'Red':'Blue')+' scored '+GOALS+' goals',mid,wy+(ck?30:42),ck?13:16,'#fff');
+      txt('New match in '+Math.max(1,Math.ceil(b.wt)),mid,wy+(ck?50:72),ck?12:15,'#dfe6ff');
+    }
+    else if(b&&b.kt>0)txt('Kickoff in '+Math.ceil(b.kt),mid,ck?V.h-14:150,ck?16:22,P.sun);
+    else txt(side?'Kick the ball into the red net':'Kick the ball into the blue net',mid,ck?V.h-14:Math.max(V.h*0.12,46),ck?11:12,'#fff');
     PAD.draw();CAM3.draw(false);
     if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
   /* test bots: play for real */
   g.tbp=function(tb,dt){
     var b=curB();if(!b){tb.only([]);return [0,'goals'];}
-    var ux=0-b.x,uz=D-b.z,ul=Math.hypot(ux,uz)||1;ux/=ul;uz/=ul;
+    var gz=side?-D:D,sg=side?-1:1;
+    var ux=0-b.x,uz=gz-b.z,ul=Math.hypot(ux,uz)||1;ux/=ul;uz/=ul;
     var rx=b.x-x,rz=b.z-z,along=rx*ux+rz*uz,perp=Math.abs(rx*uz-rz*ux),d;
     if(along>0.2&&perp<0.55)d=[rx,rz];
     else{
       var sx=b.x-ux*1.3,sz=b.z-uz*1.3;d=[sx-x,sz-z];
-      if(along<0.3&&Math.hypot(rx,rz)<2.2)d=[d[0]+(x<b.x?-1.6:1.6),d[1]-1.2];
+      if(along<0.3&&Math.hypot(rx,rz)<2.2)d=[d[0]+(x<b.x?-1.6:1.6),d[1]-1.2*sg];
     }
     tbWalk(tb,d[0],d[1]);
-    return [b.a,'goals'];
+    return [side?b.bl:b.a,'goals'];
   };
   return g;
 })();
