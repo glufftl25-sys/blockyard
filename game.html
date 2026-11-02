@@ -1153,6 +1153,8 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
 'use strict';
 var $=function(id){return document.getElementById(id);};
 var GAMES={};
+/* hub best scores for newer games: each game's own section adds HUBBEST['best-<id>']='by.<id>' so nobody edits refreshHub's list */
+var HUBBEST={};
 /* SOLO: this copy is not running inside Claude, so accounts live in the browser and
    an account code is what carries progress between devices. */
 var SOLO=!(window.claude&&window.claude.use);
@@ -1297,7 +1299,10 @@ function closeGame(){
 function refreshHub(){
   if(typeof renderContinue==='function')renderContinue();
   var bst={'best-gems':'by.gems','best-hop':'by.hop','best-bust':'by.bust','best-snake':'by.snake','best-stack':'by.stack','best-merge':'by.merge','best-dive':'by.dive','best-sled':'by.sled','best-hoops':'by.hoops','best-memo':'by.memo','best-whack':'by.whack','best-tower':'by.tower','best-frog':'by.frog','best-flap':'by.flap','best-drop':'by.drop','best-maze':'by.maze','best-echo':'by.echo','best-lights':'by.lights','best-catch':'by.catch','best-rocks':'by.rocks','best-bubble':'by.bubble','best-dig':'by.dig','best-sort':'by.sort','best-cave':'by.cave','best-range':'by.range','best-road':'by.road','best-beat':'by.beat','best-pipe':'by.pipe'};
+  /* games added later register their hub best score themselves: HUBBEST['best-<id>']='by.<id>' (or a function returning the text) */
+  Object.keys(HUBBEST).forEach(function(id){if(!bst[id]&&typeof HUBBEST[id]==='string')bst[id]=HUBBEST[id];});
   Object.keys(bst).forEach(function(id){var e=$(id);if(e)e.textContent='Best '+lsGet(bst[id],0);});
+  Object.keys(HUBBEST).forEach(function(id){var f=HUBBEST[id],e=$(id);if(e&&typeof f==='function'){try{e.textContent=f();}catch(_){}}});
   if($('best-golf')){var gf=lsGet('by.golf',0);$('best-golf').textContent=gf?('Best '+gf+' shots'):'Not played';}
   if($('best-slide')){var sl=lsGet('by.slide.'+lsGet('slide.n',3),0);$('best-slide').textContent=sl?('Best '+sl+' moves'):'Not solved';}
   if($('best-sweep')){var sw=lsGet('by.sweep.'+lsGet('sweep.w',8),0);$('best-sweep').textContent=sw?('Best '+sw+'s'):'Not cleared';}
