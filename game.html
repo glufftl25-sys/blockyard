@@ -3551,26 +3551,55 @@ GAMES.hill=(function(){
   return g;
 })();
 
+/* ===== Daily Challenge (Sky Hop, Block Drop, Maze Run): the same layout for everyone on a given day, seeded from the
+   device's date (no network). Today's best lives on the device in one 'by.day.<id>' key, so cheats block it like any best.
+   The normal best is saved as always. A pill on the game-over screen (and Sky Hop's start screen) turns it on and off. ===== */
+function dayStr(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function dayRng(salt){
+  var h=2166136261,k=dayStr()+'|'+salt,i;
+  for(i=0;i<k.length;i++)h=Math.imul(h^k.charCodeAt(i),16777619);
+  return function(){h=(h+0x6D2B79F5)|0;var t=Math.imul(h^(h>>>15),h|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};
+}
+function dayBest(id){var o=lsGet('by.day.'+id,null);return (o&&o.d===dayStr())?(o.s||0):0;}
+function daySave(id,s){if(s>0&&s>dayBest(id)){lsSet('by.day.'+id,{d:dayStr(),s:s});return dayBest(id)===s;}return false;}
+function dayOn(id){return !!lsGet(id+'.daily',false);}
+function daySet(id,on){lsSet(id+'.daily',!!on);}
+/* the toggle pill: draws it centred on cx,cy and returns its box for taps */
+function dayPill(cx,cy,on){
+  var w=230,h=34,x=cx-w/2,y=cy-h/2;
+  box(x,y,w,h,on?P.sun:'#2a3558');
+  ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(x+1.5,y+1.5,w-3,h-3);
+  txt((on?'★ Daily challenge: ON':'☆ Daily challenge: OFF'),cx,cy+1,15,on?P.ink:'#fff');
+  return {x:x,y:y,w:w,h:h};
+}
+function dayHit(r,x,y){return !!r&&x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h;}
+
 /* ===== Sky Hop (2D): bounce up an endless tower of platforms. Steer with a finger or the left/right keys. ===== */
 GAMES.hop=(function(){
   var g={kind:'canvas',title:'Sky Hop',lw:360};
+  /* fixed world height so landscape screens see enough sky; platforms stay in a centre column (same width on every
+     landscape screen, so the daily tower matches) and the hopper wraps at the column edges */
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  var R=Math.random,daily=false,dBest=0,dNew=false,pill=null,CX=0,CWD=360;
+  function col(){CWD=Math.min(V.w,520);CX=(V.w-CWD)/2;}
   var GRAV=1500,BOUNCE=720,SPRING=1150,PW=64,PS=24;
   var st='ready',t=0,px=0,py=0,pvx=0,pvy=0,cam=0,top=0,startY=0,plats=[],score=0,best=0,newBest=false,overT=0,drag=null,keys={},sq=0,msg='',msgT=0,clouds=[];
   function addPlat(yy,extra){
-    var h=startY-yy,r=Math.random(),k='n';
+    var h=startY-yy,r=R(),k='n';
     if(extra)k='b';
     else if(h>900&&r<0.22)k='m';
     else if(r<0.09)k='s';
-    plats.push({x:10+Math.random()*(V.w-PW-20),y:yy,k:k,vx:k==='m'?(Math.random()<0.5?-1:1)*(50+Math.min(90,h/70)):0,gone:false,vy:0});
+    plats.push({x:CX+10+R()*(CWD-PW-20),y:yy,k:k,vx:k==='m'?(R()<0.5?-1:1)*(50+Math.min(90,h/70)):0,gone:false,vy:0});
   }
   function gen(){
     while(top>cam-80){
       var h=startY-top,gap=55+Math.min(95,h/40);
       top-=gap;addPlat(top,false);
-      if(h>600&&Math.random()<Math.min(0.4,h/5000))addPlat(top+gap*0.5,true);
+      if(h>600&&R()<Math.min(0.4,h/5000))addPlat(top+gap*0.5,true);
     }
   }
   function reset(){
+    col();daily=dayOn('hop');R=daily?dayRng('hop'):Math.random;dBest=daily?dayBest('hop'):0;dNew=false;pill=null;
     st='ready';t=0;plats=[];score=0;newBest=false;overT=0;pvx=0;pvy=0;sq=0;msg='';msgT=0;keys={};drag=null;
     startY=V.h-30;top=startY;cam=0;px=V.w/2;py=startY;
     plats.push({x:0,y:startY,k:'base',vx:0,gone:false,vy:0});
@@ -3580,12 +3609,14 @@ GAMES.hop=(function(){
   function over(){
     st='over';overT=0;
     if(score>best){best=score;newBest=true;lsSet('by.hop',best);}
+    if(daily&&daySave('hop',score)){dBest=score;dNew=true;}
     STAT.max('hop',score);
     beep(160,0.5,'sawtooth',0.07,0.4);
   }
   g.start=function(){best=lsGet('by.hop',0);reset();};
-  g.resize=function(){if(st==='ready')reset();};
+  g.resize=function(){if(st==='ready'){reset();return;}var o=CX;col();var d=CX-o;plats.forEach(function(p){if(p.k!=='base')p.x+=d;});px+=d;};
   g.down=function(x,yy,id){
+    if(st!=='run'&&dayHit(pill,x,yy)){daySet('hop',!daily);reset();beep(660,0.06,'square',0.04,1.4);return;}
     if(st==='over'){if(overT>0.6)reset();return;}
     if(st==='ready'){st='run';pvy=-BOUNCE;}
     drag={id:id,x:x};
@@ -3604,14 +3635,14 @@ GAMES.hop=(function(){
     var i,p;
     for(i=0;i<plats.length;i++){
       p=plats[i];
-      if(p.k==='m'){p.x+=p.vx*dt;if(p.x<4){p.x=4;p.vx=-p.vx;}if(p.x>V.w-PW-4){p.x=V.w-PW-4;p.vx=-p.vx;}}
+      if(p.k==='m'){p.x+=p.vx*dt;if(p.x<CX+4){p.x=CX+4;p.vx=-p.vx;}if(p.x>CX+CWD-PW-4){p.x=CX+CWD-PW-4;p.vx=-p.vx;}}
       if(p.gone){p.vy+=900*dt;p.y+=p.vy*dt;}
     }
     if(st!=='run')return;
     var kx=((keys.KeyA||keys.ArrowLeft)?-1:0)+((keys.KeyD||keys.ArrowRight)?1:0);
     if(kx)pvx=kx*300;else if(drag)pvx=clampN((drag.x-px)*7,-420,420);else pvx*=Math.pow(0.02,dt);
     px+=pvx*dt;
-    if(px<-PS/2)px+=V.w+PS;if(px>V.w+PS/2)px-=V.w+PS;
+    if(px<CX-PS/2)px+=CWD+PS;if(px>CX+CWD+PS/2)px-=CWD+PS;
     var prev=py;pvy+=GRAV*dt;py+=pvy*dt;
     if(pvy>0){
       for(i=0;i<plats.length;i++){
@@ -3649,13 +3680,15 @@ GAMES.hop=(function(){
     ctx.fillStyle=gr;ctx.fillRect(0,0,V.w,V.h);
     ctx.fillStyle='rgba(255,255,255,.75)';
     clouds.forEach(function(c){var cy=((c.y-cam*c.s)%(V.h+60)+V.h+60)%(V.h+60)-30;ctx.fillRect(c.x,cy,60,14);ctx.fillRect(c.x+14,cy-10,34,12);});
+    if(CX>0){ctx.fillStyle='rgba(20,33,61,.16)';ctx.fillRect(0,0,CX,V.h);ctx.fillRect(CX+CWD,0,V.w-CX-CWD,V.h);}
     plats.forEach(plat);
     var sy=py-cam,s=sq>0?0.82:1,w=PS*(2-s),h=PS*s;
     ctx.fillStyle=P.ink;ctx.fillRect(px-w/2-3,sy-h-3,w+6,h+6);
     ctx.fillStyle=P.sun;ctx.fillRect(px-w/2,sy-h,w,h);
     ctx.fillStyle=P.ink;ctx.fillRect(px-6+(pvx>40?3:pvx<-40?-3:0),sy-h+7,4,5);ctx.fillRect(px+3+(pvx>40?3:pvx<-40?-3:0),sy-h+7,4,5);
     txt(String(score),12,26,26,'#fff','left');
-    txt('BEST '+best,12,50,13,'#fff','left');
+    txt('BEST '+best,12,50,Math.max(13,10*V.css),'#fff','left');
+    if(daily)txt('Daily '+dayStr()+' \u00b7 Today\'s best '+dBest,12,70,Math.max(13,10*V.css),P.sun,'left');
     if(msgT>0&&msg)txt(msg,V.w/2,90,18,P.sun);
     if(st==='ready'){
       ctx.fillStyle='rgba(20,33,61,.6)';ctx.fillRect(V.w/2-140,V.h*0.28,280,130);
@@ -3663,6 +3696,7 @@ GAMES.hop=(function(){
       txt('Drag left and right, or use the keys',V.w/2,V.h*0.28+64,14,'#fff');
       txt('Bounce as high as you can!',V.w/2,V.h*0.28+86,14,'#fff');
       txt('TAP TO START',V.w/2,V.h*0.28+112,18,P.sun);
+      pill=dayPill(V.w/2,V.h*0.28+160,daily);
     }
     if(st==='over'){
       ctx.fillStyle='rgba(20,33,61,.6)';ctx.fillRect(V.w/2-140,V.h*0.28,280,140);
@@ -3670,6 +3704,8 @@ GAMES.hop=(function(){
       txt('Height '+score,V.w/2,V.h*0.28+66,20,'#fff');
       txt(newBest?'New best!':'Best '+best,V.w/2,V.h*0.28+94,16,P.sun);
       if(overT>0.6)txt('Tap to play again',V.w/2,V.h*0.28+120,15,'#fff');
+      if(daily)txt(dNew?'New today\'s best!':'Today\'s best '+dBest,V.w/2,V.h*0.28+160,15,P.sun);
+      pill=dayPill(V.w/2,V.h*0.28+(daily?196:170),daily);
     }
   };
   /* test bots: play for real */
@@ -9528,6 +9564,7 @@ GAMES.flap=(function(){
 GAMES.drop=(function(){
   var g={kind:'canvas',title:'Block Drop',lw:400};
   var CW=10,CH=18,S,ox,oy,grid,piece,px,py,pr,nextP,score,lines,lv,best,st,t,fall,newBest,hold;
+  var R=Math.random,daily=false,dBest=0,dNew=false,pill=null;
   var SHAPES=[
     [[[1,1,1,1]],P.sky],
     [[[1,1],[1,1]],P.sun],
@@ -9544,8 +9581,8 @@ GAMES.drop=(function(){
   }
   function shapeAt(p,r){var m=SHAPES[p][0],i;for(i=0;i<r;i++)m=rot(m);return m;}
   function newPiece(){
-    piece=nextP==null?Math.floor(Math.random()*7):nextP;
-    nextP=Math.floor(Math.random()*7);pr=0;
+    piece=nextP==null?Math.floor(R()*7):nextP;
+    nextP=Math.floor(R()*7);pr=0;
     var m=shapeAt(piece,0);
     px=Math.floor((CW-m[0].length)/2);py=0;
     if(hit(px,py,pr))end();
@@ -9576,6 +9613,7 @@ GAMES.drop=(function(){
   }
   function reset(){
     grid=[];for(var j=0;j<CH;j++)grid.push(new Array(CW).fill(0));
+    daily=dayOn('drop');R=daily?dayRng('drop'):Math.random;dBest=daily?dayBest('drop'):0;dNew=false;pill=null;
     score=0;lines=0;lv=1;st='run';t=0;fall=0;nextP=null;newBest=false;hold=0;newPiece();
   }
   function metrics(){var w=vWide();oy=w?34:70;S=Math.max(8,Math.min(Math.floor((V.w-20)/CW),Math.floor((V.h-oy-(w?30:80))/CH)));ox=(V.w-S*CW)/2;}
@@ -9592,6 +9630,7 @@ GAMES.drop=(function(){
   function soft(){if(st==='run'){if(!hit(px,py+1,pr)){py++;score++;}else lock();}}
   function hard(){if(st!=='run')return;while(!hit(px,py+1,pr)){py++;score+=2;}lock();}
   g.down=function(x,y){
+    if(st==='over'&&dayHit(pill,x,y)){daySet('drop',!daily);reset();beep(660,0.06,'square',0.04,1.4);return;}
     if(st==='over'){if(t>0.7)reset();return;}
     if(y<oy){turn();return;}
     if(y>oy+S*CH){hard();return;}
@@ -9610,7 +9649,7 @@ GAMES.drop=(function(){
     else if(c==='ArrowDown'||c==='KeyS')soft();
     else if(c==='Space')hard();
   };
-  function end(){st='over';t=0;beep(160,0.5,'sawtooth',0.06,0.4);if(score>best){best=score;newBest=true;lsSet('by.drop',best);}}
+  function end(){st='over';t=0;beep(160,0.5,'sawtooth',0.06,0.4);if(score>best){best=score;newBest=true;lsSet('by.drop',best);}if(daily&&daySave('drop',score)){dBest=score;dNew=true;}}
   g.update=function(dt){
     t+=dt;
     if(st!=='run')return;
@@ -9638,6 +9677,7 @@ GAMES.drop=(function(){
     txt('Lv '+lv,V.w/2,20,16,P.sun);
     txt('Best '+best,V.w-10,20,15,P.sun,'right');
     txt('Lines '+lines,10,44,14,'#9fb0d8','left');
+    if(daily&&vWide())txt('Daily \u00b7 Today\'s best '+dBest,10,68,Math.max(13,10*V.css),P.sun,'left');
     if(nextP!=null){
       txt('Next',V.w-74,44,Math.max(13,10*V.css),'#9fb0d8','left');
       var nm=shapeAt(nextP,0),k=10;
@@ -9650,6 +9690,8 @@ GAMES.drop=(function(){
       txt('Score '+score,V.w/2,V.h*0.4+42,22,'#fff');
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
+      if(daily)txt(dNew?'New today\'s best!':'Today\'s best '+dBest,V.w/2,V.h*0.4+136,15,P.sun);
+      pill=dayPill(V.w/2,V.h*0.4+(daily?172:146),daily);
     }
   };
   /* test bots: play for real */
@@ -9674,6 +9716,7 @@ GAMES.drop=(function(){
 GAMES.maze=(function(){
   var g={kind:'canvas',title:'Maze Run',lw:400};
   var W2,H2,cells,S,ox,oy,cx,cy,level,score,best,st,t,left,newBest,drag,msg,msgT;
+  var R=Math.random,daily=false,dBest=0,dNew=false,pill=null;
   function idx(x,y){return y*W2+x;}
   function build(){
     W2=Math.min(19,7+level*2);H2=Math.min(25,9+level*2);
@@ -9687,7 +9730,7 @@ GAMES.maze=(function(){
       if(y<H2-1&&!cells[idx(x,y+1)].v)opt.push('s');
       if(x>0&&!cells[idx(x-1,y)].v)opt.push('w');
       if(!opt.length){stack.pop();continue;}
-      var d=opt[Math.floor(Math.random()*opt.length)],nx=x,ny=y;
+      var d=opt[Math.floor(R()*opt.length)],nx=x,ny=y;
       if(d==='n'){ny--;cells[idx(x,y)].n=0;cells[idx(nx,ny)].s=0;}
       else if(d==='e'){nx++;cells[idx(x,y)].e=0;cells[idx(nx,ny)].w=0;}
       else if(d==='s'){ny++;cells[idx(x,y)].s=0;cells[idx(nx,ny)].n=0;}
@@ -9699,7 +9742,7 @@ GAMES.maze=(function(){
   function metrics(){S=Math.max(6,Math.min(Math.floor((V.w-24)/W2),Math.floor((V.h-130)/H2)));ox=(V.w-S*W2)/2;oy=80;}
   g.pre=function(w,h){g.lw=tallLw(w,h);};
   function reset(hard){
-    if(hard){level=1;score=0;newBest=false;}
+    if(hard){level=1;score=0;newBest=false;daily=dayOn('maze');R=daily?dayRng('maze'):Math.random;dBest=daily?dayBest('maze'):0;dNew=false;pill=null;}
     st='run';t=0;left=30+level*6;msg='';msgT=0;drag=null;build();
   }
   g.start=function(){best=lsGet('by.maze',0);reset(true);};
@@ -9720,7 +9763,10 @@ GAMES.maze=(function(){
       left=30+level*6;build();
     }
   }
-  g.down=function(x,y,id){drag={x:x,y:y,id:id};if(st==='over'&&t>0.7)reset(true);};
+  g.down=function(x,y,id){
+    if(st==='over'&&dayHit(pill,x,y)){daySet('maze',!daily);reset(true);beep(660,0.06,'square',0.04,1.4);return;}
+    drag={x:x,y:y,id:id};if(st==='over'&&t>0.7)reset(true);
+  };
   g.move=function(x,y,id){
     if(!drag||drag.id!==id)return;
     var dx=x-drag.x,dy=y-drag.y;
@@ -9741,7 +9787,7 @@ GAMES.maze=(function(){
     t+=dt;if(msgT>0)msgT-=dt;
     if(st!=='run')return;
     left-=dt;
-    if(left<=0){left=0;st='over';t=0;beep(160,0.5,'sawtooth',0.06,0.4);if(score>best){best=score;newBest=true;lsSet('by.maze',best);}}
+    if(left<=0){left=0;st='over';t=0;beep(160,0.5,'sawtooth',0.06,0.4);if(score>best){best=score;newBest=true;lsSet('by.maze',best);}if(daily&&daySave('maze',score)){dBest=score;dNew=true;}}
   };
   g.draw=function(){
     ctx.fillStyle='#141d38';ctx.fillRect(0,0,V.w,V.h);
@@ -9766,13 +9812,15 @@ GAMES.maze=(function(){
     box(bx,46,bw*fr,14,fr<0.25?P.brick:P.grass);
     txt(Math.ceil(left)+'s',V.w/2,53,Math.max(11,10*V.css),'#fff');
     if(msgT>0)txt(msg,V.w/2,V.h-30,22,P.sun);
-    else txt('Swipe to move',V.w/2,V.h-20,14,'#9fb0d8');
+    else txt(daily?'Daily '+dayStr()+' \u00b7 Today\'s best '+dBest:'Swipe to move',V.w/2,V.h-20,14,daily?P.sun:'#9fb0d8');
     if(st==='over'){
       ctx.fillStyle='rgba(20,29,56,.85)';ctx.fillRect(0,0,V.w,V.h);
       txt('TIME UP',V.w/2,V.h*0.4,32,P.brick);
       txt('Score '+score,V.w/2,V.h*0.4+42,22,'#fff');
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
+      if(daily)txt(dNew?'New today\'s best!':'Today\'s best '+dBest,V.w/2,V.h*0.4+136,15,P.sun);
+      pill=dayPill(V.w/2,V.h*0.4+(daily?172:146),daily);
     }
   };
   /* test bots: play for real */
