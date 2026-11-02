@@ -1,6 +1,6 @@
 /* Blockyard Arcade app: always fetch the newest game first, and keep a copy for playing offline. */
 var CACHE = 'blockyard-app-1';
-var CORE = ['game.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+var CORE = ['game.html', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'site/favicon.svg'];
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
@@ -26,9 +26,16 @@ self.addEventListener('fetch', function (e) {
   if (req.method !== 'GET') return;
   var url = new URL(req.url);
   if (url.origin === location.origin) {
-    /* the game itself: newest from the internet first, the saved copy when offline */
-    e.respondWith(fetch(url.href, { cache: 'no-store' }).then(function (res) { return keep(url.href, res); }).catch(function () {
-      return caches.match(url.href, { ignoreSearch: true }).then(function (hit) { return hit || caches.match('game.html'); });
+    /* the game and the site: newest from the internet first, the saved copy when offline.
+       One saved copy per file (the ?query is left out), so the cache does not grow. */
+    var key = url.origin + url.pathname;
+    e.respondWith(fetch(url.href, { cache: 'no-store' }).then(function (res) { return keep(key, res); }).catch(function () {
+      return caches.match(key, { ignoreSearch: true }).then(function (hit) {
+        if (hit) return hit;
+        /* only a page opens the saved game; a missing picture or file stays missing */
+        if (req.mode === 'navigate') return caches.match(/\/$/.test(url.pathname) ? 'index.html' : 'game.html').then(function (p) { return p || caches.match('game.html'); });
+        return Response.error();
+      });
     }));
     return;
   }
