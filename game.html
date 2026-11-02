@@ -6860,11 +6860,11 @@ GAMES.pac=(function(){
     pop.forEach(function(p){txt(p.s,ox+(p.x+0.5)*T,oy+(p.y+0.5)*T-(0.9-p.t)*20,14,'#7ff8ff');});
     /* hud */
     txt('Score '+score,12,22,18,'#fff','left');
-    txt('Best '+Math.max(best,score),12,42,13,P.sun,'left');
+    txt('Best '+Math.max(best,score),12,42,Math.max(13,10*V.css),P.sun,'left');
     txt('Level '+level,V.w-12,22,16,'#fff','right');
     for(var i=0;i<lives;i++){ctx.fillStyle=SKIN.col('#ffd23f');ctx.fillRect(V.w-24-i*20,34,14,14);ctx.strokeStyle='#14213d';ctx.lineWidth=2;ctx.strokeRect(V.w-24-i*20,34,14,14);}
     var my=oy+GH*T;
-    if(st==='ready'){txt(t<0.1&&level===1&&score===0?'PACBLOX':'READY!',V.w/2,oy+9.5*T,24,P.sun);if(level===1&&score===0)txt('Swipe or tap the arrows. Eat every bit!',V.w/2,oy-12,13,'#fff');}
+    if(st==='ready'){txt(t<0.1&&level===1&&score===0?'PACBLOX':'READY!',V.w/2,oy+9.5*T,24,P.sun);if(level===1&&score===0)txt('Swipe or tap the arrows. Eat every bit!',V.w/2,oy-12,Math.max(13,10*V.css),'#fff');}
     if(st==='clear'||(msgT>0&&st!=='ready'))txt(msg,V.w/2,oy+9.5*T,24,P.sun);
     if(st==='over'){ctx.fillStyle='rgba(14,14,34,0.7)';ctx.fillRect(0,0,V.w,V.h);txt('GAME OVER',V.w/2,V.h*0.36,36,P.brick);txt('Score '+score,V.w/2,V.h*0.36+44,22,'#fff');txt(newBest?'NEW BEST!':'Best '+best,V.w/2,V.h*0.36+74,17,newBest?P.sun:'#fff');if(overT>0.7)txt('Tap to play again',V.w/2,V.h*0.36+108,17,'#fff');}
     if(st!=='over')L.pad.forEach(function(p){
@@ -7826,7 +7826,7 @@ GAMES.snake=(function(){
     pop.forEach(function(p){txt(p.s,ox+(p.x+0.5)*cell,oy+(p.y+0.5)*cell-(0.8-p.t)*22,13,P.sun);});
     txt('Score '+score,12,24,18,'#fff','left');
     txt('Best '+Math.max(best,score),V.w-12,24,14,P.sun,'right');
-    txt('Length '+sn.length,V.w-12,46,12,'#fff','right');
+    txt('Length '+sn.length,V.w-12,46,Math.max(12,10*V.css),'#fff','right');
     if(st==='ready'){txt('BLOCK SNAKE',V.w/2,V.h*0.45,30,P.sun);txt('Swipe to turn',V.w/2,V.h*0.45+34,16,'#fff');}
     if(st==='over'){
       ctx.fillStyle='rgba(18,34,58,0.78)';ctx.fillRect(0,0,V.w,V.h);
@@ -7967,8 +7967,8 @@ GAMES.stack=(function(){
       });
     }
     txt('Score '+score,12,22,16,'#fff','left');
-    txt('Lines '+lines+'  Lv '+level,12,42,12,P.sun,'left');
-    txt('Next',V.w-40,22,12,'#fff');
+    txt('Lines '+lines+'  Lv '+level,12,42,Math.max(12,10*V.css),P.sun,'left');
+    txt('Next',V.w-40,22,Math.max(12,10*V.css),'#fff');
     cells(nx===undefined?0:nx,0).forEach(function(p){
       box(V.w-62+p[0]*11,32+p[1]*11,10,10,COLS[nx||0]);
     });
@@ -7977,7 +7977,7 @@ GAMES.stack=(function(){
       txt('STACK OVER',V.w/2,V.h*0.36,32,P.brick);txt('Score '+score,V.w/2,V.h*0.36+42,22,'#fff');
       txt(newBest?'NEW BEST!':'Best '+best,V.w/2,V.h*0.36+72,16,newBest?P.sun:'#fff');
       if(overT>0.6)txt('Tap to play again',V.w/2,V.h*0.36+104,16,'#fff');
-    }else txt('Swipe: move · tap: spin · swipe down: drop',V.w/2,V.h-22,12,'#fff');
+    }else txt('Swipe: move · tap: spin · swipe down: drop',V.w/2,V.h-22,Math.max(12,10*V.css),'#fff');
   };
   /* test bots: play for real */
   g.tbp=function(tb,dt){
@@ -8073,7 +8073,7 @@ GAMES.merge=(function(){
     }
     txt('Score '+score,12,26,20,'#fff','left');
     txt('Best '+Math.max(best,score),V.w-12,26,15,P.sun,'right');
-    txt('Swipe to slide the blocks',V.w/2,oy+bw+30,13,'#fff');
+    txt('Swipe to slide the blocks',V.w/2,oy+bw+30,Math.max(13,10*V.css),'#fff');
     if(msgT>0)txt(msg,V.w/2,oy-26,20,P.sun);
     if(st==='over'){
       ctx.fillStyle='rgba(26,31,54,0.8)';ctx.fillRect(0,0,V.w,V.h);
@@ -8998,9 +8998,9 @@ GAMES.hoops=(function(){
       ctx.fillStyle=pw2>0.85?P.brick:P.sun;ctx.fillRect(V.w/2-58,V.h-26,116*pw2,8);
     }
     txt('Score '+score,12,24,19,'#fff','left');
-    txt('Best '+Math.max(best,score),12,46,12,P.sun,'left');
+    txt('Best '+Math.max(best,score),12,46,Math.max(12,10*V.css),P.sun,'left');
     txt(Math.ceil(timeLeft)+'s',V.w-12,24,19,timeLeft<10?P.brick:'#fff','right');
-    if(streak>1)txt('Streak '+streak,V.w-12,46,13,P.sun,'right');
+    if(streak>1)txt('Streak '+streak,V.w-12,46,Math.max(13,10*V.css),P.sun,'right');
     if(msgT>0)txt(msg,V.w/2,hy+70,22,P.sun);
     if(st==='ready')txt('Flick up at the hoop!',V.w/2,V.h-110,15,'#fff');
     if(st==='over'){
@@ -9225,7 +9225,7 @@ GAMES.whack=(function(){
     });
     pops.forEach(function(p){txt(p.s,p.x,p.y,16,P.sun);});
     txt('Score '+score,12,24,19,'#fff','left');
-    txt('Best '+Math.max(best,score),12,46,12,P.sun,'left');
+    txt('Best '+Math.max(best,score),12,46,Math.max(12,10*V.css),P.sun,'left');
     txt(Math.ceil(timeLeft)+'s',V.w-12,24,19,timeLeft<10?P.brick:'#fff','right');
     for(var i=0;i<lives;i++)heart(V.w-28-i*22,38,3,P.brick);
     if(combo>1)txt('Combo x'+Math.min(4,combo),V.w/2,V.h*0.22,16,P.sun);
@@ -9430,7 +9430,7 @@ GAMES.pong=(function(){
     txt(bot?'Bot':'Player 2',12,24,14,P.brick,'left');
     txt('You',12,V.h-22,14,P.blue,'left');
     ctx.fillStyle='rgba(255,255,255,0.14)';ctx.fillRect(V.w-104,10,96,28);
-    txt(bot?'vs Bot':'2 Players',V.w-56,24,13,'#fff');
+    txt(bot?'vs Bot':'2 Players',V.w-56,24,Math.max(13,10*V.css),'#fff');
     if(msgT>0)txt(msg,V.w/2,V.h/2-40,20,P.sun);
     if(serveT>0&&st==='run')txt('First to '+WIN,V.w/2,V.h/2+34,16,'#fff');
     if(st==='over'){
@@ -9811,11 +9811,11 @@ GAMES.drop=(function(){
     txt('Best '+best,V.w-10,20,15,P.sun,'right');
     txt('Lines '+lines,10,44,14,'#9fb0d8','left');
     if(nextP!=null){
-      txt('Next',V.w-74,44,13,'#9fb0d8','left');
+      txt('Next',V.w-74,44,Math.max(13,10*V.css),'#9fb0d8','left');
       var nm=shapeAt(nextP,0),k=10;
       for(j=0;j<nm.length;j++)for(i=0;i<nm[j].length;i++)if(nm[j][i])box(V.w-40+i*k,38+j*k,k,k,SHAPES[nextP][1]);
     }
-    txt('Tap sides to move · middle to turn · below to drop',V.w/2,V.h-12,12,'#9fb0d8');
+    txt('Tap sides to move · middle to turn · below to drop',V.w/2,V.h-12,Math.max(12,10*V.css),'#9fb0d8');
     if(st==='over'){
       ctx.fillStyle='rgba(15,24,50,.85)';ctx.fillRect(0,0,V.w,V.h);
       txt('STACK FULL',V.w/2,V.h*0.4,30,P.brick);
@@ -9936,7 +9936,7 @@ GAMES.maze=(function(){
     var fr=clampN(left/(30+level*6),0,1),bw=Math.min(V.w-40,Math.max(S*W2,360)),bx=(V.w-bw)/2;
     box(bx,46,bw,14,'#2a3558');
     box(bx,46,bw*fr,14,fr<0.25?P.brick:P.grass);
-    txt(Math.ceil(left)+'s',V.w/2,53,11,'#fff');
+    txt(Math.ceil(left)+'s',V.w/2,53,Math.max(11,10*V.css),'#fff');
     if(msgT>0)txt(msg,V.w/2,V.h-30,22,P.sun);
     else txt('Swipe to move',V.w/2,V.h-20,14,'#9fb0d8');
     if(st==='over'){
@@ -10201,7 +10201,7 @@ GAMES.lights=(function(){
     txt('Best '+best,V.w-10,22,15,P.sun,'right');
     var wd=vWide();
     txt('Moves '+moves,wd?ox/2:V.w/2,wd?V.h/2:56,wd?20:15,'#9fb0d8');
-    txt('A tap flips that light and its neighbours',V.w/2,V.h-20,13,'#9fb0d8');
+    txt('A tap flips that light and its neighbours',V.w/2,V.h-20,Math.max(13,10*V.css),'#9fb0d8');
     if(msgT>0)txt(msg,wd?V.w-ox/2:V.w/2,wd?V.h/2:84,20,P.grass);
     if(st==='over'){
       ctx.fillStyle='rgba(14,23,48,.86)';ctx.fillRect(0,0,V.w,V.h);
@@ -10314,7 +10314,7 @@ GAMES.tictac=(function(){
     var wd=vWide(),s=sw(),lx=s.x+s.w/2,rx=wd?V.w-ox/2:V.w/2,ry=wd?V.h/2:oy+S*3+34;
     ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(s.x,s.y,s.w,s.h);
     txt(bot?'vs Bot':'2 Players',lx,s.y+15,16,'#fff');
-    txt('Tap here to switch',lx,s.y+42,12,'#9fb0d8');
+    txt('Tap here to switch',lx,s.y+42,Math.max(12,10*V.css),'#9fb0d8');
     ctx.fillStyle='#223059';ctx.fillRect(ox,oy,S*3,S*3);
     ctx.strokeStyle='#5f72a8';ctx.lineWidth=5;
     for(var k=1;k<3;k++){
@@ -10835,7 +10835,7 @@ GAMES.sweep=(function(){
     if(st==='run'&&left===MINES){
       st='over';won=true;t=0;
       beep(920,0.3,'square',0.05,1.8);
-      if(!best||secs<best){best=Math.ceil(secs);newBest=true;lsSet('by.sweep.'+CW,best);}
+      var ws=Math.max(1,Math.floor(secs));if(!best||ws<best){best=ws;newBest=true;lsSet('by.sweep.'+CW,best);}
     }
   };
   g.key=function(c,d){if(d&&st!=='run'&&t>0.7)reset(CW);};
@@ -10850,7 +10850,7 @@ GAMES.sweep=(function(){
     });
     box(Rc.fl.x,Rc.fl.y,Rc.fl.w,Rc.fl.h,flagMode?P.brick:'#2a3558');
     txt(flagMode?'FLAG mode':'DIG mode',Rc.fl.x+Rc.fl.w/2,Rc.fl.y+Rc.fl.h/2,16,flagMode?'#fff':'#dbe4ff');
-    if(vWide())txt('Tap to switch',Rc.fl.x+Rc.fl.w/2,Rc.fl.y+Rc.fl.h+16,12,'#9fb0d8');
+    if(vWide())txt('Tap to switch',Rc.fl.x+Rc.fl.w/2,Rc.fl.y+Rc.fl.h+16,Math.max(12,10*V.css),'#9fb0d8');
     for(var j=0;j<CH;j++)for(var i=0;i<CW;i++){
       var c=at(i,j),x=ox+i*S,y=oy+j*S;
       if(!c.o){
@@ -10869,7 +10869,7 @@ GAMES.sweep=(function(){
     if(st==='over'){
       ctx.fillStyle='rgba(23,33,61,.86)';ctx.fillRect(0,0,V.w,V.h);
       txt(won?'ALL CLEAR!':'BOOM!',V.w/2,V.h*0.4,34,won?P.grass:P.brick);
-      if(won)txt(Math.floor(secs)+' seconds',V.w/2,V.h*0.4+42,20,'#fff');
+      if(won)txt(Math.max(1,Math.floor(secs))+' seconds',V.w/2,V.h*0.4+42,20,'#fff');
       if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
       if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:(won?80:46)),16,'#fff');
     }
@@ -11036,7 +11036,7 @@ GAMES.bubble=(function(){
     txt('Score '+score,10,22,16,'#fff','left');
     txt('Best '+best,V.w-10,22,15,P.sun,'right');
     txt('Next row in '+shotsLeft,V.w/2,22,14,'#9fb0d8');
-    txt('Drag to aim, let go to shoot',V.w/2,V.h-12,13,'#9fb0d8');
+    txt('Drag to aim, let go to shoot',V.w/2,V.h-12,Math.max(13,10*V.css),'#9fb0d8');
     if(msgT>0)txt(msg,V.w/2,46,20,P.sun);
     if(st==='over'){
       ctx.fillStyle='rgba(22,31,60,.86)';ctx.fillRect(0,0,V.w,V.h);
@@ -11310,8 +11310,8 @@ GAMES.sort=(function(){
     txt('Level '+level+'/10',V.w/2,24,18,P.sun);
     txt('Score '+score,10,24,15,'#fff','left');
     txt('Best '+best,V.w-10,24,14,P.sun,'right');
-    txt('Moves '+moves,V.w/2,46,13,'#9fb0d8');
-    txt('Tap a tube, then the one to pour into',V.w/2,V.h-16,13,'#9fb0d8');
+    txt('Moves '+moves,V.w/2,46,Math.max(13,10*V.css),'#9fb0d8');
+    txt('Tap a tube, then the one to pour into',V.w/2,V.h-16,Math.max(13,10*V.css),'#9fb0d8');
     if(msgT>0)txt(msg,V.w/2,V.h-42,20,P.grass);
     if(st==='over'){
       ctx.fillStyle='rgba(20,28,54,.86)';ctx.fillRect(0,0,V.w,V.h);
@@ -11649,12 +11649,12 @@ GAMES.sumo=(function(){
       ctx.fillStyle=P.ink;ctx.fillRect(p.x-8,p.y-5,5,5);ctx.fillRect(p.x+3,p.y-5,5,5);
     });
     ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(V.w-104,8,96,28);
-    txt(bot?'vs Bot':'2 Players',V.w-56,22,13,'#fff');
+    txt(bot?'vs Bot':'2 Players',V.w-56,22,Math.max(13,10*V.css),'#fff');
     txt(String(s1),30,24,24,P.sky);
     txt('-',52,24,18,'#fff');
     txt(String(s2),74,24,24,P.brick);
     txt('First to '+WIN,V.w/2,22,15,P.sun);
-    txt(bot?'Drag anywhere to shove':'Blue drags left half · Red drags right half',V.w/2,V.h-16,13,'#9fb0d8');
+    txt(bot?'Drag anywhere to shove':'Blue drags left half · Red drags right half',V.w/2,V.h-16,Math.max(13,10*V.css),'#9fb0d8');
     if(st==='point'){
       txt(msg,V.w/2,V.h*0.3,26,P.sun);
       if(t>0.8)txt('Tap for the next round',V.w/2,V.h*0.3+34,15,'#fff');
