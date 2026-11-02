@@ -2688,15 +2688,29 @@ GAMES.obby=(function(){
     txt(SEC[Math.max(1,S.sec)],12,46,13,P.sun,'left');
     txt(fmt(clock),V.w-12,24,19,'#fff','right');
     if(deaths)txt('Falls '+deaths,V.w-12,46,13,'#fff','right');
-    if(msgT>0&&st==='run')txt(msg,V.w/2,V.h*0.28,26,P.sun);
-    if(st==='ready'){
+    var ck=netCompact();
+    if(msgT>0&&st==='run')txt(msg,V.w/2,netMidY(0.28)+(ck?6:0),ck?20:26,P.sun);
+    if(st==='ready'&&ck){
+      txt('SKY OBBY',V.w/2,92,24,P.sun);
+      txt('Reach the golden flag!',V.w/2,114,14,'#fff');
+      txt('Left side: move · Right side: jump',V.w/2,132,12,'#fff');
+      if(best)txt('Best '+fmt(best),V.w/2,148,12,P.sun);
+    }
+    else if(st==='ready'){
       txt('SKY OBBY',V.w/2,V.h*0.22,34,P.sun);
       txt('Reach the golden flag!',V.w/2,V.h*0.22+34,18,'#fff');
       txt('Left side: move',V.w/2,V.h*0.22+62,15,'#fff');
       txt('Right side: jump',V.w/2,V.h*0.22+82,15,'#fff');
       if(best)txt('Best '+fmt(best),V.w/2,V.h*0.22+108,15,P.sun);
     }
-    if(st==='win'){
+    if(st==='win'&&ck){
+      ctx.fillStyle='rgba(20,33,61,0.55)';ctx.fillRect(0,0,V.w,V.h);
+      txt('YOU DID IT!',V.w/2,92,22,P.sun);
+      txt('Time '+fmt(clock)+' · Falls '+deaths,V.w/2,113,15,'#fff');
+      if(newBest)txt('NEW BEST!',V.w/2,131,14,P.sun);else if(best)txt('Best '+fmt(best),V.w/2,131,12,'#fff');
+      if(overT>0.7)txt('Tap to play again',V.w/2,147,12,'#fff');
+    }
+    else if(st==='win'){
       ctx.fillStyle='rgba(20,33,61,0.55)';ctx.fillRect(0,0,V.w,V.h);
       txt('YOU DID IT!',V.w/2,V.h*0.3,38,P.sun);
       txt('Time '+fmt(clock),V.w/2,V.h*0.3+46,24,'#fff');
@@ -3243,6 +3257,12 @@ function netStatus(){
   return n?(n+1)+' players here':'Waiting for friends to join';
 }
 
+/* phones held sideways leave only about 150 game units of height: the camera button takes the top middle, the stick and
+   jump rings the sides. netCompact() says the screen is that short; netMidY(f) is where a middle message goes (f of the
+   height on a big screen, just under the camera button on a short one). */
+function netCompact(){return V.h<260;}
+function netMidY(f){return netCompact()?88:V.h*f;}
+
 /* ===== Gem Rush (3D solo): grab gems before the clock runs out. Patrol robots knock 5 seconds off. ===== */
 GAMES.gems=(function(){
   var g={kind:'canvas',title:'Gem Rush',lw:400,is3d:true};
@@ -3571,15 +3591,15 @@ GAMES.hill=(function(){
     txt(botsOn()?(NET.room?'Playing with bots until friends join':(NET.blocked?netStatus():'Playing with bots')):netStatus(),12,42,11,P.sun,'left');
     var b=board().slice(0,4);
     b.forEach(function(r,i){txt((i===0&&r.p>0?'♛ ':'')+r.n.slice(0,12)+' '+Math.floor(r.p),V.w-10,22+i*18,13,r.me?P.sun:'#fff','right');});
-    var bw=Math.min(200,V.w-200),bx=(V.w-bw)/2,by=V.h-20,my=Math.max(V.h*0.26,104);
+    var ck=netCompact(),bw=Math.min(200,V.w-200),bx=(V.w-bw)/2,by=V.h-20,my=ck?86:Math.max(V.h*0.26,104);
     ctx.fillStyle='rgba(20,33,61,0.6)';ctx.fillRect(bx-3,by-3,bw+6,16);
     ctx.fillStyle=P.sun;ctx.fillRect(bx,by,bw*Math.min(1,pts/GOAL),10);
     txt('Your points '+Math.floor(pts)+' / '+GOAL,V.w/2,by-12,12,'#fff');
     var w=winner();
-    if(w)txt(w.me?'You are the Hill King!':w.n+' is the Hill King!',V.w/2,my,24,P.sun);
+    if(w)txt(w.me?'You are the Hill King!':w.n+' is the Hill King!',V.w/2,my,ck?18:24,P.sun);
     else if(onHill(S.x,S.z,S.y))txt('On the hill!',V.w/2,my,20,P.sun);
     else if(t<6)txt('Stand on the gold hill alone to score',V.w/2,my,15,'#fff');
-    if(msgT>0&&msg)txt(msg,V.w/2,my+30,16,'#fff');
+    if(msgT>0&&msg)txt(msg,V.w/2,my+(ck?18:30),ck?13:16,'#fff');
     PAD.draw();
     CAM3.draw(false);
   }
@@ -4334,6 +4354,9 @@ GAMES.party=(function(){
   var CAMP={x:0,z:-13.5};
   var t=0,x=0,z=0,y=0,vx=0,vz=0,vy=0,face=0,step=0,buf=0,flash=0,claims=[],gone={},myRound=-1,wonShown=-1;
   var H=null,lastSeen=null;
+  /* fair star claims (host only): pendC[star id] = {at: when the first claim arrived, c: {peer: touch time}} */
+  var pendC={},pendR=-1,CWAIT=300;
+  function starOff(){return (typeof FBN!=='undefined'&&SOLO&&FBN.ok)?(FBN.off||0):0;}
   /* nobody else here (offline, or alone online): three bots grab stars too, until a real player joins */
   var BOTC=[[94,216,138],[180,140,255],[255,154,60]],BOTN=['Bot Mint','Bot Grape','Bot Mango'];var bots=[];
   function botsOn(){return !netOthers().length;}   /* host state: {r:round, left:sec, ph:'play'|'end', ss:[[id,x,z]], sc:{peer:pts}, nx:nextId} */
@@ -4368,7 +4391,7 @@ GAMES.party=(function(){
     return o;
   }
   function amHost(){return hostPeer()===me();}
-  g.start=function(){PAD.reset();t=0;x=(Math.random()*2-1)*4;z=-6;y=0;vx=vz=vy=0;face=0;claims=[];gone={};H=null;myRound=-1;wonShown=-1;bots=[];CAMP.x=0;CAMP.z=-13.5;netJoin('w3-party');STAT.add('plays3d',1);};
+  g.start=function(){PAD.reset();t=0;x=(Math.random()*2-1)*4;z=-6;y=0;vx=vz=vy=0;face=0;claims=[];gone={};H=null;pendC={};pendR=-1;myRound=-1;wonShown=-1;bots=[];CAMP.x=0;CAMP.z=-13.5;netJoin('w3-party');STAT.add('plays3d',1);};
   function botStep(dt,S){
     if(!bots.length)for(var i=0;i<3;i++){var a=i*2.1+0.6;bots.push({k:'bot'+i,x:Math.cos(a)*8,z:Math.sin(a)*8,y:0,vx:0,vz:0,face:0,step:0,c:BOTC[i],n:BOTN[i],sp:5.4+i*0.45,think:0,tx:0,tz:0});}
     bots.forEach(function(b){
@@ -4401,17 +4424,33 @@ GAMES.party=(function(){
     }
     H.left-=dt;
     if(H.ph==='play'){
-      /* every player's claims, mine included; first one the host sees wins the star */
-      var all=[{peer:me(),cl:claims}];
+      /* every player's claims, mine included. A claim says when that player touched the star ([round, star, time]).
+         The host waits a moment (CWAIT) after the first claim on a star, then the earliest touch wins, so the host's own
+         claims (which it sees first) get no head start. A claim without a time (an older version), or with a time far
+         from when it arrived (a clock that is off), counts from when it arrived. */
+      var all=[{peer:me(),cl:claims}],tn=Date.now();
+      if(pendR!==H.r){pendR=H.r;pendC={};}
       NET.peers.forEach(function(p){if(!p.sameTab&&p.kind==='viewer'&&p.presence&&Array.isArray(p.presence.cl))all.push({peer:p.peer,cl:p.presence.cl});});
       all.forEach(function(a){
         a.cl.slice(-8).forEach(function(c){
           if(!Array.isArray(c)||(c[0]|0)!==H.r)return;
-          for(var i=0;i<H.ss.length;i++)if(H.ss[i][0]===(c[1]|0)){
-            H.sc[a.peer]=(H.sc[a.peer]||0)+1;
-            var p=spot();H.ss[i]=[H.nx++,p[0],p[1]];break;
-          }
+          var id=c[1]|0,live=false;
+          for(var i=0;i<H.ss.length;i++)if(H.ss[i][0]===id)live=true;
+          if(!live)return;
+          var pc=pendC[id]||(pendC[id]={at:tn,c:{}});
+          if(pc.c[a.peer]!==undefined)return;
+          var ct=netNum(c[2],0,1e14,0)-starOff();
+          pc.c[a.peer]=(ct>0&&Math.abs(ct-tn)<1500)?Math.min(ct,tn):tn;
         });
+      });
+      Object.keys(pendC).forEach(function(id){
+        var pc=pendC[id];if(tn-pc.at<(netOthers().length?CWAIT:0))return;
+        delete pendC[id];
+        var win=null;Object.keys(pc.c).forEach(function(k){if(win===null||pc.c[k]<pc.c[win]||(pc.c[k]===pc.c[win]&&k<win))win=k;});
+        for(var i=0;i<H.ss.length;i++)if(H.ss[i][0]===(+id)){
+          if(win!==null)H.sc[win]=(H.sc[win]||0)+1;
+          var p=spot();H.ss[i]=[H.nx++,p[0],p[1]];break;
+        }
       });
       if(H.left<=0){H.ph='end';H.left=BREAK;}
     }else if(H.left<=0){H=newRound(H.r+1);}
@@ -4442,7 +4481,7 @@ GAMES.party=(function(){
     if(S&&S.ph==='play')S.ss.forEach(function(s){
       if(gone[s[0]])return;
       if(Math.hypot(x-s[1],z-s[2])<1.2&&y<1.6){
-        gone[s[0]]=1;claims.push([S.r,s[0]]);if(claims.length>8)claims.shift();
+        gone[s[0]]=1;claims.push([S.r,s[0],Date.now()+starOff()]);if(claims.length>8)claims.shift();
         STAT.add('stars',1);beep(900,0.12,'square',0.05,1.5);flash=0.15;
       }
     });
@@ -4502,12 +4541,13 @@ GAMES.party=(function(){
     txt(botsOn()&&!NET.blocked?(NET.room?'Playing with bots until friends join':'Playing with bots'):netStatus(),12,46,12,P.sun,'left');
     b.slice(0,5).forEach(function(r,i){txt((i+1)+'. '+r.n+'  '+r.pts,V.w-12,24+i*20,14,r.me?P.sun:'#fff','right');});
     if(S&&S.ph==='end'){
-      ctx.fillStyle='rgba(20,33,61,0.55)';ctx.fillRect(0,V.h*0.22,V.w,150);
+      var ck=netCompact(),oy=ck?76:V.h*0.22,L=ck?[18,40,60]:[42,82,116],F=ck?[22,15,12]:[32,20,16];
+      ctx.fillStyle='rgba(20,33,61,0.55)';ctx.fillRect(0,oy,V.w,ck?V.h-oy:150);
       var top=b[0];
-      txt(top&&top.pts?(top.me?'YOU WIN!':(top.bot?'':'@')+top.n+' wins!'):'Round over',V.w/2,V.h*0.22+42,32,P.sun);
-      txt(top?top.pts+' stars':'',V.w/2,V.h*0.22+82,20,'#fff');
-      txt('Next round in '+Math.max(0,Math.ceil(S.left)),V.w/2,V.h*0.22+116,16,'#fff');
-    }else if(t<4)txt('Grab more stars than everyone!',V.w/2,V.h*0.25,18,'#fff');
+      txt(top&&top.pts?(top.me?'YOU WIN!':(top.bot?'':'@')+top.n+' wins!'):'Round over',V.w/2,oy+L[0],F[0],P.sun);
+      txt(top?top.pts+' stars':'',V.w/2,oy+L[1],F[1],'#fff');
+      txt('Next round in '+Math.max(0,Math.ceil(S.left)),V.w/2,oy+L[2],F[2],'#fff');
+    }else if(t<4)txt('Grab more stars than everyone!',V.w/2,netMidY(0.25),netCompact()?15:18,'#fff');
     PAD.draw();
     CAM3.draw(false);
   }
@@ -4842,6 +4882,15 @@ GAMES.yard=(function(){
   }
   function winView(){
     var y=V.h*0.25;
+    if(netCompact()){
+      panel(6,V.h-12);
+      txt('The yard glows again!',V.w/2,26,18,P.sun);
+      txt('Group time '+fmt(winSecs),V.w/2,54,18,'#fff');
+      txt(String(winNames).slice(0,60),V.w/2,78,12,'#dfe6ff');
+      if(scoreBlocked('yard.board'))txt('Cheats were used, so this time is not saved',V.w/2,96,11,'#ff8a7a');
+      if(winT>0.6)txt('Tap to return to the yard',V.w/2,124,13,'#dfe6ff');
+      return;
+    }
     panel(y-14,170);
     txt('The yard glows again!',V.w/2,y+22,Math.min(22,V.w/16),P.sun);
     txt('Group time '+fmt(winSecs),V.w/2,y+60,22,'#fff');
@@ -4851,6 +4900,14 @@ GAMES.yard=(function(){
   }
   function waitView(){
     var y=V.h*0.25,n=waitingCount();
+    if(netCompact()){
+      /* short phone screen: one smaller panel under the camera button, so Leave group stays on screen */
+      panel(78,V.h-82);
+      txt('Waiting for your group: '+n+' of '+gsz,V.w/2,94,15,P.sun);
+      txt('Friends pick the same group size to join.',V.w/2,111,10,'#dfe6ff');
+      button('Leave group',V.w/2,118,140,28,{a:'leave'},'#ffb3a8');
+      return;
+    }
     panel(y-14,200);
     txt('Waiting for your group',V.w/2,y+22,22,P.sun);
     txt(n+' of '+gsz+' joined',V.w/2,y+60,26,'#fff');
@@ -4868,11 +4925,12 @@ GAMES.yard=(function(){
       sub='Lanterns '+lanternCount()+'/3 · '+(lanternCount()>=3?'gate open, run to the gate!':'find the lanterns in the yard');
     }
     else left='Yard Escape';
-    txt(left,12,24,18,'#fff','left');
-    if(st==='play'||st==='wait'||st==='count'||st==='lobby')txt(netStatus(),12,46,12,P.sun,'left');
+    if(!(st==='wait'&&netCompact()))txt(left,12,24,18,'#fff','left');
+    if((st==='play'||st==='wait'||st==='count'||st==='lobby')&&!(st==='wait'&&netCompact()))txt(netStatus(),12,46,12,P.sun,'left');
     if(st==='lobby')button('Top 10',V.w-58,12,90,30,{a:'board'},'#fff');
-    if(sub)txt(sub,V.w/2,V.h*0.3,16,'#fff');
-    if(msgT>0&&msg)txt(msg,V.w/2,V.h*0.3+26,16,P.sun);
+    var ck=netCompact();
+    if(sub)txt(sub,V.w/2,netMidY(0.3),ck?13:16,'#fff');
+    if(msgT>0&&msg)txt(msg,V.w/2,netMidY(0.3)+(ck?20:26),ck?13:16,P.sun);
     if(st==='menu')menuView();
     else if(st==='board')boardView();
     else if(st==='story')storyView();
@@ -8799,12 +8857,13 @@ GAMES.tag=(function(){
     R3.shadow(x,0.02,z,0.45);
     R3.flush();
     netTags(tags);
-    txt(it?'YOU ARE IT!':'Run away!',V.w/2,100,24,it?P.brick:'#fff');
+    var ck=netCompact();
+    txt(it?'YOU ARE IT!':'Run away!',V.w/2,ck?V.h-18:100,ck?20:24,it?P.brick:'#fff');
     txt(botsOn()&&!NET.blocked?(NET.room?'Playing with bots until friends join':'Playing with bots'):netStatus(),12,24,11,P.sun,'left');
     txt('It for '+Math.floor(secs)+'s',V.w-12,24,11,'#fff','right');
-    if(msgT>0)txt(msg,V.w/2,V.h*0.16,22,P.sun);
-    else if(it&&safe<=SAFE)txt('No tag-backs for '+Math.ceil(SAFE-safe)+'s',V.w/2,V.h*0.14,14,'#fff');
-    else if(it)txt('Touch someone to pass it on',V.w/2,V.h*0.14,13,'#fff');
+    if(msgT>0)txt(msg,V.w/2,netMidY(0.16),ck?18:22,P.sun);
+    else if(it&&safe<=SAFE)txt('No tag-backs for '+Math.ceil(SAFE-safe)+'s',V.w/2,netMidY(0.14),ck?12:14,'#fff');
+    else if(it)txt('Touch someone to pass it on',V.w/2,netMidY(0.14),ck?12:13,'#fff');
     PAD.draw();CAM3.draw(false);
     if(flash>0){ctx.fillStyle='rgba(255,90,77,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
@@ -8993,7 +9052,7 @@ GAMES.ball=(function(){
     txt(A+' - '+Bl,V.w/2,100,28,'#fff');
     txt(botsOn()&&!NET.blocked?(NET.room?'Playing with a bot until friends join':'Playing with a bot'):netStatus(),12,24,11,P.sun,'left');
     txt(side?'Blue net is yours':'Red net is yours',V.w-12,24,11,'#fff','right');
-    txt(botsOn()?'Kick the ball into the blue net':'Run into the ball to kick it',V.w/2,Math.max(V.h*0.12,46),12,'#fff');
+    txt(botsOn()?'Kick the ball into the blue net':'Run into the ball to kick it',V.w/2,netCompact()?V.h-14:Math.max(V.h*0.12,46),netCompact()?11:12,'#fff');
     PAD.draw();CAM3.draw(false);
     if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
