@@ -273,6 +273,7 @@ button.mst{color:var(--brick-dark);opacity:1;text-decoration:underline;cursor:po
 .ptyn{flex:1;min-width:0;font-weight:800;font-size:16px;overflow-wrap:anywhere}
 .ptyn small{display:block;font-weight:700;font-size:12px;opacity:.75}
 #chat .choice.bad{background:var(--brick);color:#fff}
+#chat .chip.new{background:var(--brick);color:#fff;min-width:26px;text-align:center}
 .mini.bad{background:var(--brick);color:#fff}
 #mkui{position:relative;flex:1 1 46%;min-height:0;display:flex;flex-direction:column;gap:0;background:#101a33;border:3px solid var(--ink);border-radius:14px;box-shadow:0 4px 0 var(--ink);color:#fff;overflow:hidden}
 #mkui.shut{flex:0 0 auto}
@@ -13782,7 +13783,22 @@ function chatText(s){return String(s==null?'':s).replace(CTRL,' ').trim().slice(
 function friendById(id){return friendsList().filter(function(x){return x.id===id;})[0]||null;}
 function readMap(){var m=lsGet('chat.read',{});return (m&&typeof m==='object'&&!Array.isArray(m))?m:{};}
 function markRead(key,at){var m=readMap();if((m[key]||0)<at){m[key]=at;lsSet('chat.read',m);}}
-function isUnread(key){var p=CH.prev[key];if(!p||p.from===SOC.uid)return false;return p.at>(readMap()[key]||0);}
+/* unread counts come from the few newest messages of each chat; only who sent it and when are needed, nothing is unlocked */
+var CH_UNMAX=10;
+function senderOk(d,key,party){
+  if(party)return !!(party.m[d.from]||(party.x&&party.x[d.from]&&+d.at<=party.x[d.from].t));
+  return key.split('~').indexOf(d.from)>=0;
+}
+function unreadCount(key){
+  var r=CH.prevRaw[key];if(!r||!r.list)return 0;
+  var party=r.party?(PTY.all[key]||null):null;if(r.party&&!party)return 0;
+  var read=readMap()[key]||0;
+  return r.list.filter(function(x){var d=x.d;
+    return d&&typeof d==='object'&&typeof d.from==='string'&&d.from!==SOC.uid&&typeof d.at==='number'&&d.at>read&&senderOk(d,key,party);
+  }).length;
+}
+function unreadText(n){return n>=CH_UNMAX?(CH_UNMAX-1)+'+':String(n);}
+function isUnread(key){return unreadCount(key)>0;}
 /* only chats you are still in count: an old friend or a party you left never keeps the badge lit */
 function chatKeysNow(){
   var k={};
@@ -13792,15 +13808,15 @@ function chatKeysNow(){
   return k;
 }
 function chatBadge(){
-  var now=chatKeysNow(),n=SOC.account?Object.keys(CH.prev).filter(function(k){return now[k]&&isUnread(k);}).length:0,b=$('chat-badge');
+  var now=chatKeysNow(),n=0,b=$('chat-badge');
+  if(SOC.account)Object.keys(CH.prevRaw).forEach(function(k){if(now[k])n+=unreadCount(k);});
   b.hidden=n===0;b.textContent=n>9?'9+':String(n);
   renderFrow();
 }
 function cleanMsg(d,key,party,id){
   if(!d||typeof d!=='object'||typeof d.from!=='string')return null;
   /* someone who left the party: their messages from before they left still show */
-  if(party){if(!party.m[d.from]&&!(party.x&&party.x[d.from]&&+d.at<=party.x[d.from].t))return null;}
-  else if(key.split('~').indexOf(d.from)<0)return null;
+  if(!senderOk(d,key,party))return null;
   var m={from:d.from,text:'',at:(typeof d.at==='number'&&isFinite(d.at))?d.at:0,bd:badgeSym(typeof d.bd==='string'?d.bd:'')};
   /* locked (end-to-end encrypted): show the unlocked text once this device has worked it out */
   if(d.e===1){
@@ -14285,8 +14301,9 @@ function prevAll(){Object.keys(CH.prevRaw).forEach(prevFrom);}
 function prevWatch(key,party){
   if(CH.prevSubs[key])return;
   CH.prevSubs[key]=1;
-  SOC.db.collection('chats/'+key+'/msgs').orderBy('at','desc').limit(1).onSnapshot(function(s){
-    CH.prevRaw[key]=s.docs.length?{d:s.docs[0].data(),id:s.docs[0].id,party:!!party}:null;
+  SOC.db.collection('chats/'+key+'/msgs').orderBy('at','desc').limit(CH_UNMAX).onSnapshot(function(s){
+    CH.prevRaw[key]=s.docs.length?{d:s.docs[0].data(),id:s.docs[0].id,party:!!party,
+      list:s.docs.map(function(x){return {d:x.data(),id:x.id};})}:null;
     var d=prevFrom(key);
     if(!chatEl.hidden&&CH.key===key&&(CH.view==='conv'||CH.view==='party')&&d&&chatNearEnd())markRead(key,d.at);
     chatBadge();
@@ -14305,14 +14322,14 @@ function chatRows(){
   var rows=[];
   ptyList().forEach(function(p){
     var pv=CH.prev[p.id];
-    rows.push({k:'pty',id:p.id,q:p.n,at:pv?pv.at:p.at,un:isUnread(p.id),
+    rows.push({k:'pty',id:p.id,q:p.n,at:pv?pv.at:p.at,un:unreadCount(p.id),
       av:'<span class="ava pty">'+String(Object.keys(p.m).length)+'</span>',
       nm:cleanHtml(p.n),
       pv:pv?((pv.from===SOC.uid?'You: ':(safeName(ptyNameOf(p,pv.from))+': '))+pv.text):'No messages yet'});
   });
   friendsList().forEach(function(x){
     var key=chatKey(SOC.uid,x.id),pv=CH.prev[key];
-    rows.push({k:'open',id:x.id,q:x.name+' '+dispOf(x.id,x.name),at:pv?pv.at:0,un:isUnread(key),
+    rows.push({k:'open',id:x.id,q:x.name+' '+dispOf(x.id,x.name),at:pv?pv.at:0,un:unreadCount(key),
       av:'<span class="ava">'+avFor(x.id,x.name)+stDot(statusOf(x.id))+'</span>',
       nm:'@'+esc(x.name)+vmark(x.id),
       pv:pv?((pv.from===SOC.uid?'You: ':'')+pv.text):'No messages yet'});
@@ -14349,7 +14366,7 @@ function chatList(){
       h+='<p class="lbl">Chats</p>';
       if(rows.length>6)h+='<input class="field" id="chat-q" type="search" maxlength="24" autocomplete="off" placeholder="Find a friend or party" aria-label="Find a chat" value="'+esc(CH.q)+'">';
       rows.forEach(function(r){
-        h+='<div class="row'+(r.un?' unread':'')+'" data-q="'+esc(r.q.toLowerCase())+'">'+r.av+'<span class="who">'+r.nm+'<small>'+cleanHtml(r.pv)+(r.at&&r.pv!=='No messages yet'?' · '+esc(fmtTime(r.at)):'')+'</small></span>'+(r.un?'<span class="chip">New</span>':'')+
+        h+='<div class="row'+(r.un?' unread':'')+'" data-q="'+esc(r.q.toLowerCase())+'">'+r.av+'<span class="who">'+r.nm+'<small>'+cleanHtml(r.pv)+(r.at&&r.pv!=='No messages yet'?' · '+esc(fmtTime(r.at)):'')+'</small></span>'+(r.un?'<span class="chip new" aria-label="'+unreadText(r.un)+' unread">'+unreadText(r.un)+'</span>':'')+
            '<button class="mini ok" type="button" data-ch="'+r.k+'" data-id="'+esc(r.id)+'">'+(r.k==='pty'?'Open':'Chat')+'</button></div>';
       });
       h+='<p class="note" id="chat-none" hidden>No chats match.</p>';
