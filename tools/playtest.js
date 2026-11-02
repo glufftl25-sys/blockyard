@@ -3,7 +3,8 @@
    pilot tries to win), then do the extra checks: the menus and the shop, the Blaster Duel menus, and the Blaster Duel
    special check. Then two copies of the game join one Blaster Duel match together, through a stand-in for the online
    database (tools/fbmock), to check that playing with a friend works. Last, two friends chat through a stand-in for
-   Claude's database (window.claude): A sends B a message, B must see it, and the database must hold only the locked copy.
+   Claude's database (window.claude): A sends B a message and a party message to B and C; they must read them, an
+   outsider who copies a locked message must not, and the database must hold only locked copies.
    Writes <out>/report.json, a small picture of every game's last frame, and a contact sheet per size
    (sheet-laptop.jpg, sheet-phone.jpg). GitHub runs this every day (.github/workflows/test-bots.yml) and the Bots page
    (bots.html) shows the report.
@@ -146,72 +147,105 @@ function fakeClaude(me) {
   window.claude = { use: n => ready.then(() => n === 'db' ? db : n === 'user' ? user : null) };
 }
 
-/* two friends chat: A sends B a message. B must see it, and the database must only hold the locked (encrypted) copy. */
+/* friend chat, with four players: A and B chat 1:1; A makes a party with B and C and sends to it; D is an outsider (no
+   friend of anyone) who copies A's locked message into a party D made with A and B, to see whether D can read it.
+   B and C must read A's messages, D must only see the "cannot be read here" note, and the database must hold no plaintext. */
 async function friendChat(browser) {
-  const r = { id: 'm.chat', t: 'Friend chat (locked messages)', check: true, err: {}, ok: true, steps: 0, fail: '' };
+  const r = { id: 'm.chat', t: 'Friend and party chat (locked messages)', check: true, err: {}, ok: true, steps: 0, fail: '' };
   const srv = await serve(path.dirname(game));
   const url = 'http://127.0.0.1:' + srv.address().port + '/' + path.basename(game);
   const say = m => { r.err[m] = (r.err[m] || 0) + 1; };
-  const people = [{ uid: 'botA1', name: 'botalice' }, { uid: 'botB2', name: 'botbob' }];
-  const now = Date.now();
-  const store = {
-    'data/users/botA1/profile': { username: 'botalice', at: now }, 'data/users/botB2/profile': { username: 'botbob', at: now },
-    'usernames/botalice': { uid: 'botA1', at: now }, 'usernames/botbob': { uid: 'botB2', at: now },
-    'requests/botA1_botB2': { from: 'botA1', to: 'botB2', fromName: 'botalice', toName: 'botbob', status: 'accepted', at: now, decidedAt: now }
-  };
-  const secret = 'bots say hi ' + Math.random().toString(36).slice(2, 8);
+  const people = [{ uid: 'botA1', name: 'botalice' }, { uid: 'botB2', name: 'botbob' }, { uid: 'botC3', name: 'botcarl' }, { uid: 'botD4', name: 'botdan' }];
+  const now = Date.now(), store = {};
+  people.forEach(p => { store['data/users/' + p.uid + '/profile'] = { username: p.name, at: now }; store['usernames/' + p.name] = { uid: p.uid, at: now }; });
+  [['botA1', 'botalice', 'botB2', 'botbob'], ['botA1', 'botalice', 'botC3', 'botcarl']].forEach(([f, fn, t, tn]) => {
+    store['requests/' + f + '_' + t] = { from: f, to: t, fromName: fn, toName: tn, status: 'accepted', at: now, decidedAt: now };
+  });
+  const tag = Math.random().toString(36).slice(2, 8), secret = 'bots say hi ' + tag, psecret = 'party time ' + tag;
   const pages = [];
-  const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (await f()) return true; } catch (e) {} await sleep(300); } return false; };
+  const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (await f()) return true; } catch (e) {} await sleep(250); } return false; };
+  const push = ws => { ws.forEach(w => { if (w.data == null) delete store[w.path]; else store[w.path] = w.data; }); };
   try {
-    for (const me of people) {
+    await Promise.all(people.map(async (me, i) => {
       const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
       await ctx.addInitScript(() => { try { sessionStorage.setItem('by.gate', 'skip'); } catch (e) {} });
       await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, rt => rt.abort());
       const pg = await ctx.newPage();
       pg.on('pageerror', e => say(String(e.message).slice(0, 110)));
       await pg.exposeFunction('__dbAll', () => store);
-      await pg.exposeFunction('__dbw', ws => {
-        ws.forEach(w => { if (w.data == null) delete store[w.path]; else store[w.path] = w.data; });
-        pages.filter(p => p !== pg && !p.isClosed()).forEach(p => p.evaluate(ws => window.__dbIn && window.__dbIn(ws), ws).catch(() => {}));
-      });
+      await pg.exposeFunction('__dbw', ws => { push(ws); pages.filter(p => p && p !== pg && !p.isClosed()).forEach(p => p.evaluate(ws => window.__dbIn && window.__dbIn(ws), ws).catch(() => {})); });
       await ctx.addInitScript(fakeClaude, me);
+      pages[i] = pg;
       await pg.goto(url, { waitUntil: 'load' });
-      pages.push(pg);
-    }
-    const [A, B] = pages;
-    const msgs = () => Object.keys(store).filter(p => p.startsWith('chats/botA1~botB2/msgs/')).map(p => store[p]);
-    const openConv = (pg, other) => pg.evaluate(o => {
-      if (!document.querySelector('#chat-body [data-ch="open"]')) document.getElementById('chat-btn').click();
-      const b = document.querySelector('#chat-body [data-ch="open"][data-id="' + o + '"]');
+    }));
+    const [A, B, C, D] = pages;
+    const msgsIn = key => Object.keys(store).filter(p => p.startsWith('chats/' + key + '/msgs/'));
+    const locked = (m, text) => m.e === 1 && typeof m.from === 'string' && typeof m.at === 'number' && typeof m.sd === 'string' && ['iv', 'ct', 'k'].every(k => m[k] != null) && !('text' in m) && !JSON.stringify(m).includes(text);
+    const shows = (pg, t) => pg.evaluate(t => { const m = document.getElementById('msgs'); return !!m && m.textContent.includes(t); }, t);
+    /* press a button in the chat screen, opening the chat screen first */
+    const tap = (pg, sel) => pg.evaluate(sel => {
+      if (document.getElementById('chat').hidden) document.getElementById('chat-btn').click();
+      const b = document.querySelector('#chat-body ' + sel);
       if (b) b.click();
-      return !!document.getElementById('chat-in');
-    }, other);
+      return !!b;
+    }, sel);
+    const toList = pg => pg.evaluate(() => { const c = document.getElementById('chat'); if (!c.hidden) { document.getElementById('chat-back').click(); if (!c.hidden && !document.querySelector('#chat-body [data-ch="newparty"]')) document.getElementById('chat-back').click(); } });
+    const send = (pg, t) => pg.evaluate(t => { const i = document.getElementById('chat-in'); i.value = t; i.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('chat-send').click(); }, t);
+    const pid = () => Object.keys(((store['parties/botA1'] || {}).list) || {})[0];
     const steps = [
-      ['the players did not get their lock keys (e2e/<uid>)', () => until(async () => !!(store['e2e/botA1'] && store['e2e/botB2']), 20000)],
-      ['A could not open the chat with B', () => until(() => openConv(A, 'botB2'), 15000)],
-      ['A\'s message was not saved', async () => {
-        await A.evaluate(t => { const i = document.getElementById('chat-in'); i.value = t; i.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('chat-send').click(); }, secret);
-        return until(async () => msgs().length >= 1, 15000);
-      }],
-      ['the saved message is not locked (plaintext or wrong shape in the database)', async () => {
-        const m = msgs()[0], j = JSON.stringify(m);
-        return m.e === 1 && m.from === 'botA1' && typeof m.at === 'number' && ['iv', 'ct', 'k'].every(k => m[k] != null) && !('text' in m) && !j.includes(secret);
-      }],
+      ['the players did not get their lock keys (e2e/<uid>)', () => until(async () => people.every(p => store['e2e/' + p.uid]), 20000)],
+      ['A could not open the chat with B', () => until(async () => await tap(A, '[data-ch="open"][data-id="botB2"]') && A.evaluate(() => !!document.getElementById('chat-in')), 15000)],
+      ['A\'s message to B was not saved', async () => { await send(A, secret); return until(async () => msgsIn('botA1~botB2').length >= 1, 10000); }],
+      ['the saved message is not locked (plaintext or wrong shape in the database)', async () => locked(store[msgsIn('botA1~botB2')[0]], secret)],
       ['B did not see A\'s message', async () => {
-        if (!await until(() => openConv(B, 'botA1'), 15000)) return false;
-        return until(() => B.evaluate(t => (document.getElementById('msgs') || {}).textContent.includes(t), secret), 15000);
-      }]
+        if (!await until(() => tap(B, '[data-ch="open"][data-id="botA1"]'), 15000)) return false;
+        return until(() => shows(B, secret), 10000);
+      }],
+      ['A could not make a party with B and C', async () => {
+        await toList(A);
+        if (!await until(() => tap(A, '[data-ch="newparty"]'), 8000)) return false;
+        await A.evaluate(() => { const n = document.getElementById('pty-name'); if (n) { n.value = 'Bot party'; n.dispatchEvent(new Event('input', { bubbles: true })); } });
+        await tap(A, '[data-ch="pick"][data-id="botB2"]'); await tap(A, '[data-ch="pick"][data-id="botC3"]');
+        await tap(A, '[data-ch="mkparty"]');
+        return until(async () => { const p = pid(); return p && Object.keys(store['parties/botA1'].list[p].m).length === 3; }, 10000);
+      }],
+      ['A\'s party message was not saved locked', async () => {
+        /* making a party opens it straight away */
+        const inParty = () => A.evaluate(() => !!document.querySelector('#chat-body .ptybar') && !!document.getElementById('chat-in'));
+        if (!await until(async () => await inParty() || (await tap(A, '[data-ch="pty"][data-id="' + pid() + '"]') && inParty()), 10000)) return false;
+        await sleep(1300); /* the game asks you to slow down if you send twice within 1.2 s */
+        await send(A, psecret);
+        if (!await until(async () => msgsIn(pid()).length >= 1, 10000)) return false;
+        return locked(store[msgsIn(pid())[0]], psecret);
+      }],
+      ['B and C did not both see the party message', async () => {
+        await toList(B);
+        for (const pg of [B, C]) if (!await until(async () => await tap(pg, '[data-ch="pty"][data-id="' + pid() + '"]') && shows(pg, psecret), 15000)) return false;
+        return true;
+      }],
+      ['an outsider could read a copied locked message', async () => {
+        /* D makes its own party with A and B, and copies A's locked 1:1 message into it */
+        const src = msgsIn('botA1~botB2')[0], copy = 'chats/gspy01/msgs/' + src.split('/').pop();
+        const ws = [{ path: 'parties/botD4', data: { name: 'botdan', at: Date.now(), list: { gspy01: { n: 'Spy', at: Date.now(), m: { botA1: 'botalice', botB2: 'botbob', botD4: 'botdan' } } } } },
+          { path: copy, data: store[src] }];
+        push(ws);
+        await D.evaluate(ws => window.__dbIn(ws), ws);
+        if (!await until(async () => await tap(D, '[data-ch="pty"][data-id="gspy01"]') && D.evaluate(() => /cannot be read here|could not be unlocked/.test((document.getElementById('msgs') || {}).textContent || '')), 15000)) return false;
+        await sleep(600);
+        return !(await shows(D, secret)) && !(await D.evaluate(t => document.body.innerText.includes(t), secret));
+      }],
+      ['plaintext was found in the database', async () => { const j = JSON.stringify(store); return !j.includes(secret) && !j.includes(psecret); }]
     ];
     for (const s of steps) {
       r.steps++;
       let ok = false;
       try { ok = await s[1](); } catch (e) { r.fail = s[0] + ' (' + String(e.message).slice(0, 80) + ')'; break; }
-      if (!ok) { r.fail = s[0]; break; }
+      if (!ok) { r.fail = s[0]; if (process.env.PLAYTEST_DEBUG) { console.log(JSON.stringify(Object.keys(store))); for (const p of pages) console.log((await p.evaluate(() => document.getElementById('chat-body').innerText).catch(() => '?')).slice(0, 400)); } break; }
     }
   } catch (e) {
     r.fail = 'it could not start: ' + String(e.message).slice(0, 80);
   }
-  for (const p of pages) await p.context().close().catch(() => {});
+  for (const p of pages) if (p) await p.context().close().catch(() => {});
   srv.close();
   r.ok = !r.fail && !Object.keys(r.err).length;
   return r;
