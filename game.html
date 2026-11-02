@@ -229,6 +229,11 @@ button.mst{color:var(--brick-dark);opacity:1;text-decoration:underline;cursor:po
 .cnt{flex:none;align-self:center;min-width:24px;text-align:center;font-size:13px;font-weight:800;opacity:.75}
 .cnt.lo{color:var(--brick);opacity:1}
 .row.unread .who{font-weight:900}
+.e2ebar{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;font-weight:800;opacity:.85}
+.e2ebar span{flex:1;min-width:0}
+.e2ebar .mini{flex:none;padding:3px 10px;font-size:12px}
+.msg .locked{font-style:italic;font-weight:700;opacity:.7}
+#chat-note{white-space:pre-line}
 .av.pic{background:none;overflow:visible!important;position:relative}
 .av.pic svg{border-radius:50%}
 .st{position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;border:2.5px solid var(--bg);z-index:2}
@@ -12167,6 +12172,7 @@ function startSubs(){
   col.where('to','==',SOC.uid).onSnapshot(function(s){SOC.incoming=pack(s);changed();},function(){});
   col.where('from','==',SOC.uid).onSnapshot(function(s){SOC.outgoing=pack(s);changed();},function(){});
   dirInit();inviteSub();
+  e2eInit().catch(function(){});
 }
 function socInit(){
   var c=window.claude;
@@ -13634,7 +13640,7 @@ function avatarTabPic(sw){
    days get a divider, a "New" line marks where you stopped reading, your message shows "Sending..." until it is saved,
    older messages load on request and half-typed messages stay in the box when you switch chats. */
 var CH={view:'list',key:null,friend:null,party:null,msgs:[],loaded:false,failed:false,first:true,unsub:null,prev:{},prevSubs:{},reg:{},lastSend:0,
-  lim:60,more:false,pend:[],pids:1,drafts:{},readAt:0,newBelow:0,keep:null,q:''};
+  lim:60,more:false,pend:[],pids:1,drafts:{},readAt:0,newBelow:0,keep:null,q:'',docs:[],prevRaw:{}};
 var CH_PAGE=60,CH_MAXLIM=300,CH_MAX=200,CH_GROUP=5*60000;
 var CTRL=/[\u0000-\u001f\u007f]/g;
 function chatKey(a,b){return a<b?a+'~'+b:b+'~'+a;}
@@ -13656,13 +13662,26 @@ function chatBadge(){
   b.hidden=n===0;b.textContent=n>9?'9+':String(n);
   renderFrow();
 }
-function cleanMsg(d,key,party){
-  if(!d||typeof d!=='object'||typeof d.from!=='string'||typeof d.text!=='string')return null;
+function cleanMsg(d,key,party,id){
+  if(!d||typeof d!=='object'||typeof d.from!=='string')return null;
   if(party){if(!party.m[d.from])return null;}
   else if(key.split('~').indexOf(d.from)<0)return null;
-  var t=chatText(d.text);
-  if(!t)return null;
-  return {from:d.from,text:t,at:(typeof d.at==='number'&&isFinite(d.at))?d.at:0,bd:badgeSym(typeof d.bd==='string'?d.bd:'')};
+  var m={from:d.from,text:'',at:(typeof d.at==='number'&&isFinite(d.at))?d.at:0,bd:badgeSym(typeof d.bd==='string'?d.bd:'')};
+  /* locked (end-to-end encrypted): show the unlocked text once this device has worked it out */
+  if(d.e===1){
+    if(!e2eShape(d)||typeof id!=='string')return null;
+    var ck=key+'/'+id,st=E2E.plain[ck];
+    if(st===undefined){e2eOpen(ck,d,key);st=E2E.plain[ck];}
+    m.e=1;
+    if(typeof st==='string')m.text=st;
+    else{m.lock=st.w?'wait':st.why;m.text=e2eLockText(m.lock);}
+    return m;
+  }
+  if(typeof d.text!=='string')return null;
+  m.text=chatText(d.text);
+  if(!m.text)return null;
+  m.plain=1;
+  return m;
 }
 function fmtClock(at){
   if(!at)return '';
@@ -13850,13 +13869,230 @@ function ptyLeave(){
   }
 }
 
+/* ===== End-to-end encryption for friend and party chat =====
+   Every device makes its own ECDH P-256 key pair. The private key stays on the device (in IndexedDB, and the browser
+   will not hand it out); only the public key is saved, under e2e/<uid>. A message is locked with a fresh AES-GCM key,
+   and that key is locked again for every device of every person in the chat (and your own other devices), using a key
+   that only the sender's device and that device can work out. The server only ever sees the locked text.
+   A device that joins later cannot read messages sent before it existed. The safety code lets two people check that
+   nobody swapped the keys. Old messages from before this was added still show, marked as not locked. */
+var E2E={ready:null,ok:false,dev:'',priv:null,pub:null,keys:{},kwait:{},ksub:{},wrap:{},plain:{},redrawT:0};
+var E2E_MAXDEV=6,E2E_INFO='blockyard-chat-v1';
+function e2eB64(buf){var b=new Uint8Array(buf),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s);}
+function e2eUnB64(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
+function e2eSubtle(){try{return (window.crypto&&window.crypto.subtle)||null;}catch(_){return null;}}
+function e2eJwkOk(j){return !!(j&&typeof j==='object'&&j.kty==='EC'&&j.crv==='P-256'&&typeof j.x==='string'&&typeof j.y==='string'&&j.x.length<64&&j.y.length<64);}
+function e2eIdb(){
+  return new Promise(function(ok,no){
+    try{
+      var r=indexedDB.open('blockyard-e2e',1);
+      r.onupgradeneeded=function(){r.result.createObjectStore('k');};
+      r.onsuccess=function(){ok(r.result);};
+      r.onerror=function(){no(r.error);};
+    }catch(e){no(e);}
+  });
+}
+function e2eStore(mode,fn){
+  return e2eIdb().then(function(db){
+    return new Promise(function(ok,no){
+      var q=fn(db.transaction('k',mode).objectStore('k'));
+      q.onsuccess=function(){ok(q.result);};q.onerror=function(){no(q.error);};
+    });
+  });
+}
+/* this device's keys: made once per account, kept in IndexedDB (localStorage if IndexedDB is blocked) */
+function e2eDevice(uid){
+  var S=e2eSubtle(),name='dev:'+uid;
+  function fresh(extract){
+    return S.generateKey({name:'ECDH',namedCurve:'P-256'},extract,['deriveKey']).then(function(kp){
+      return S.exportKey('jwk',kp.publicKey).then(function(pub){
+        return {dev:'d'+rndHex(6),priv:kp.privateKey,pub:{kty:'EC',crv:'P-256',x:pub.x,y:pub.y}};
+      });
+    });
+  }
+  return e2eStore('readonly',function(s){return s.get(name);}).then(function(v){
+    if(v&&v.priv&&e2eJwkOk(v.pub)&&typeof v.dev==='string')return v;
+    return fresh(false).then(function(v2){return e2eStore('readwrite',function(s){return s.put(v2,name);}).then(function(){return v2;});});
+  },function(){
+    var j=lsGet('e2e.'+uid,null);
+    if(j&&j.priv&&e2eJwkOk(j.pub)&&typeof j.dev==='string')
+      return S.importKey('jwk',j.priv,{name:'ECDH',namedCurve:'P-256'},false,['deriveKey']).then(function(k){return {dev:j.dev,priv:k,pub:j.pub};});
+    return fresh(true).then(function(v2){
+      return S.exportKey('jwk',v2.priv).then(function(pj){lsSet('e2e.'+uid,{dev:v2.dev,priv:pj,pub:v2.pub});return v2;});
+    });
+  });
+}
+function e2eInit(){
+  if(E2E.ready)return E2E.ready;
+  if(!SOC.db||!SOC.uid||!e2eSubtle()){return Promise.reject({code:'e2e_off'});}
+  var uid=SOC.uid;
+  E2E.ready=e2eDevice(uid).then(function(v){
+    E2E.dev=v.dev;E2E.priv=v.priv;E2E.pub=v.pub;E2E.ok=true;
+    /* put this device's public key on the list (newest few devices only), unless it is already there */
+    return SOC.db.doc('e2e/'+uid).get().then(function(s){
+      var d=(s&&s.exists&&s.data())||{},devs=(d.devs&&typeof d.devs==='object')?d.devs:{};
+      var mine=devs[v.dev];
+      if(mine&&mine.pub&&mine.pub.x===v.pub.x&&Date.now()-(+mine.at||0)<30*864e5)return;
+      devs[v.dev]={pub:v.pub,at:Date.now()};
+      var keep=Object.keys(devs).filter(function(k){return /^d[a-f0-9]{6,20}$/.test(k)&&devs[k]&&e2eJwkOk(devs[k].pub);})
+        .sort(function(a,b){return (+devs[b].at||0)-(+devs[a].at||0);}).slice(0,E2E_MAXDEV);
+      var out={};keep.forEach(function(k){out[k]={pub:devs[k].pub,at:+devs[k].at||0};});
+      if(!out[v.dev])out[v.dev]={pub:v.pub,at:Date.now()};
+      return SOC.db.doc('e2e/'+uid).set({devs:out,at:Date.now()});
+    }).catch(function(){});
+  }).then(function(){e2eWatch(uid);e2eRedraw();});
+  E2E.ready.catch(function(){E2E.ready=null;});
+  return E2E.ready;
+}
+function e2eClean(d){
+  var out={};
+  if(d&&d.devs&&typeof d.devs==='object')Object.keys(d.devs).slice(0,E2E_MAXDEV*2).forEach(function(k){
+    var x=d.devs[k];
+    if(/^d[a-f0-9]{6,20}$/.test(k)&&x&&e2eJwkOk(x.pub))out[k]={kty:'EC',crv:'P-256',x:x.pub.x,y:x.pub.y};
+  });
+  return out;
+}
+/* everyone's device keys, kept live so a new device of a friend starts getting messages right away */
+function e2eWatch(uid){
+  if(E2E.ksub[uid]||!SOC.db||typeof uid!=='string')return;
+  E2E.ksub[uid]=1;
+  SOC.db.doc('e2e/'+uid).onSnapshot(function(s){
+    E2E.keys[uid]=e2eClean(s&&s.exists?s.data():null);
+    var w=E2E.kwait[uid];if(w){delete E2E.kwait[uid];w.forEach(function(f){f();});}
+    /* a sender's key that arrives late can unlock messages that were waiting for it */
+    Object.keys(E2E.plain).forEach(function(k){var p=E2E.plain[k];if(p&&p.why==='nosender'&&p.from===uid)delete E2E.plain[k];});
+    e2eRedraw();
+  },function(){
+    E2E.keys[uid]=E2E.keys[uid]||{};
+    var w=E2E.kwait[uid];if(w){delete E2E.kwait[uid];w.forEach(function(f){f();});}
+  });
+}
+function e2eKeysOf(uid){
+  if(E2E.keys[uid])return Promise.resolve(E2E.keys[uid]);
+  return new Promise(function(ok){
+    (E2E.kwait[uid]=E2E.kwait[uid]||[]).push(function(){ok(E2E.keys[uid]||{});});
+    e2eWatch(uid);
+    setTimeout(function(){ok(E2E.keys[uid]||{});},8000);
+  });
+}
+/* the key this device shares with one other device (the same on both ends, never sent anywhere) */
+function e2eWrapKey(dev,jwk){
+  var id=dev+':'+jwk.x;
+  if(E2E.wrap[id])return E2E.wrap[id];
+  var S=e2eSubtle();
+  E2E.wrap[id]=S.importKey('jwk',jwk,{name:'ECDH',namedCurve:'P-256'},false,[]).then(function(pk){
+    return S.deriveKey({name:'ECDH',public:pk},E2E.priv,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  });
+  E2E.wrap[id].catch(function(){delete E2E.wrap[id];});
+  return E2E.wrap[id];
+}
+function e2eAd(from,chat,at){return new TextEncoder().encode(E2E_INFO+'|'+chat+'|'+from+'|'+at);}
+/* lock a message for every device of every person in the chat */
+function e2eSeal(text,uids,chat,at){
+  var S=e2eSubtle();
+  return e2eInit().then(function(){
+    return Promise.all(uids.map(function(u){return e2eKeysOf(u);}));
+  }).then(function(all){
+    var missing=[],devs=[];
+    uids.forEach(function(u,i){
+      var ks=all[i]||{},ids=Object.keys(ks);
+      if(u===SOC.uid&&!ks[E2E.dev]){ks[E2E.dev]=E2E.pub;ids=Object.keys(ks);}
+      if(!ids.length)missing.push(u);
+      ids.forEach(function(d){devs.push([d,ks[d]]);});
+    });
+    if(missing.length)return Promise.reject({code:'nokey',who:missing});
+    var iv=crypto.getRandomValues(new Uint8Array(12));
+    return S.generateKey({name:'AES-GCM',length:256},true,['encrypt']).then(function(mk){
+      return Promise.all([
+        S.encrypt({name:'AES-GCM',iv:iv,additionalData:e2eAd(SOC.uid,chat,at)},mk,new TextEncoder().encode(JSON.stringify({t:text}))),
+        S.exportKey('raw',mk)
+      ]);
+    }).then(function(r){
+      var k={};
+      return Promise.all(devs.map(function(dv){
+        var iv2=crypto.getRandomValues(new Uint8Array(12));
+        return e2eWrapKey(dv[0],dv[1]).then(function(wk){
+          return S.encrypt({name:'AES-GCM',iv:iv2},wk,r[1]);
+        }).then(function(w){k[dv[0]]=e2eB64(iv2)+'.'+e2eB64(w);},function(){});
+      })).then(function(){return {e:1,sd:E2E.dev,iv:e2eB64(iv),ct:e2eB64(r[0]),k:k};});
+    });
+  });
+}
+function e2eShape(d){
+  if(d.e!==1||typeof d.sd!=='string'||!/^d[a-f0-9]{6,20}$/.test(d.sd))return false;
+  if(typeof d.iv!=='string'||d.iv.length>32||typeof d.ct!=='string'||d.ct.length>4000)return false;
+  return !!(d.k&&typeof d.k==='object'&&Object.keys(d.k).length<=100);
+}
+/* unlock one message in the background; the chat redraws when it is done */
+function e2eOpen(ck,d,chat){
+  E2E.plain[ck]={w:1};
+  var S=e2eSubtle(),from=d.from;
+  function done(v){E2E.plain[ck]=v;e2eRedraw();}
+  (E2E.ready||e2eInit()).then(function(){
+    var mine=d.k[E2E.dev];
+    if(typeof mine!=='string'||mine.indexOf('.')<0){done({why:'old'});return;}
+    return e2eKeysOf(from).then(function(ks){
+      var spub=from===SOC.uid&&d.sd===E2E.dev?E2E.pub:(ks||{})[d.sd];
+      if(!spub){done({why:'nosender',from:from});return;}
+      var parts=mine.split('.');
+      return e2eWrapKey(d.sd,spub).then(function(wk){
+        return S.decrypt({name:'AES-GCM',iv:e2eUnB64(parts[0])},wk,e2eUnB64(parts[1]));
+      }).then(function(raw){
+        return S.importKey('raw',raw,{name:'AES-GCM'},false,['decrypt']);
+      }).then(function(mk){
+        return S.decrypt({name:'AES-GCM',iv:e2eUnB64(d.iv),additionalData:e2eAd(from,chat,d.at)},mk,e2eUnB64(d.ct));
+      }).then(function(pt){
+        var o=JSON.parse(new TextDecoder().decode(pt)),t=chatText(o&&o.t);
+        done(t?t:{why:'fail'});
+      });
+    });
+  }).catch(function(){done({why:E2E.ok?'fail':'off'});});
+}
+function e2eLockText(why){
+  if(why==='wait')return 'Unlocking...';
+  if(why==='old')return 'Sent before this device joined, so it cannot be read here.';
+  if(why==='nosender')return 'Waiting for the sender’s key...';
+  if(why==='off')return 'Locked. This browser cannot unlock messages.';
+  return 'This message could not be unlocked.';
+}
+function e2eRedraw(){
+  if(E2E.redrawT)return;
+  E2E.redrawT=setTimeout(function(){
+    E2E.redrawT=0;
+    prevAll();
+    if(chatEl.hidden){chatBadge();return;}
+    if((CH.view==='conv'||CH.view==='party')&&CH.key)convWatchRe();
+    else if(CH.view==='list')chatList();
+    chatBadge();
+  },30);
+}
+/* safety code: the same for everyone in the chat while nobody's keys were swapped */
+function e2eSafety(uids){
+  return Promise.all(uids.map(function(u){return e2eKeysOf(u);})).then(function(all){
+    var parts=[];
+    uids.forEach(function(u,i){Object.keys(all[i]||{}).forEach(function(d){parts.push(u+':'+d+':'+all[i][d].x+all[i][d].y);});});
+    parts.sort();
+    return e2eSubtle().digest('SHA-256',new TextEncoder().encode(parts.join('|')));
+  }).then(function(h){
+    var b=new Uint8Array(h),s='';
+    for(var i=0;i<10;i++){var n=((b[i*2]<<8)|b[i*2+1])%100000;s+=(i&&i%5===0?'\n':(i?' ':''))+('0000'+n).slice(-5);}
+    return s;
+  });
+}
 /* the last message of every chat, for the list, the badge and the friends row */
+function prevFrom(key){
+  var r=CH.prevRaw[key],d=r?cleanMsg(r.d,key,r.party?(PTY.all[key]||null):null,r.id):null;
+  if(r&&r.party&&!PTY.all[key])d=null;
+  if(d)CH.prev[key]=d;else delete CH.prev[key];
+  return d;
+}
+function prevAll(){Object.keys(CH.prevRaw).forEach(prevFrom);}
 function prevWatch(key,party){
   if(CH.prevSubs[key])return;
   CH.prevSubs[key]=1;
   SOC.db.collection('chats/'+key+'/msgs').orderBy('at','desc').limit(1).onSnapshot(function(s){
-    var d=s.docs.length?cleanMsg(s.docs[0].data(),key,party?(PTY.all[key]||party):null):null;
-    if(d)CH.prev[key]=d;else delete CH.prev[key];
+    CH.prevRaw[key]=s.docs.length?{d:s.docs[0].data(),id:s.docs[0].id,party:!!party}:null;
+    var d=prevFrom(key);
     if(!chatEl.hidden&&CH.key===key&&(CH.view==='conv'||CH.view==='party')&&d&&chatNearEnd())markRead(key,d.at);
     chatBadge();
     if(!chatEl.hidden&&CH.view==='list')chatList();
@@ -13953,11 +14189,12 @@ function convStart(view,key,title,bar,friend,party){
   chatLeave();
   CH.friend=friend||null;CH.party=party||null;
   CH.view=view;CH.key=key;CH.msgs=[];CH.loaded=false;CH.failed=false;CH.first=true;CH.reg={};
-  CH.lim=CH_PAGE;CH.more=false;CH.pend=[];CH.newBelow=0;CH.keep=null;CH.readAt=readMap()[key]||0;
+  CH.lim=CH_PAGE;CH.more=false;CH.pend=[];CH.docs=[];CH.newBelow=0;CH.keep=null;CH.readAt=readMap()[key]||0;
   $('chat-title').innerHTML=title;
   chatBody.classList.add('conv');
   var ro=SOC.canWrite===false,ph=ro?'You can read but not send yet':(CH.party?'Message the party':'Message @'+CH.friend.name);
   chatBody.innerHTML=(bar||'')+
+    '<div class="e2ebar"><span>\ud83d\udd12 End-to-end encrypted. Only the people in this chat can read new messages.</span><button class="mini" type="button" data-ch="safety">Safety code</button></div>'+
     '<div class="msgwrap"><div class="msgs" id="msgs" aria-live="polite"></div><button class="mini jump" id="chat-jump" type="button" data-ch="jump" hidden></button></div>'+
     '<p class="note" id="chat-note" hidden></p>'+
     '<div class="sendrow"><input class="field" id="chat-in" maxlength="'+CH_MAX+'" autocomplete="off" enterkeyhint="send" placeholder="'+esc(ph)+'" aria-label="Chat message"'+(ro?' disabled':' value="'+esc(CH.drafts[key]||'')+'"')+'>'+
@@ -13974,13 +14211,20 @@ function convWatch(){
     if(CH.key!==key)return;
     var was=CH.msgs.length?CH.msgs[CH.msgs.length-1].at:0,wasLoaded=CH.loaded;
     CH.failed=false;CH.loaded=true;CH.more=s.docs.length>=CH.lim;
-    CH.msgs=s.docs.map(function(d){return cleanMsg(d.data(),key,party?(CH.party||party):null);}).filter(Boolean).reverse();
-    /* a message that is saved now shows up for real: drop its "Sending..." copy */
-    CH.pend=CH.pend.filter(function(p){return p.err||!CH.msgs.some(function(m){return m.from===p.from&&m.at===p.at&&m.text===p.text;});});
+    CH.docs=s.docs.map(function(d){return {d:d.data(),id:d.id};});
+    convMsgs();
     var fresh=wasLoaded?CH.msgs.filter(function(m){return m.at>was&&m.from!==SOC.uid;}).length:0;
     msgsRender(fresh);
   },function(){if(CH.key!==key)return;CH.failed=true;msgsRender();});
 }
+function convMsgs(){
+  var key=CH.key,party=CH.party;
+  CH.msgs=CH.docs.map(function(x){return cleanMsg(x.d,key,party,x.id);}).filter(Boolean).reverse();
+  /* a message that is saved now shows up for real: drop its "Sending..." copy */
+  CH.pend=CH.pend.filter(function(p){return p.err||!CH.msgs.some(function(m){return m.from===p.from&&m.at===p.at;});});
+}
+/* a message finished unlocking: redraw from the last snapshot, no new download */
+function convWatchRe(){if(!CH.key)return;convMsgs();msgsRender();}
 function chatOlder(){
   if(!CH.key||!CH.more||CH.lim>=CH_MAXLIM)return;
   var el=$('msgs');
@@ -14004,15 +14248,18 @@ function msgsRender(fresh){
   if(CH.loaded&&CH.more){
     h+=CH.lim<CH_MAXLIM?'<button class="mini older" type="button" data-ch="older">Show older messages</button>':'<p class="note">Only the newest '+CH_MAXLIM+' messages are shown.</p>';
   }
-  var day='',last=null,newDone=false;
+  var day='',last=null,newDone=false,wasPlain=false;
   all.forEach(function(m){
     var mine=m.from===SOC.uid,dk=m.at?new Date(m.at).toDateString():'';
+    /* old messages from before encryption: say so once, and mark where locking starts */
+    if(m.plain&&!wasPlain){wasPlain=true;h+='<p class="note">\ud83d\udd13 Messages up to the lock line were sent before encryption was added, so they are not locked.</p>';}
+    if(!m.plain&&wasPlain){wasPlain=false;last=null;h+='<p class="daysep"><span>\ud83d\udd12 Encrypted from here</span></p>';}
     if(dk&&dk!==day){day=dk;last=null;h+='<p class="daysep"><span>'+esc(botDayName(m.at))+'</span></p>';}
     if(!newDone&&!mine&&!m.pid&&CH.readAt&&m.at>CH.readAt){newDone=true;last=null;h+='<p class="newsep"><span>New</span></p>';}
     var grp=last&&last.from===m.from&&m.at-last.at<CH_GROUP,tm=fmtClock(m.at);
     h+='<div class="msg'+(mine?' me':'')+(grp?' grp':'')+(m.pid?(m.err?' fail':' pend'):'')+'"'+(grp&&tm?' title="'+esc(tm)+'"':'')+'>'+
        (grp?'':'<small>'+msgWho(m)+(m.bd?' '+esc(m.bd):'')+(tm?' · '+esc(tm):'')+'</small>')+
-       cleanHtml(m.text)+
+       (m.lock?'<i class="locked">\ud83d\udd12 '+esc(m.text)+'</i>':cleanHtml(m.text))+
        (m.pid?(m.err?'<button class="mst" type="button" data-ch="retry" data-id="'+m.pid+'">Not sent · tap to try again</button>':'<i class="mst">Sending...</i>'):'')+'</div>';
     last=m;
   });
@@ -14043,8 +14290,13 @@ function chatPost(p){
     if(CH.party)SOC.db.doc('chats/'+key).set({g:1,by:CH.party.by,at:now}).catch(function(){});
     else SOC.db.doc('chats/'+key).set({a:SOC.uid,b:CH.friend.id,at:now}).catch(function(){});
   }
-  SOC.db.collection('chats/'+key+'/msgs').add({from:SOC.uid,text:p.text,at:now,bd:W.badge||''}).then(function(){
+  var uids=CH.party?Object.keys(CH.party.m):[SOC.uid,CH.friend.id];
+  e2eSeal(p.text,uids,key,now).then(function(box){
+    box.from=SOC.uid;box.at=now;box.bd=W.badge||'';
+    return SOC.db.collection('chats/'+key+'/msgs').add(box);
+  }).then(function(ref){
     STAT.add('chats',1);
+    if(ref&&typeof ref.id==='string')E2E.plain[key+'/'+ref.id]=p.text;
     if(CH.key!==key)return;
     var i=CH.pend.indexOf(p);
     if(i<0)return;
@@ -14054,8 +14306,16 @@ function chatPost(p){
     msgsRender();
   },function(e){
     if(CH.key!==key)return;
-    p.err=true;chatNote(failText(e),'err');msgsRender();
+    p.err=true;chatNote(e2eFail(e),'err');msgsRender();
   });
+}
+function e2eFail(e){
+  if(e&&e.code==='nokey'){
+    var names=e.who.map(function(u){return '@'+(CH.party?safeName(CH.party.m[u]):(CH.friend?CH.friend.name:'them'));});
+    return names.join(', ')+(names.length===1?' has':' have')+' not opened the new Blockyard yet, so the message cannot be locked for '+(names.length===1?'them':'everyone')+'. Try again once they have.';
+  }
+  if(e&&e.code==='e2e_off')return 'This browser cannot lock messages, so it cannot send. Try a different browser.';
+  return failText(e);
 }
 function chatSend(){
   var inp=$('chat-in');
@@ -14107,6 +14367,13 @@ chatBody.addEventListener('click',function(e){
   else if(a==='prof')openProfile(b.getAttribute('data-id'),b.getAttribute('data-nm'));
   else if(a==='leave')ptyLeave();
   else if(a==='older')chatOlder();
+  else if(a==='safety'){
+    var su=CH.party?Object.keys(CH.party.m):(CH.friend?[SOC.uid,CH.friend.id]:[]);
+    if(!su.length)return;
+    e2eSafety(su.sort()).then(function(code){
+      chatNote('Safety code:\n'+code+'\nCompare it with '+(CH.party?'the others in the party':'@'+CH.friend.name)+' (in person or on a call). If it matches, nobody swapped the keys. It changes when someone adds a new device.','');
+    },function(){chatNote('Could not make the safety code. Check your connection.','err');});
+  }
   else if(a==='retry')chatRetry(+b.getAttribute('data-id'));
   else if(a==='jump'){var m=$('msgs');if(m)m.scrollTop=m.scrollHeight;CH.newBelow=0;chatJump();msgsRender();}
   else if(a==='kick'){
@@ -17567,7 +17834,7 @@ document.querySelector('[data-nav="charts"]').addEventListener('click',openChart
 $('ch-back').addEventListener('click',toHub);
 
 /* ===== Updates: every update to Blockyard Arcade, newest first. Add a new entry at the top with each update. ===== */
-var UPDATES=[{"id": "u57", "d": "Nov 2, 2026", "t": "Better chat", "x": ["Chats with new messages move to the top of the list, and unread ones are in bold.", "Find a friend or party with the search box when you have lots of chats.", "Messages in a row from the same person stay together, with a line for each day and a New line where you stopped reading.", "Your message says Sending... until it is saved. If it does not send, tap it to try again.", "Show older messages loads earlier messages. A button takes you down to new messages when you scroll up.", "Half-typed messages stay in the box when you switch chats, and a counter shows when you are near the limit.", "Game chat: up and down arrows bring back what you said, and reading older lines no longer jumps you to the bottom.", "Fixed: your own chat bubbles showed your name beside the message instead of above it.", "Fixed: party chats could flip back to the chat list when someone got a blue check."]}, {"id": "u56", "d": "Oct 28, 2026", "t": "Phone and controller settings", "x": ["New in Settings: Phone and tablet controls. Left-handed mode, stick size, button size, see-through, a stick that stays in one place, look speed and vibration, with a picture that shows how it will look.", "New in Settings: Controller. Change which button does what, the stick dead zone and look speed, invert look, swap sticks and rumble. A tester shows what you press.", "A button in Settings opens the Blaster Duel button editor straight away."]}, {"id": "u55", "d": "Oct 27, 2026", "t": "Smarter test bots", "x": ["The test bots now play every game for real and try to win, instead of pressing random keys.", "After the games they press every menu and shop button, and check the Blaster Duel menus and the touch-button editor.", "Every day two bots also join one Blaster Duel match online, to check that playing with a friend works.", "The Bots page shows a speed list (slowest games first), the extra checks, and how far each bot got.", "Fixed: Lantern Quest opened to a blank page.", "Fixed: Colour Sort's tubes were squashed and could not be tapped on laptop screens."]}, {"id": "u54", "d": "Oct 26, 2026", "t": "Blaster Duel update", "x": ["The round clock now shows the right time in longer fights.", "Small fixes."]}, {"id": "u53", "d": "Oct 25, 2026", "t": "Make your own button layout", "x": ["Blaster Duel: open Settings in the lobby and tap Edit touch buttons.", "Drag FIRE, AIM, JUMP, RELOAD, SLIDE and the left FIRE button anywhere you like.", "Tap a button, then make it smaller or bigger, or hide it. Tap a hidden one and press Show to bring it back.", "Reset all puts every button back where it started. Your layout is saved."]}, {"id": "u52", "d": "Oct 25, 2026", "t": "Aim help on phones", "x": ["Blaster Duel now helps you aim on phones and tablets, even more than on a controller.", "When an enemy is near your crosshair, your aim slides onto them while you move, look around or fire. The pull is strongest while you hold FIRE."]}, {"id": "u51", "d": "Oct 25, 2026", "t": "Test bot fix", "x": ["Fixed: if your phone screen turned off or you switched apps while the test bots were running, the games they were testing got reported as blank. The bots now skip those games instead.", "Target Range, Block Sumo, Traffic Dodge and Beat Blocks were never broken. They were the last 4 games in a test run when the screen went off."]}, {"id": "u50", "d": "Oct 25, 2026", "t": "Support Blockyard", "x": ["Settings has a new Support Blockyard part with a Tip on itch.io button.", "Blockyard stays free. Tips are optional real money for the maker, so ask a grown-up first. Tips do not give bricks."]}, {"id": "u49", "d": "Oct 25, 2026", "t": "Blaster Duel weapon shop", "x": ["Blaster Duel now starts you with the Assault Rifle, Handgun, Katana and Grenade.", "Everything else is in the Weapons shop. Buy weapons with bricks.", "19 new weapons: Bow, Wildcat, Crossbow, Gunblade, Flamethrower, Energy Rifle, Grenade Launcher, Minigun, Paintball Gun, Permafrost, Distortion, Spray, Flare Gun, Shorty, Daggers, Slingshot, Exogun, Energy Pistols and Warper.", "Special powers: the Bow charges up, Permafrost slows people, Paintball splats their screen, Distortion flings them, Daggers let you double jump, Warper zaps you forward, and the Energy Pistols never reload.", "Weapons you already had equipped are yours to keep.", "Guns now reload by themselves when they run out."]}, {"id": "u48", "d": "Oct 25, 2026", "t": "Blaster Duel update", "x": ["Small changes to Blaster Duel."]}, {"id": "u47", "d": "Oct 25, 2026", "t": "ClaudeBot Pro", "x": ["New in Blaster Duel Practice: ClaudeBot Pro, the gold one. It is the toughest bot yet.", "It does everything ClaudeBot does, but it is faster, aims better, reacts quicker, has two medkits and three grenades, and dodges when you aim right at it.", "It has its own lines and Pro tips, and Practice counts your wins against it.", "ClaudeBot is exactly the same as before.", "ClaudeBot's chat has a Play ClaudeBot Pro button too."]}, {"id": "u46", "d": "Oct 25, 2026", "t": "Duel ClaudeBot", "x": ["New in Blaster Duel: play ClaudeBot, the toughest bot. Open Practice, pick ClaudeBot and press Start.", "ClaudeBot strafes and hops, switches weapons for the range, backs off to heal with a medkit, and throws grenades where it last saw you.", "It talks while you play: it cheers when you get it, and gives you a tip when it gets you.", "ClaudeBot's chat has a new Play Blaster Duel with me button that drops you straight into a duel.", "Practice shows how many times you have beaten ClaudeBot."]}, {"id": "u45", "d": "Oct 25, 2026", "t": "Ask works on the website and app", "x": ["The Ask button now works on the website, the app and itch.io. Send the owner a request for a new game, a gift or a fix.", "Requests from there show up in Requests in the Claude version, marked with where they came from.", "When the owner answers, your request says Done or Not this time.", "Requests are locked on the way, so other players cannot read them.", "Your requests stay listed on your device, and you can delete them."]}, {"id": "u44", "d": "Oct 25, 2026", "t": "Online play on the website and app", "x": ["The website, the app and itch.io now have real online play. Everyone playing there meets in the same games.", "Works in Obby Race, Hill King, Paint Battle, Star Party, Yard Escape, Blaster Duel, Block Tag, Blockball and Balloon Battle matches with a code.", "If nobody else is there, the bots play with you, and they leave when a real player joins.", "Other players show with their own name and avatar colour.", "Settings has a new Online play part that shows if you are connected.", "Players on the website and app do not meet players in the Claude version. They are separate.", "Game chat stays off on the website and app, because anyone on the internet can join."]}, {"id": "u43", "d": "Oct 25, 2026", "t": "Online games work offline", "x": ["Block Tag, Blockball and Star Party now work on the website, the app and itch.io, and with no internet: bots play with you when nobody else is there.", "Block Tag: three bots play tag with you. The It bot chases, the others run away.", "Blockball: Bot Grape plays against you. Kick the ball into the blue net.", "Star Party: three bots grab stars too, so there is someone to beat.", "The bots leave as soon as a real player joins (in the Claude version).", "Copies outside Claude no longer show the game chat bubble or say they need an invite, because they have no online play."]}, {"id": "u42", "d": "Oct 25, 2026", "t": "Owner key changes and bots that investigate", "x": ["Your owner key for the website and app now changes every 5 minutes. Commands shows it with a countdown and makes a new one by itself.", "A device you unlock keeps Commands, even after the key changes. Devices you already unlocked stay unlocked.", "You can now tell the bots what to look into in their chats. TestBot checks the games you name, on the screens you name (laptop, phone, sideways or tablet), and you can watch it play right in the chat.", "ClaudeBot does the same, then looks at the pictures and answers you in its own words. It uses your Claude account to think, so the first time Claude asks you to allow it.", "Your messages and their answers stay in the chat, and anything broken also goes to Requests."]}, {"id": "u41", "d": "Oct 25, 2026", "t": "Owner tools on the website and app", "x": ["The owner can now get Commands on the website, the app and itch.io too.", "In the Claude version, open Commands and tap Show my owner key under Owner on the website and app. Copy it.", "On the website or app, open Settings, paste it under Owner and tap Unlock. Commands shows up at the top of the hub.", "There you get Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements stay in the Claude version, because they need everyone's shared data.", "The key stays with your player, so it follows your email account to your other devices."]}, {"id": "u40", "d": "Oct 25, 2026", "t": "Watch every bot at once", "x": ["Watch the bots play now opens a wall with a screen for every game, each with its own bot.", "A few bots test at the same time, then hand over to the next game, round after round, so you can see every bot testing.", "Each screen shows Bot testing now, Working or the problem it found, with a picture of the game.", "Tap a game to watch just that bot, big, with every tap and key press shown. Tap All bots to go back.", "When you leave, anything broken goes to Requests and TestBot sends you a report.", "The bots' copies of the games have no sound and never change anyone's saves."]}, {"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
+var UPDATES=[{"id": "u58", "d": "Nov 2, 2026", "t": "Locked chats", "x": ["Friend and party chats are now end-to-end encrypted. Only the people in the chat can read new messages. Not even the page owner can.", "Each device gets its own key, so your phone and laptop can both read new messages.", "Tap Safety code in a chat and compare it with your friend. If the codes match, nobody swapped the keys.", "A new device cannot read messages sent before it joined.", "Messages from before this update still show, above a line that says Encrypted from here.", "Your friends need to open Blockyard once after this update before you can send them a message."]}, {"id": "u57", "d": "Nov 2, 2026", "t": "Better chat", "x": ["Chats with new messages move to the top of the list, and unread ones are in bold.", "Find a friend or party with the search box when you have lots of chats.", "Messages in a row from the same person stay together, with a line for each day and a New line where you stopped reading.", "Your message says Sending... until it is saved. If it does not send, tap it to try again.", "Show older messages loads earlier messages. A button takes you down to new messages when you scroll up.", "Half-typed messages stay in the box when you switch chats, and a counter shows when you are near the limit.", "Game chat: up and down arrows bring back what you said, and reading older lines no longer jumps you to the bottom.", "Fixed: your own chat bubbles showed your name beside the message instead of above it.", "Fixed: party chats could flip back to the chat list when someone got a blue check."]}, {"id": "u56", "d": "Oct 28, 2026", "t": "Phone and controller settings", "x": ["New in Settings: Phone and tablet controls. Left-handed mode, stick size, button size, see-through, a stick that stays in one place, look speed and vibration, with a picture that shows how it will look.", "New in Settings: Controller. Change which button does what, the stick dead zone and look speed, invert look, swap sticks and rumble. A tester shows what you press.", "A button in Settings opens the Blaster Duel button editor straight away."]}, {"id": "u55", "d": "Oct 27, 2026", "t": "Smarter test bots", "x": ["The test bots now play every game for real and try to win, instead of pressing random keys.", "After the games they press every menu and shop button, and check the Blaster Duel menus and the touch-button editor.", "Every day two bots also join one Blaster Duel match online, to check that playing with a friend works.", "The Bots page shows a speed list (slowest games first), the extra checks, and how far each bot got.", "Fixed: Lantern Quest opened to a blank page.", "Fixed: Colour Sort's tubes were squashed and could not be tapped on laptop screens."]}, {"id": "u54", "d": "Oct 26, 2026", "t": "Blaster Duel update", "x": ["The round clock now shows the right time in longer fights.", "Small fixes."]}, {"id": "u53", "d": "Oct 25, 2026", "t": "Make your own button layout", "x": ["Blaster Duel: open Settings in the lobby and tap Edit touch buttons.", "Drag FIRE, AIM, JUMP, RELOAD, SLIDE and the left FIRE button anywhere you like.", "Tap a button, then make it smaller or bigger, or hide it. Tap a hidden one and press Show to bring it back.", "Reset all puts every button back where it started. Your layout is saved."]}, {"id": "u52", "d": "Oct 25, 2026", "t": "Aim help on phones", "x": ["Blaster Duel now helps you aim on phones and tablets, even more than on a controller.", "When an enemy is near your crosshair, your aim slides onto them while you move, look around or fire. The pull is strongest while you hold FIRE."]}, {"id": "u51", "d": "Oct 25, 2026", "t": "Test bot fix", "x": ["Fixed: if your phone screen turned off or you switched apps while the test bots were running, the games they were testing got reported as blank. The bots now skip those games instead.", "Target Range, Block Sumo, Traffic Dodge and Beat Blocks were never broken. They were the last 4 games in a test run when the screen went off."]}, {"id": "u50", "d": "Oct 25, 2026", "t": "Support Blockyard", "x": ["Settings has a new Support Blockyard part with a Tip on itch.io button.", "Blockyard stays free. Tips are optional real money for the maker, so ask a grown-up first. Tips do not give bricks."]}, {"id": "u49", "d": "Oct 25, 2026", "t": "Blaster Duel weapon shop", "x": ["Blaster Duel now starts you with the Assault Rifle, Handgun, Katana and Grenade.", "Everything else is in the Weapons shop. Buy weapons with bricks.", "19 new weapons: Bow, Wildcat, Crossbow, Gunblade, Flamethrower, Energy Rifle, Grenade Launcher, Minigun, Paintball Gun, Permafrost, Distortion, Spray, Flare Gun, Shorty, Daggers, Slingshot, Exogun, Energy Pistols and Warper.", "Special powers: the Bow charges up, Permafrost slows people, Paintball splats their screen, Distortion flings them, Daggers let you double jump, Warper zaps you forward, and the Energy Pistols never reload.", "Weapons you already had equipped are yours to keep.", "Guns now reload by themselves when they run out."]}, {"id": "u48", "d": "Oct 25, 2026", "t": "Blaster Duel update", "x": ["Small changes to Blaster Duel."]}, {"id": "u47", "d": "Oct 25, 2026", "t": "ClaudeBot Pro", "x": ["New in Blaster Duel Practice: ClaudeBot Pro, the gold one. It is the toughest bot yet.", "It does everything ClaudeBot does, but it is faster, aims better, reacts quicker, has two medkits and three grenades, and dodges when you aim right at it.", "It has its own lines and Pro tips, and Practice counts your wins against it.", "ClaudeBot is exactly the same as before.", "ClaudeBot's chat has a Play ClaudeBot Pro button too."]}, {"id": "u46", "d": "Oct 25, 2026", "t": "Duel ClaudeBot", "x": ["New in Blaster Duel: play ClaudeBot, the toughest bot. Open Practice, pick ClaudeBot and press Start.", "ClaudeBot strafes and hops, switches weapons for the range, backs off to heal with a medkit, and throws grenades where it last saw you.", "It talks while you play: it cheers when you get it, and gives you a tip when it gets you.", "ClaudeBot's chat has a new Play Blaster Duel with me button that drops you straight into a duel.", "Practice shows how many times you have beaten ClaudeBot."]}, {"id": "u45", "d": "Oct 25, 2026", "t": "Ask works on the website and app", "x": ["The Ask button now works on the website, the app and itch.io. Send the owner a request for a new game, a gift or a fix.", "Requests from there show up in Requests in the Claude version, marked with where they came from.", "When the owner answers, your request says Done or Not this time.", "Requests are locked on the way, so other players cannot read them.", "Your requests stay listed on your device, and you can delete them."]}, {"id": "u44", "d": "Oct 25, 2026", "t": "Online play on the website and app", "x": ["The website, the app and itch.io now have real online play. Everyone playing there meets in the same games.", "Works in Obby Race, Hill King, Paint Battle, Star Party, Yard Escape, Blaster Duel, Block Tag, Blockball and Balloon Battle matches with a code.", "If nobody else is there, the bots play with you, and they leave when a real player joins.", "Other players show with their own name and avatar colour.", "Settings has a new Online play part that shows if you are connected.", "Players on the website and app do not meet players in the Claude version. They are separate.", "Game chat stays off on the website and app, because anyone on the internet can join."]}, {"id": "u43", "d": "Oct 25, 2026", "t": "Online games work offline", "x": ["Block Tag, Blockball and Star Party now work on the website, the app and itch.io, and with no internet: bots play with you when nobody else is there.", "Block Tag: three bots play tag with you. The It bot chases, the others run away.", "Blockball: Bot Grape plays against you. Kick the ball into the blue net.", "Star Party: three bots grab stars too, so there is someone to beat.", "The bots leave as soon as a real player joins (in the Claude version).", "Copies outside Claude no longer show the game chat bubble or say they need an invite, because they have no online play."]}, {"id": "u42", "d": "Oct 25, 2026", "t": "Owner key changes and bots that investigate", "x": ["Your owner key for the website and app now changes every 5 minutes. Commands shows it with a countdown and makes a new one by itself.", "A device you unlock keeps Commands, even after the key changes. Devices you already unlocked stay unlocked.", "You can now tell the bots what to look into in their chats. TestBot checks the games you name, on the screens you name (laptop, phone, sideways or tablet), and you can watch it play right in the chat.", "ClaudeBot does the same, then looks at the pictures and answers you in its own words. It uses your Claude account to think, so the first time Claude asks you to allow it.", "Your messages and their answers stay in the chat, and anything broken also goes to Requests."]}, {"id": "u41", "d": "Oct 25, 2026", "t": "Owner tools on the website and app", "x": ["The owner can now get Commands on the website, the app and itch.io too.", "In the Claude version, open Commands and tap Show my owner key under Owner on the website and app. Copy it.", "On the website or app, open Settings, paste it under Owner and tap Unlock. Commands shows up at the top of the hub.", "There you get Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements stay in the Claude version, because they need everyone's shared data.", "The key stays with your player, so it follows your email account to your other devices."]}, {"id": "u40", "d": "Oct 25, 2026", "t": "Watch every bot at once", "x": ["Watch the bots play now opens a wall with a screen for every game, each with its own bot.", "A few bots test at the same time, then hand over to the next game, round after round, so you can see every bot testing.", "Each screen shows Bot testing now, Working or the problem it found, with a picture of the game.", "Tap a game to watch just that bot, big, with every tap and key press shown. Tap All bots to go back.", "When you leave, anything broken goes to Requests and TestBot sends you a report.", "The bots' copies of the games have no sound and never change anyone's saves."]}, {"id": "u39", "d": "Oct 25, 2026", "t": "Games fixed for laptops and sideways phones", "x": ["Fixed: on laptops, PCs and phones held sideways, Lights Out, Slide Puzzle, Merge Blocks, Brick Sweeper, Color Echo, Stacker, Block Drop and Maze Run had tiny boards, and Block Snake's board went off the bottom of the screen. The boards now fill the screen.", "Block Tac Toe and Four in a Row now fit on every screen, and Block Tac Toe no longer crashes on phones held sideways.", "Bubble Pop no longer ends after a few seconds on laptops. The bubbles now fill a column in the middle of the screen.", "On wide screens, buttons like the puzzle size, DIG / FLAG mode and vs Bot sit next to the board instead of above it.", "Phones held upright look the same as before.", "The test bots no longer count a game-over screen as a blank screen.", "Found by ClaudeBot and TestBot's first daily report."]}, {"id": "u38", "d": "Oct 25, 2026", "t": "Bot friends and daily reports", "x": ["TestBot and ClaudeBot are now your friends. They are in your friends row and in Chat, with a BOT tag.", "Tap a bot to open its chat. It has every report the bot sent you, newest at the bottom, and a red dot shows when there is a new one.", "Every time the test bots finish (Test bots or the Bot viewer), anything that is not working goes to Requests by itself, one request per game, and TestBot sends you a report. Games that work are not posted.", "Every morning the bots test every game on GitHub's computers, and ClaudeBot and TestBot send you a daily report of what they found.", "Bot friends show for people with the Test bots or Bot viewer tool."]}, {"id": "u37", "d": "Oct 24, 2026", "t": "Memory Match fix", "x": ["Found by the new test bots: on laptops and PCs, Memory Match cards were tiny dots you could not play. The cards now fill the screen, with more columns on wide screens."]}, {"id": "u36", "d": "Oct 24, 2026", "t": "Test bots", "x": ["New Test bots tool in the admin panel: bots open every game, press keys and tap around for a few seconds each.", "They look for errors, games that freeze, blank screens and lag, then post what they found to Requests as TestBot.", "Every day the bots also play every game on GitHub\u2019s computers, at laptop and phone sizes. See the results and pictures on the new Bots page of the website. ClaudeBot posts any problems to Requests.", "New Bot viewer tool: pick a game (or every game) and watch the bots play it, with a yellow dot on every tap and a box showing every key they press. It also shows what TestBot and ClaudeBot found last. It can be given out with a role.", "Test bot plays never count for best scores, leaderboards or play history, and never change anyone\u2019s saves."]}, {"id": "u35", "d": "Oct 24, 2026", "t": "Play history for roles", "x": ["Fixed: the Play history switch on a role did not turn on. Roles like Co-Owner can now get the Play history tool."]}, {"id": "u34", "d": "Oct 24, 2026", "t": "Play history tool", "x": ["New Play history tool in the admin panel: see everyone who played, what game they opened and when, newest first and grouped by day.", "Search for a player or a game, or tap Only them to see one person's plays.", "It can be given out with a role, like the other tools.", "It counts plays in the Claude version from this update on. Invisible status still hides what you are playing from friends, but not from this tool."]}, {"id": "u33", "d": "Oct 24, 2026", "t": "Sniper scope fix", "x": ["Fixed: aiming with the Sniper in Blaster Duel turned the whole screen black. The scope now shows a clear round view with a crosshair, so you can see what you are aiming at."]}, {"id": "u32", "d": "Oct 24, 2026", "t": "New itch.io version", "x": ["The itch.io version now loads the newest Blockyard every time it opens, just like the app and the website.", "It keeps a copy on your device, so it still opens without internet.", "It has the same Sign in screen and email accounts, so your progress follows you between itch.io, the website and the app.", "Fixed: on itch.io, account codes and online saves could get far too big. They are back to normal size."]}, {"id": "u31", "d": "Oct 24, 2026", "t": "Sign in on the websites", "x": ["Opening Blockyard on the GitHub page, the website or the app now starts with a Sign in screen.", "Sign in with your email, or tap New here? Make an account to make one with a player name, email and password.", "You stay signed in on that device until you sign out, and your progress keeps saving to your account.", "Everyone who opens Blockyard on their own device signs in to their own account. Sharing a device? Sign out in Settings and the next person can sign in to theirs.", "Just want to play? Tap Play without signing in."]}, {"id": "u30", "d": "Oct 24, 2026", "t": "Install Blockyard as an app", "x": ["On the GitHub page (glufftl25-sys.github.io/blockyard/game.html) you can now install Blockyard like a real app. Open Settings and tap Install Blockyard.", "On iPhone or iPad, open that page in Safari, tap Share, then Add to Home Screen.", "The app opens without the browser, works without internet, and updates by itself every time Blockyard gets a new update.", "Account codes from the Claude version now make a player for you: paste the code, pick a name and you are signed in with your progress."]}, {"id": "u29", "d": "Oct 24, 2026", "t": "Email accounts", "x": ["In the GitHub, website and itch.io versions of Blockyard you can now use an email account. Open Settings and find Email account.", "Link your email to your player and your progress saves online by itself while you play.", "Sign in with the same email on any other phone or computer to pick up where you left off.", "Forgot your password? Tap Forgot my password and you get an email with a link to pick a new one.", "In the Claude version nothing changes: your Claude account already saves your progress."]}, {"id": "u28", "d": "Oct 24, 2026", "t": "Game chat", "x": ["Every game now has a chat bubble on the left of the game's name. Tap it (or press /) to chat with only the people in that game.", "In online games you chat with the people in your lobby or match. In single-player games you chat with the other people playing the same game.", "New messages pop up for a few seconds when the chat is closed, with a number on the bubble. Esc closes it.", "Mute turns the chat off just for you. Bad words are blurred. Tower Defense and Studio have no chat."]}, {"id": "u27", "d": "Oct 24, 2026", "t": "See what friends are playing", "x": ["Under each friend's name in the hub you can now see the game they are playing.", "Tap the game to jump into it with them. Their profile has a Join button too.", "If they are in a Blaster Duel match, you join it and watch until it ends.", "Set your status to Invisible and nobody sees what you are playing."]}, {"id": "u26", "d": "Oct 24, 2026", "t": "One shot and Immortal", "x": ["One shot now knocks out anyone you hit in one hit: players and bots in Blaster Duel, rocks in Rock Blaster (they break completely), and in Block Sumo one bump sends them flying out of the ring.", "Immortal protects you from One shot. In Blaster Duel, Immortal players show IMMORTAL over their head and hits on them say Blocked.", "Immortal also keeps you in the ring in Block Sumo, stops you being tagged in Tag, and sends you back to your spawn if you fall off a Blaster Duel map.", "Block Sumo's ring is the right size on laptops and PCs again."]}, {"id": "u25", "d": "Oct 24, 2026", "t": "Controllers", "x": ["The whole arcade now works with a game controller.", "In menus, the D-pad or left stick moves a yellow highlight, A presses it, B goes back and the right stick scrolls.", "In games, the left stick and D-pad move, A jumps, X or the right trigger shoots, LB and RB turn the camera, Y changes the camera view, and Start opens the game menu.", "For games with on-screen buttons, the right stick moves a pointer and A taps it."]}, {"id": "u24", "d": "Oct 24, 2026", "t": "Blaster Duel: Rivals style", "x": ["Blaster Duel is rebuilt as a first-person arena shooter, like Roblox Rivals.", "New 3D lobby with duel pads for 1v1 up to 5v5. Stand on the blue or orange side, or press Play and pick a mode.", "Not enough players? Press Start with bots, or play Practice against Easy, Normal or Hard bots.", "Pick a primary, secondary, melee and utility in Weapons: Assault Rifle, Burst Rifle, Shotgun, Sniper, RPG, Handgun, Revolver, Uzi, Knife, Katana, Scythe, Grenade, Medkit, Flashbang and Smoke Grenade.", "First team to win 5 rounds wins. Headshots do extra damage, and you can slide, reload, aim and throw utilities.", "Daily tasks: Play duels, Eliminations and Win duels give bricks.", "On a computer, click to aim with the mouse. On a phone, play sideways with touch controls."]}, {"id": "u23", "d": "Oct 24, 2026", "t": "Green squares in Paint Battle", "x": ["Making a Paint Battle game for 2 to 5 players turns your square green, and you stay in it until enough players join.", "The player count and bot count show above every green square, like 2/3 players · 5 bots.", "Walk onto someone's green square to join their game. When it's full, everyone in it starts together.", "Tap Leave square to step out. If the game's maker leaves, everyone in the square goes back to the lobby."]}, {"id": "u22", "d": "Oct 24, 2026", "t": "Bigger Paint Battle", "x": ["Paint Battle is much bigger on laptops and PCs: the board fills the screen, with a big timer on the left and the top 6 painters on the right.", "More players and bots now means a bigger map: 12×16 for up to 3, 15×20 for up to 6, 18×24 for up to 10, and 21×28 for up to 15.", "Everyone moves a little faster on the bigger maps.", "The match menu shows which map size you'll get."]}, {"id": "u21", "d": "Oct 24, 2026", "t": "Paint Battle lobby", "x": ["Paint Battle now starts in a 2D lobby. Walk your figure around and step on a yellow pad to play.", "Pick 1 to 5 players and add up to 10 bots. With 2 or more players, the match starts when that many people pick the same setup.", "Close a full loop of your colour and everything inside it fills in with your colour.", "Bots are shared out by ping: the player with the best ping runs the most bots, and players with slower ping run fewer.", "Matches last 60 seconds, then everyone goes back to the lobby."]}, {"id": "u20", "d": "Oct 23, 2026", "t": "4 new games", "x": ["Gem Rush (3D): grab gems before the clock runs out, and jump over the patrol robots.", "Hill King (3D, online): stand on the gold hill alone to score. First to 30 wins the round. Bots play when you are on your own.", "Sky Hop (2D): bounce up an endless tower of platforms.", "Paint Battle (2D, online): paint the floor your colour. Most tiles when the round ends wins. Bots play when you are on your own."]}, {"id": "u19", "d": "Oct 23, 2026", "t": "Mod detectors", "x": ["Mod detectors now watch online games for players moving far too fast, teleporting or flying without permission.", "When they spot one, they send a cheat report by themselves, marked auto-detected.", "Cheats the owner gave out never set off the detectors. Reviewers also see how many reports a player has and which cheats they are allowed to use."]}, {"id": "u18", "d": "Oct 23, 2026", "t": "Continue row", "x": ["New Continue row in the hub, under your friends: the games you played last, with their pictures.", "Tap a picture to jump back into that game.", "Tap Continue to see your last 50 games."]}, {"id": "u17", "d": "Oct 23, 2026", "t": "Update numbers and delete button", "x": ["Every update now shows its number on the right side.", "New Delete updates tool: a red trash can at the top of each update deletes it for everyone. It can be given out with a role.", "Deleted updates can be restored from the bottom of this list."]}, {"id": "u16", "d": "Oct 23, 2026", "t": "Longer About me", "x": ["About me has no character limit anymore. Write as much as you want."]}, {"id": "u15", "d": "Oct 23, 2026", "t": "Updates button", "x": ["This Updates button! Tap it any time to see every update and what changed."]}, {"id": "u14", "d": "Oct 23, 2026", "t": "10x shots", "x": ["New cheat: 10x shots. Every shot fires ten bullets.", "In Block Blitz the bullets fly forward at the enemy, and power-ups make it 20 or 30 bullets.", "Works in Block Blitz, Rock Blaster and Blaster Duel."]}, {"id": "u13", "d": "Oct 23, 2026", "t": "Ammo, reload and bullet cheats", "x": ["Infinite ammo: no shot limit in Rock Blaster, and shots never add rows in Bubble Pop.", "Fast reload: shoot about 3x faster in Block Blitz and Blaster Duel.", "Fast bullets: bullets fly much faster in Block Blitz, Blaster Duel and Rock Blaster."]}, {"id": "u12", "d": "Oct 23, 2026", "t": "Reviewing cheat reports", "x": ["Reports can now be approved or declined.", "A reported player can't play online games until their report is reviewed.", "Approved reports keep them out of online games until they are unblocked. Declined reports let them play again.", "Reports about the owner go through but do nothing."]}, {"id": "u11", "d": "Oct 23, 2026", "t": "Cheats", "x": ["Test tools are now called Cheats, and each cheat can be given out with a role.", "New cheats: Speed, One shot, Immortal, Super jump and Flight.", "Turn your cheats on from the game menu while you play.", "Cheats work in multiplayer too.", "Games played with cheats on don't count for best scores or leaderboards."]}, {"id": "u10", "d": "Oct 23, 2026", "t": "Cheat reports", "x": ["Report a cheater from the game menu, or type their username to report them.", "The Cheat reports tool can be given out with a role."]}, {"id": "u9", "d": "Oct 23, 2026", "t": "Game menu", "x": ["A square button at the top left of every game opens the game menu.", "Resume, or Leave with an “Are you sure?” check.", "Show your FPS and ping in the top right corner.", "Single-player games pause while the menu is open. Esc opens and closes it."]}, {"id": "u8", "d": "Oct 23, 2026", "t": "Sharper graphics", "x": ["Games now draw at your screen's full sharpness.", "New Graphics setting: Sharp, Balanced or Battery saver. Sharp steps down by itself if a game lags."]}, {"id": "u7", "d": "Oct 23, 2026", "t": "Yard Escape: no second chances", "x": ["Losing Block Blitz or Four in a Row in Yard Escape sends you back to the start of the story.", "Leaving one of those fights early restarts the story too."]}, {"id": "u6", "d": "Oct 22, 2026", "t": "Yard Escape fixes", "x": ["Story text and choices are bigger and easier to read.", "Beat the wave 5 boss in Block Blitz to get back to the story.", "Beat the Fog King at Four in a Row to reach the ending.", "The timer now counts real time, minigames included, so finish times are no longer 0:00."]}, {"id": "u5", "d": "Oct 22, 2026", "t": "Group votes", "x": ["In a Yard Escape group, everyone votes on each choice and the most votes wins.", "A tie is broken by a random pick that every player sees the same way.", "New Vote weights tool to make some players' votes count more."]}, {"id": "u4", "d": "Oct 22, 2026", "t": "Yard Escape", "x": ["New 3D game! Step on a yellow square in the yard to pick a group of 1 to 5 players.", "Play a story with choices, and some choices drop you into minigames.", "Top 10 fastest times for each group size.", "Jump with Space or the Jump button."]}, {"id": "u3", "d": "Oct 22, 2026", "t": "Controls", "x": ["Change your keys for moving, jumping and shooting in Settings.", "Works better on laptops and PCs."]}, {"id": "u2", "d": "Oct 22, 2026", "t": "Bug fix", "x": ["Four in a Row no longer crashes on short screens."]}, {"id": "u1", "d": "Before Oct 22, 2026", "t": "Blockyard Arcade launches", "x": ["45 games, from Block Blitz to Sky Obby.", "Studio for building your own worlds with scripts.", "Chat, friends and party group chats.", "Anyone with the link can play, no invite needed.", "Accounts that save your progress, plus account codes for the itch.io version.", "The itch.io version loads the newest update by itself."]}];
 var updEl=$('updates');SCR.push(updEl);
 function updBadge(){var b=$('upd-badge');if(b)b.hidden=lsGet('upd.seen','')===UPDATES[0].id;}
 /* deleting updates: people with the "Delete updates" tool hide a bubble for everyone. Each one's choices live in
