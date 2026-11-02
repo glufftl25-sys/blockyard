@@ -262,6 +262,7 @@ button.mst{color:var(--brick-dark);opacity:1;text-decoration:underline;cursor:po
 .ptybar{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:8px;background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:12px;box-shadow:0 4px 0 var(--ink)}
 .ptyn{flex:1;min-width:0;font-weight:800;font-size:16px;overflow-wrap:anywhere}
 .ptyn small{display:block;font-weight:700;font-size:12px;opacity:.75}
+#chat .choice.bad{background:var(--brick);color:#fff}
 .mini.bad{background:var(--brick);color:#fff}
 #mkui{position:relative;flex:1 1 46%;min-height:0;display:flex;flex-direction:column;gap:0;background:#101a33;border:3px solid var(--ink);border-radius:14px;box-shadow:0 4px 0 var(--ink);color:#fff;overflow:hidden}
 #mkui.shut{flex:0 0 auto}
@@ -13664,7 +13665,8 @@ function chatBadge(){
 }
 function cleanMsg(d,key,party,id){
   if(!d||typeof d!=='object'||typeof d.from!=='string')return null;
-  if(party){if(!party.m[d.from])return null;}
+  /* someone who left the party: their messages from before they left still show */
+  if(party){if(!party.m[d.from]&&!(party.x&&party.x[d.from]&&+d.at<=party.x[d.from].t))return null;}
   else if(key.split('~').indexOf(d.from)<0)return null;
   var m={from:d.from,text:'',at:(typeof d.at==='number'&&isFinite(d.at))?d.at:0,bd:badgeSym(typeof d.bd==='string'?d.bd:'')};
   /* locked (end-to-end encrypted): show the unlocked text once this device has worked it out */
@@ -13694,24 +13696,39 @@ function fmtTime(at){
   try{return d.toLocaleDateString([], {month:'short',day:'numeric'})+' '+fmtClock(at);}catch(_){return '';}
 }
 /* ===== Parties: a chat with a few friends at once.
-   Each person's parties live under their own uid, so nobody can change a party they did not make. ===== */
-var PTY={mine:{},all:{},subbed:false,pick:{},name:'',busy:false,msg:null};
+   Each person's parties live under their own uid, so nobody can change a party they did not make.
+   Leaving a party you did not make is saved under your own uid too (left: party id -> when), so your other devices
+   drop it and the others stop locking messages for you. If the maker invites you again later (j: uid -> when), you are back in. ===== */
+var PTY={mine:{},all:{},left:{},subbed:false,pick:{},name:'',busy:false,msg:null,sure:''};
+var PTY_MAXLEFT=40;
 function ptyHidden(){var m=lsGet('party.hide',{});return (m&&typeof m==='object'&&!Array.isArray(m))?m:{};}
 function ptyHide(pid){var m=ptyHidden();m[pid]=1;lsSet('party.hide',m);}
 function ptyId(){return 'g'+Date.now().toString(36).slice(-6)+Math.floor(Math.random()*1296).toString(36);}
-function cleanParty(pid,d,by,byName){
+function cleanLeft(d){
+  var out={};
+  if(d&&typeof d==='object'&&!Array.isArray(d))Object.keys(d).slice(0,PTY_MAXLEFT*2).forEach(function(pid){
+    var t=+d[pid];if(/^[a-z0-9]{4,20}$/.test(pid)&&isFinite(t)&&t>0)out[pid]=t;
+  });
+  return out;
+}
+/* leftOf(uid) gives that person's left list; someone who left after they were last invited is not in the party */
+function cleanParty(pid,d,by,byName,leftOf){
   if(!d||typeof d!=='object')return null;
   if(!/^[a-z0-9]{4,20}$/.test(pid))return null;
-  var m={},n=0;
+  var m={},j={},x={},n=0,jd=(d.j&&typeof d.j==='object')?d.j:{};
   if(d.m&&typeof d.m==='object')Object.keys(d.m).slice(0,12).forEach(function(u){
     if(typeof u!=='string'||u.length>64)return;
     var nm=d.m[u];
     if(typeof nm!=='string'||!NAME_RE.test(nm))return;
+    var jt=+jd[u];if(isFinite(jt)&&jt>0)j[u]=jt;
+    var lt=(u!==by&&leftOf)?(leftOf(u)[pid]||0):0;
+    if(lt&&lt>=(j[u]||0)){x[u]={nm:nm,t:lt};return;}
     m[u]=nm;n++;
   });
-  if(n<2)return null;
+  /* a party everyone else left stays for its maker, so they can invite people again */
+  if(!m[by]||(n<2&&!Object.keys(x).length))return null;
   return {id:pid,n:(typeof d.n==='string'?d.n.replace(CTRL,' ').slice(0,24).trim():'')||'Party',
-    by:by,byName:safeName(byName),m:m,at:+d.at||0};
+    by:by,byName:safeName(byName),m:m,j:j,x:x,at:+d.at||0};
 }
 function ptyList(){
   var hid=ptyHidden(),out=[];
@@ -13726,36 +13743,63 @@ function ptySub(){
   if(PTY.subbed||!SOC.db||!SOC.uid)return;
   PTY.subbed=true;
   SOC.db.collection('parties').onSnapshot(function(s){
-    var all={};
-    s.docs.slice(0,200).forEach(function(doc){
+    var all={},docs=s.docs.slice(0,200),lefts={};
+    docs.forEach(function(doc){var d=doc.data()||{};lefts[doc.id]=cleanLeft(d.left);});
+    PTY.left=lefts[SOC.uid]||{};
+    function leftOf(u){return lefts[u]||{};}
+    docs.forEach(function(doc){
       var d=doc.data()||{},by=doc.id;
       if(!d.list||typeof d.list!=='object')return;
       Object.keys(d.list).slice(0,8).forEach(function(pid){
-        var p=cleanParty(pid,d.list[pid],by,d.name);
+        var p=cleanParty(pid,d.list[pid],by,d.name,leftOf);
         if(p)all[pid]=p;
       });
     });
-    PTY.all=all;
+    PTY.all=all;PTY.loaded=true;
+    ptyMoveHidden();
     chatSync();
     if(!chatEl.hidden&&CH.view==='list')chatList();
-    if(!chatEl.hidden&&CH.view==='party'&&CH.party){
-      var cur2=PTY.all[CH.party.id];
-      if(!cur2||!cur2.m[SOC.uid]){chatLeave();chatList();}
-      else{CH.party=cur2;$('chat-title').textContent=cur2.n;}
-    }
+    if(chatEl.hidden||!CH.party)return;
+    if(CH.view!=='party'&&CH.view!=='people')return;
+    var cur2=PTY.all[CH.party.id];
+    if(!cur2||!cur2.m[SOC.uid]){chatLeave();chatList();return;}
+    CH.party=cur2;
+    if(CH.view==='party'){
+      $('chat-title').innerHTML=cleanHtml(cur2.n);
+      var pn=chatBody.querySelector('.ptyn');if(pn)pn.innerHTML=cleanHtml(cur2.n)+'<small>'+Object.keys(cur2.m).length+' people</small>';
+    }else if(!PTY.busy)ptyPeopleView();
   },function(){});
 }
-function ptySave(list){
-  return SOC.db.doc('parties/'+SOC.uid).set({name:SOC.account.username,list:list,at:Date.now()});
+function ptySave(list,left){
+  return SOC.db.doc('parties/'+SOC.uid).set({name:SOC.account.username,list:list,left:left||PTY.left||{},at:Date.now()});
 }
+/* copies, so a save that fails does not change what this device shows */
 function ptyMineList(){
   var out={};
   Object.keys(PTY.all).forEach(function(pid){
     var p=PTY.all[pid];
     if(p.by!==SOC.uid)return;
-    out[pid]={n:p.n,m:p.m,at:p.at};
+    out[pid]={n:p.n,m:Object.assign({},p.m),j:Object.assign({},p.j||{}),at:p.at};
   });
   return out;
+}
+/* the newest few parties you left, plus this one */
+function ptyLeftWith(pid){
+  var l=Object.assign({},PTY.left);l[pid]=Date.now();
+  var ks=Object.keys(l).sort(function(a,b){return l[b]-l[a];}).slice(0,PTY_MAXLEFT),out={};
+  ks.forEach(function(k){out[k]=l[k];});
+  return out;
+}
+/* parties left on an older version were only hidden on that device: save them as left, so the others know too */
+function ptyMoveHidden(){
+  if(PTY.moved||!SOC.account||SOC.canWrite===false)return;
+  var hid=ptyHidden(),todo=Object.keys(PTY.all).filter(function(pid){var p=PTY.all[pid];return hid[pid]&&p.m[SOC.uid]&&p.by!==SOC.uid;});
+  if(!todo.length)return;
+  PTY.moved=true;
+  var l=PTY.left;todo.forEach(function(pid){l=Object.assign({},l);l[pid]=Date.now();});
+  ptySave(ptyMineList(),cleanLeft(l)).then(function(){
+    var h=ptyHidden();todo.forEach(function(pid){delete h[pid];});lsSet('party.hide',h);
+  },function(){PTY.moved=false;});
 }
 function ptyNewView(){
   var f=friendsList();
@@ -13779,6 +13823,7 @@ function ptyNewView(){
 function ptyCreate(){
   if(PTY.busy||!SOC.db||!SOC.account)return;
   if(SOC.canWrite===false){PTY.msg={t:'err',s:'You cannot save to this page yet.'};chatList();return;}
+  if(!PTY.loaded){PTY.msg={t:'err',s:'Still loading your parties. Try again in a second.'};chatList();return;}
   var picked=Object.keys(PTY.pick).filter(function(k){return PTY.pick[k];});
   if(!picked.length){PTY.msg={t:'err',s:'Pick at least one friend.'};chatList();return;}
   if(picked.length>11){PTY.msg={t:'err',s:'A party holds up to 12 people.'};chatList();return;}
@@ -13808,14 +13853,15 @@ function ptyCreate(){
 function partyOpen(pid){
   var p=PTY.all[pid];
   if(!p||!p.m[SOC.uid]||!SOC.db)return;
-  convStart('party',pid,esc(p.n),
-    '<div class="ptybar"><span class="ptyn">'+esc(p.n)+'<small>'+Object.keys(p.m).length+' people</small></span>'+
+  PTY.sure='';
+  convStart('party',pid,cleanHtml(p.n),
+    '<div class="ptybar"><span class="ptyn">'+cleanHtml(p.n)+'<small>'+Object.keys(p.m).length+' people</small></span>'+
     '<button class="mini" type="button" data-ch="people">People</button></div>',null,p);
 }
 function ptyPeopleView(){
   var p=CH.party;if(!p)return;
   var mine=p.by===SOC.uid,ids=Object.keys(p.m);
-  var h='<div class="sheet"><h3>'+esc(p.n)+'</h3><p>Made by @'+esc(p.byName)+'. '+ids.length+' people can see this chat.</p></div>';
+  var h='<div class="sheet"><h3>'+cleanHtml(p.n)+'</h3><p>Made by @'+esc(p.byName)+'. '+ids.length+' people can see this chat.</p></div>';
   ids.forEach(function(u){
     var nm=p.m[u];
     h+='<div class="row"><span class="ava">'+avFor(u,nm)+stDot(statusOf(u))+'</span>'+
@@ -13835,7 +13881,8 @@ function ptyPeopleView(){
   }
   if(PTY.msg)h+='<p class="note '+PTY.msg.t+'" role="status">'+esc(PTY.msg.s)+'</p>';
   h+='<button class="choice alt" type="button" data-ch="backparty">Back to the party</button>';
-  h+='<button class="choice" type="button" data-ch="leave">'+(mine?'Delete this party':'Leave this party')+'</button>';
+  var sure=PTY.sure===p.id;
+  h+='<button class="choice'+(sure?' bad':'')+'" type="button" data-ch="leave"'+(PTY.busy?' disabled':'')+'>'+(sure?(mine?'Tap again to delete it for everyone':'Tap again to leave'):(mine?'Delete this party':'Leave this party'))+'</button>';
   h+='<p class="note">Party messages are saved on this page, so keep them friendly and do not share private info.</p>';
   CH.view='people';
   chatBody.classList.remove('conv');
@@ -13843,30 +13890,32 @@ function ptyPeopleView(){
   chatBody.innerHTML=h;
 }
 function ptyEdit(fn,okMsg){
-  if(!CH.party||CH.party.by!==SOC.uid||PTY.busy)return;
+  if(!CH.party||CH.party.by!==SOC.uid||PTY.busy||!PTY.loaded)return;
   var mine=ptyMineList(),p=mine[CH.party.id];
   if(!p)return;
   if(fn(p)===false)return;
   PTY.busy=true;PTY.msg=null;ptyPeopleView();
   ptySave(mine).then(function(){
     PTY.busy=false;PTY.msg=okMsg?{t:'good',s:okMsg}:null;
-    CH.party.m=p.m;CH.party.n=p.n;
+    CH.party.m=p.m;CH.party.n=p.n;CH.party.j=p.j;
     PTY.all[CH.party.id]=CH.party;
     ptyPeopleView();
   },function(e){PTY.busy=false;PTY.msg={t:'err',s:failText(e)};ptyPeopleView();});
 }
+/* first tap asks, second tap leaves (or deletes, for the maker) */
 function ptyLeave(){
-  var p=CH.party;if(!p)return;
-  if(p.by===SOC.uid){
-    var mine=ptyMineList();
-    delete mine[p.id];
-    PTY.busy=true;ptyPeopleView();
-    ptySave(mine).then(function(){
-      PTY.busy=false;delete PTY.all[p.id];chatLeave();chatList();
-    },function(e){PTY.busy=false;PTY.msg={t:'err',s:failText(e)};ptyPeopleView();});
-  }else{
-    ptyHide(p.id);chatLeave();chatList();
-  }
+  var p=CH.party;if(!p||PTY.busy)return;
+  if(PTY.sure!==p.id){PTY.sure=p.id;PTY.msg=null;ptyPeopleView();return;}
+  PTY.sure='';
+  if(!PTY.loaded||SOC.canWrite===false){PTY.msg={t:'err',s:SOC.canWrite===false?'You cannot save to this page yet.':'Still loading. Try again in a second.'};ptyPeopleView();return;}
+  var mine=ptyMineList(),left=PTY.left;
+  if(p.by===SOC.uid)delete mine[p.id];
+  else left=ptyLeftWith(p.id);
+  PTY.busy=true;PTY.msg=null;ptyPeopleView();
+  ptySave(mine,left).then(function(){
+    PTY.busy=false;PTY.left=left;delete PTY.all[p.id];
+    if(CH.party&&CH.party.id===p.id){chatLeave();chatList();}
+  },function(e){PTY.busy=false;PTY.msg={t:'err',s:failText(e)};ptyPeopleView();});
 }
 
 /* ===== End-to-end encryption for friend and party chat =====
@@ -13928,21 +13977,33 @@ function e2eInit(){
   var uid=SOC.uid;
   E2E.ready=e2eDevice(uid).then(function(v){
     E2E.dev=v.dev;E2E.priv=v.priv;E2E.pub=v.pub;E2E.ok=true;
-    /* put this device's public key on the list (newest few devices only), unless it is already there */
-    return SOC.db.doc('e2e/'+uid).get().then(function(s){
-      var d=(s&&s.exists&&s.data())||{},devs=(d.devs&&typeof d.devs==='object')?d.devs:{};
-      var mine=devs[v.dev];
-      if(mine&&mine.pub&&mine.pub.x===v.pub.x&&Date.now()-(+mine.at||0)<30*864e5)return;
-      devs[v.dev]={pub:v.pub,at:Date.now()};
-      var keep=Object.keys(devs).filter(function(k){return /^d[a-f0-9]{6,20}$/.test(k)&&devs[k]&&e2eJwkOk(devs[k].pub);})
-        .sort(function(a,b){return (+devs[b].at||0)-(+devs[a].at||0);}).slice(0,E2E_MAXDEV);
-      var out={};keep.forEach(function(k){out[k]={pub:devs[k].pub,at:+devs[k].at||0};});
-      if(!out[v.dev])out[v.dev]={pub:v.pub,at:Date.now()};
-      return SOC.db.doc('e2e/'+uid).set({devs:out,at:Date.now()});
-    }).catch(function(){});
+    return e2ePublish(uid);
   }).then(function(){e2eWatch(uid);e2eRedraw();});
   E2E.ready.catch(function(){E2E.ready=null;});
   return E2E.ready;
+}
+/* put this device's public key on the list (newest few devices only), unless it is already there */
+function e2ePublish(uid){
+  var v={dev:E2E.dev,pub:E2E.pub};
+  return SOC.db.doc('e2e/'+uid).get().then(function(s){
+    var d=(s&&s.exists&&s.data())||{},devs=(d.devs&&typeof d.devs==='object')?d.devs:{};
+    var mine=devs[v.dev];
+    if(mine&&mine.pub&&mine.pub.x===v.pub.x&&Date.now()-(+mine.at||0)<30*864e5)return;
+    devs[v.dev]={pub:v.pub,at:Date.now()};
+    var keep=Object.keys(devs).filter(function(k){return /^d[a-f0-9]{6,20}$/.test(k)&&devs[k]&&e2eJwkOk(devs[k].pub);})
+      .sort(function(a,b){return (+devs[b].at||0)-(+devs[a].at||0);}).slice(0,E2E_MAXDEV);
+    var out={};keep.forEach(function(k){out[k]={pub:devs[k].pub,at:+devs[k].at||0};});
+    if(!out[v.dev])out[v.dev]={pub:v.pub,at:Date.now()};
+    return SOC.db.doc('e2e/'+uid).set({devs:out,at:Date.now()});
+  }).catch(function(){});
+}
+/* two of your devices saving their keys at the same moment can knock one off the list: put it back (a few times at most) */
+function e2eHeal(uid){
+  if(uid!==SOC.uid||!E2E.ok||!E2E.keys[uid]||E2E.keys[uid][E2E.dev])return;
+  var n=Date.now();
+  if((E2E.heals||0)>=3||n-(E2E.healAt||0)<20000)return;
+  E2E.heals=(E2E.heals||0)+1;E2E.healAt=n;
+  setTimeout(function(){if(E2E.keys[uid]&&!E2E.keys[uid][E2E.dev])e2ePublish(uid);},400+Math.random()*1200);
 }
 function e2eClean(d){
   var out={};
@@ -13958,6 +14019,7 @@ function e2eWatch(uid){
   E2E.ksub[uid]=1;
   SOC.db.doc('e2e/'+uid).onSnapshot(function(s){
     E2E.keys[uid]=e2eClean(s&&s.exists?s.data():null);
+    e2eHeal(uid);
     var w=E2E.kwait[uid];if(w){delete E2E.kwait[uid];w.forEach(function(f){f();});}
     /* a sender's key that arrives late can unlock messages that were waiting for it */
     Object.keys(E2E.plain).forEach(function(k){var p=E2E.plain[k];if(p&&p.why==='nosender'&&p.from===uid)delete E2E.plain[k];});
@@ -14050,7 +14112,7 @@ function e2eOpen(ck,d,chat){
 }
 function e2eLockText(why){
   if(why==='wait')return 'Unlocking...';
-  if(why==='old')return 'Sent before this device joined, so it cannot be read here.';
+  if(why==='old')return 'Sent before this device joined (or while you were not in this chat), so it cannot be read here.';
   if(why==='nosender')return 'Waiting for the sender’s key...';
   if(why==='off')return 'Locked. This browser cannot unlock messages.';
   return 'This message could not be unlocked.';
@@ -14113,7 +14175,7 @@ function chatRows(){
     rows.push({k:'pty',id:p.id,q:p.n,at:pv?pv.at:p.at,un:isUnread(p.id),
       av:'<span class="ava pty">'+String(Object.keys(p.m).length)+'</span>',
       nm:cleanHtml(p.n),
-      pv:pv?((pv.from===SOC.uid?'You: ':(safeName(p.m[pv.from])+': '))+pv.text):'No messages yet'});
+      pv:pv?((pv.from===SOC.uid?'You: ':(safeName(ptyNameOf(p,pv.from))+': '))+pv.text):'No messages yet'});
   });
   friendsList().forEach(function(x){
     var key=chatKey(SOC.uid,x.id),pv=CH.prev[key];
@@ -14219,6 +14281,11 @@ function convWatch(){
 }
 function convMsgs(){
   var key=CH.key,party=CH.party;
+  /* my own message came back before its save finished: it is the text I just sent, so it needs no unlocking */
+  CH.pend.forEach(function(p){
+    if(p.err)return;
+    CH.docs.forEach(function(x){if(x.d&&x.d.from===SOC.uid&&x.d.at===p.at&&x.d.sd===E2E.dev&&typeof E2E.plain[key+'/'+x.id]!=='string')E2E.plain[key+'/'+x.id]=p.text;});
+  });
   CH.msgs=CH.docs.map(function(x){return cleanMsg(x.d,key,party,x.id);}).filter(Boolean).reverse();
   /* a message that is saved now shows up for real: drop its "Sending..." copy */
   CH.pend=CH.pend.filter(function(p){return p.err||!CH.msgs.some(function(m){return m.from===p.from&&m.at===p.at;});});
@@ -14232,9 +14299,10 @@ function chatOlder(){
   CH.lim=Math.min(CH_MAXLIM,CH.lim+CH_PAGE);
   convWatch();
 }
+function ptyNameOf(p,u){return p.m[u]||(p.x&&p.x[u]?p.x[u].nm:'');}
 function msgWho(m){
   if(m.from===SOC.uid)return 'You'+vmark(SOC.uid);
-  if(CH.party)return cleanHtml(dispOf(m.from,CH.party.m[m.from]))+vmark(m.from);
+  if(CH.party)return cleanHtml(dispOf(m.from,ptyNameOf(CH.party,m.from)))+vmark(m.from);
   return '@'+esc(CH.friend.name)+vmark(CH.friend.id);
 }
 function msgsRender(fresh){
@@ -14384,7 +14452,7 @@ chatBody.addEventListener('click',function(e){
     var iid=b.getAttribute('data-id'),fr=friendById(iid);
     if(fr)ptyEdit(function(p){
       if(Object.keys(p.m).length>=12){PTY.msg={t:'err',s:'A party holds up to 12 people.'};return false;}
-      p.m[iid]=fr.name;return true;
+      p.m[iid]=fr.name;p.j=p.j||{};p.j[iid]=Date.now();return true;
     },'Added @'+(fr?fr.name:'them')+' to the party.');
   }
 });
@@ -14395,6 +14463,7 @@ chatBody.addEventListener('input',function(e){
   else if(id==='chat-in'){if(CH.key){if(e.target.value)CH.drafts[CH.key]=e.target.value;else delete CH.drafts[CH.key];}chatCount();}
 });
 chatBody.addEventListener('keydown',function(e){
+  if(e.isComposing||e.keyCode===229)return;
   if(e.key==='Enter'&&e.target.id==='chat-in'){e.preventDefault();chatSend();}
   else if(e.key==='Enter'&&e.target.id==='pty-name'){e.preventDefault();ptyCreate();}
   else if(e.key==='Escape'&&e.target.id==='chat-q'&&CH.q){e.preventDefault();e.target.value='';CH.q='';chatFilter();}
@@ -17045,6 +17114,8 @@ function gchScan(){
     p.presence.gc.slice(-4).forEach(function(m){
       if(!Array.isArray(m))return;
       var k=p.peer+'#'+(m[0]|0);if(GCH.seen[k])return;GCH.seen[k]=1;
+      /* old lines can stay in someone's presence after they stop talking: skip ones from long ago */
+      if(typeof m[2]==='number'&&Math.abs(Date.now()-m[2])>300000)return;
       if(mute)return;
       var t=gchClean(m[1]);if(!t)return;
       var c=netColor(p);gchAdd({w:netName(p),t:t,c:'rgb('+c[0]+','+c[1]+','+c[2]+')',at:Date.now()});
