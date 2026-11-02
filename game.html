@@ -3131,17 +3131,20 @@ function netJoin(name){
 function netLeave(){
   NET.offs.forEach(function(f){try{f();}catch(e){}});NET.offs=[];
   if(typeof MODW!=='undefined')MODW.p={};
-  var r=NET.room;NET.room=null;NET.on=false;NET.peers=[];NET.sm={};NET.pend=null;NET.me='';
+  var r=NET.room;NET.room=null;NET.on=false;NET.peers=[];NET.sm={};NET.pend=null;NET.me='';NET.gcOn=false;
   if(r){try{r.leave().catch(function(){});}catch(e){}}
 }
 function netSend(p){
   if(!NET.room)return;
-  if(p&&typeof p.x==='number'&&typeof GCH!=='undefined'){var gco=gchOut();if(gco)p.gc=gco;}
+  /* game chat lines ride in presence; once the last line expires, send gc:null one time so it is cleared for everyone
+     (NET.gcOn: my presence in this room may still hold chat lines) */
+  if(p&&typeof p.x==='number'&&typeof GCH!=='undefined'){var gco=gchOut();if(gco){p.gc=gco;NET.gcOn=true;}else if(NET.gcOn)p.gc=null;}
   if(p&&typeof p.x==='number'&&!SOC.account&&localName())p.nm=localName();
   if(SOLO&&p&&typeof p.x==='number')p.bd=avOf(W&&W.av).body;
   var now=Date.now();
   if(now-NET.last<100){NET.pend=p;return;}
   NET.last=now;NET.pend=null;
+  if(p&&p.gc===null)NET.gcOn=false;
   try{NET.room.presence(p).catch(function(){});}catch(e){}
 }
 function netFlush(){if(NET.pend&&Date.now()-NET.last>=100)netSend(NET.pend);}
