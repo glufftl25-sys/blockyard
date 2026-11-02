@@ -12363,6 +12363,46 @@ GAMES.pipe=(function(){
       if(t>0.9)txt('Tap to play again',V.w/2,V.h*0.38+(newBest?108:82),16,'#fff');
     }
   };
+  /* test bot pilot: find a way from the tank to the drain by trying each pipe's turns, tap the pipes into place, then GO */
+  function tbPlan(){
+    var rs=0,y,want={},used={},n=0;
+    for(y=0;y<H;y++)if(at(0,y).tank)rs=y;
+    function dfs(x,y,out){
+      if(++n>60000)return false;
+      var nx=x+DX[out],ny=y+DY[out],c=at(nx,ny),din=opp(out),k=nx+','+ny;
+      if(!c||c.rock||c.tank)return false;
+      if(c.drain)return !!(c.m&bit(din));
+      if(used[k])return false;
+      var ms=[c.m];if(!c.fix&&!c.wet){var r=c.m;for(var i=0;i<3;i++){r=rot(r);if(ms.indexOf(r)<0)ms.push(r);}}
+      for(var j=0;j<ms.length;j++){
+        var m=ms[j];if(!(m&bit(din)))continue;
+        var o=m===15?opp(din):[0,1,2,3].filter(function(d){return d!==din&&(m&bit(d));})[0];
+        if(o===undefined)continue;
+        used[k]=1;want[k]=m;
+        if(dfs(nx,ny,o))return true;
+        delete used[k];delete want[k];
+      }
+      return false;
+    }
+    return dfs(0,rs,1)?want:null;
+  }
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.9&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [level-1,'levels'];}
+    m.o=0;
+    if(st!=='run')return [level-1,'levels'];
+    if(m.lv!==level||m.cells!==cells){m.lv=level;m.cells=cells;m.plan=tbPlan();m.c=0;}
+    m.c=(m.c||0)+dt;if(m.c<0.12)return [level-1,'levels'];m.c=0;
+    if(m.plan){
+      var ks=Object.keys(m.plan);
+      for(var i=0;i<ks.length;i++){
+        var p=ks[i].split(','),x=+p[0],y=+p[1],c=at(x,y);
+        if(c.m!==m.plan[ks[i]]&&!c.fix&&!c.wet){tb.tap(ox+(x+0.5)*S,oy+(y+0.5)*S);return [level-1,'levels'];}
+      }
+    }
+    if(wait>0)tb.tap(goR.x+goR.w/2,goR.y+goR.h/2);
+    return [level-1,'levels'];
+  };
   return g;
 })();
 
@@ -16362,7 +16402,27 @@ function plLoad(){
    a document only the owner can write). window.BY_TESTBOTS runs the same test from outside, for the daily check. ===== */
 var TB={on:false,stop:false,show:false,i:0,n:0,name:'',res:null,at:0,msg:null};
 var TB_KEYS=[['ArrowLeft','ArrowLeft'],['ArrowRight','ArrowRight'],['ArrowUp','ArrowUp'],['ArrowDown','ArrowDown'],['w','KeyW'],['a','KeyA'],['s','KeyS'],['d','KeyD'],[' ','Space'],['Enter','Enter'],['1','Digit1'],['2','Digit2']];
-function tbIds(){return Object.keys(GAMES).filter(function(id){return id!=='maker'&&id!=='td';});}
+function tbIds(){return Object.keys(GAMES).filter(function(id){return id!=='maker';});}
+/* Balloon Battle pilot, through the game's own hooks (GAMES.td.tbh): a dart first, then every half second buy the next
+   tower it can afford (dart, tack, bomb) or upgrade one, and send red balloons when money is over 300 */
+if(GAMES.td&&GAMES.td.tbh)GAMES.td.tbp=function(B,dt){
+  var h=GAMES.td.tbh,s=h.state(),m=B.m;
+  if(!s)return [0,'pops'];
+  if(s.st==='over'){m.c=(m.c||0)+dt;if(m.c>0.8){m.c=0;h.again();}return [s.pops||0,'pops'];}
+  if(s.st!=='run')return [s.pops||0,'pops'];
+  m.c=(m.c||0)+dt;
+  if(!s.towers.length){var sp=h.spots(1)[0];if(sp)h.build('dart',sp.c,sp.r);return [s.pops,'pops'];}
+  if(m.c<0.5)return [s.pops,'pops'];
+  m.c=0;
+  var cost=h.costs().towers,order=['dart','tack','bomb'],ty=order[(m.k||0)%order.length];
+  if(s.money>=cost[ty]){var p=h.spots(1)[0];if(p&&h.build(ty,p.c,p.r)){m.k=(m.k||0)+1;s=h.state();}}
+  else{
+    var bi=-1;s.towers.forEach(function(tw,i){if(tw.up&&tw.up<=s.money&&(bi<0||tw.up<s.towers[bi].up))bi=i;});
+    if(bi>=0&&h.upgrade(bi))s=h.state();
+  }
+  if(s.money>300)h.send(1);
+  return [s.pops,'pops'];
+};
 function tbBlank(){
   try{
     var w=cv.width,h=cv.height;if(!w||!h)return false;
@@ -16570,7 +16630,7 @@ function tbOne(id,ms,shots){
     var hid=!!document.hidden,onVis=function(){if(document.hidden)hid=true;};document.addEventListener('visibilitychange',onVis);
     var onErr=function(e){var m=String((e&&(e.message||(e.reason&&(e.reason.message||e.reason))))||'error').replace(/\s+/g,' ').slice(0,110);r.err[m]=(r.err[m]||0)+1;};
     window.addEventListener('error',onErr);window.addEventListener('unhandledrejection',onErr);
-    try{openGame(id);RUNCHEAT=true;$('cheattag').hidden=true;if(typeof g.draw==='function'){od=g.draw;g.draw=function(){
+    try{if(id==='td')TDCFG={mode:'bot',diff:1};openGame(id);RUNCHEAT=true;$('cheattag').hidden=true;if(typeof g.draw==='function'){od=g.draw;g.draw=function(){
       var n=performance.now();if(lf&&!document.hidden&&n-t0>700){var d=n-lf;if(d<2000){ft.push(d);if(d>=150)hits++;}}lf=n;
       r.draws++;return od.apply(this,arguments);};}}catch(e){onErr(e);}
     var t0=performance.now();lt=t0;if(B)r.play={s:0,top:0,l:'points'};
