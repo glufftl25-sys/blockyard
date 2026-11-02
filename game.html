@@ -711,6 +711,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#120b24" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="6" y="14" width="16" height="12" fill="#ff5a4d"/><rect x="28" y="34" width="16" height="12" fill="#3cc8f0"/><rect x="50" y="20" width="16" height="12" fill="#3fd58a"/><rect x="28" y="6" width="16" height="12" fill="#3cc8f0"/></g><rect y="62" width="88" height="4" fill="#fff" opacity=".6"/><g fill="none" stroke="#fff" stroke-width="3" opacity=".5"><rect x="6" y="54" width="16" height="18"/><rect x="28" y="54" width="16" height="18"/><rect x="50" y="54" width="16" height="18"/><rect x="72" y="54" width="14" height="18"/></g></svg></span>
           <span class="tt">Beat Blocks</span><span class="ts"><span id="best-beat">Best 0</span> · Tap to the beat</span>
         </button>
+        <button class="tile" type="button" data-game="pipe" data-name="pipe plumber pipes water turn rotate puzzle drain 2d" style="--c:#3cc8f0">
+          <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#10192f" width="88" height="88"/><rect x="4" y="30" width="16" height="22" fill="#3c7cff" stroke="#14213d" stroke-width="2"/><g fill="none" stroke-linecap="butt"><path d="M20 41h22V20h26" stroke="#14213d" stroke-width="12"/><path d="M20 41h22V20h26" stroke="#8fa6d8" stroke-width="8"/><path d="M20 41h22V30" stroke="#3cc8f0" stroke-width="4"/><path d="M42 66h26M55 54v24" stroke="#14213d" stroke-width="12"/><path d="M42 66h26M55 54v24" stroke="#8fa6d8" stroke-width="8"/></g><rect x="68" y="12" width="16" height="16" fill="#2b3a5e" stroke="#14213d" stroke-width="2"/></svg></span>
+          <span class="tt">Pipe Plumber</span><span class="ts"><span id="best-pipe">Best 0</span> · Join the pipes</span>
+        </button>
         <button class="tile" type="button" data-game="bust" data-name="brick buster breakout paddle ball 2d" style="--c:#ff6b5b">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#101a33" width="88" height="88"/><g><rect x="8" y="14" width="18" height="9" fill="#ff5a4d"/><rect x="29" y="14" width="18" height="9" fill="#ff9a3c"/><rect x="50" y="14" width="18" height="9" fill="#ffd23f"/><rect x="18" y="27" width="18" height="9" fill="#3fd58a"/><rect x="40" y="27" width="18" height="9" fill="#3f8cff"/></g><circle cx="44" cy="52" r="6" fill="#fff"/><rect x="28" y="68" width="32" height="8" rx="3" fill="#ffd23f" stroke="#14213d" stroke-width="3"/></svg></span>
           <span class="tt">Brick Buster</span><span class="ts"><span id="best-bust">Best 0</span> · Bounce and smash</span>
@@ -1221,7 +1225,7 @@ function closeGame(){
 }
 function refreshHub(){
   if(typeof renderContinue==='function')renderContinue();
-  var bst={'best-gems':'by.gems','best-hop':'by.hop','best-bust':'by.bust','best-snake':'by.snake','best-stack':'by.stack','best-merge':'by.merge','best-dive':'by.dive','best-hoops':'by.hoops','best-memo':'by.memo','best-whack':'by.whack','best-tower':'by.tower','best-frog':'by.frog','best-flap':'by.flap','best-drop':'by.drop','best-maze':'by.maze','best-echo':'by.echo','best-lights':'by.lights','best-catch':'by.catch','best-rocks':'by.rocks','best-bubble':'by.bubble','best-dig':'by.dig','best-sort':'by.sort','best-cave':'by.cave','best-range':'by.range','best-road':'by.road','best-beat':'by.beat'};
+  var bst={'best-gems':'by.gems','best-hop':'by.hop','best-bust':'by.bust','best-snake':'by.snake','best-stack':'by.stack','best-merge':'by.merge','best-dive':'by.dive','best-hoops':'by.hoops','best-memo':'by.memo','best-whack':'by.whack','best-tower':'by.tower','best-frog':'by.frog','best-flap':'by.flap','best-drop':'by.drop','best-maze':'by.maze','best-echo':'by.echo','best-lights':'by.lights','best-catch':'by.catch','best-rocks':'by.rocks','best-bubble':'by.bubble','best-dig':'by.dig','best-sort':'by.sort','best-cave':'by.cave','best-range':'by.range','best-road':'by.road','best-beat':'by.beat','best-pipe':'by.pipe'};
   Object.keys(bst).forEach(function(id){var e=$(id);if(e)e.textContent='Best '+lsGet(bst[id],0);});
   if($('best-golf')){var gf=lsGet('by.golf',0);$('best-golf').textContent=gf?('Best '+gf+' shots'):'Not played';}
   if($('best-slide')){var sl=lsGet('by.slide.'+lsGet('slide.n',3),0);$('best-slide').textContent=sl?('Best '+sl+' moves'):'Not solved';}
@@ -11680,6 +11684,207 @@ GAMES.road=(function(){
     }
     if(bl!==lane&&m.c<=0){m.c=0.12;var d=bl<lane?-1:1;if(Math.random()<0.5)tb.k(d<0?'ArrowLeft':'ArrowRight');else tb.tap(carX+d*60,V.h-100);}
     return [score,'points'];
+  };
+  return g;
+})();
+
+/* ===== Pipe Plumber (2D, original): tap pipes to turn them and join the water tank to the drain before the water comes.
+   Every level is built around a hidden path that works, then the pipes are spun. Water flows one pipe at a time; a leak
+   ends the game, reaching the drain clears the level. Bigger grids, less waiting and faster water as you go.
+   Pipe openings are bits: N=1 E=2 S=4 W=8. Straight 5/10, corner 3/6/12/9, cross 15 (water goes straight through). ===== */
+GAMES.pipe=(function(){
+  var g={kind:'canvas',title:'Pipe Plumber',lw:400};
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  var DX=[0,1,0,-1],DY=[-1,0,1,0];
+  var W,H,cells,S,ox,oy,level,score,best,newBest,st,t,wait,waitMax,flowT,cellT,head,filled,msg,msgT,cur,useKeys,goR,drops;
+  function bit(d){return 1<<d;}
+  function opp(d){return (d+2)%4;}
+  function rot(m){return ((m<<1)|(m>>3))&15;}
+  function at(x,y){return (x<0||y<0||x>=W||y>=H)?null:cells[y*W+x];}
+  /* a random winding path from the cell after the tank to the cell before the drain */
+  function makePath(sx,sy,ex,ey){
+    var seen={},path=[];
+    function walk(x,y){
+      seen[x+','+y]=1;path.push([x,y]);
+      if(x===ex&&y===ey)return true;
+      if(path.length>W*H)return false;
+      var ds=[0,1,2,3].sort(function(){return Math.random()-0.5;});
+      for(var i=0;i<4;i++){
+        var nx=x+DX[ds[i]],ny=y+DY[ds[i]];
+        if(nx<1||nx>W-2||ny<0||ny>=H||seen[nx+','+ny])continue;
+        if(walk(nx,ny))return true;
+      }
+      path.pop();return false;
+    }
+    walk(sx,sy);return path;
+  }
+  function build(){
+    W=Math.min(9,5+Math.floor((level-1)/2));H=Math.min(7,4+Math.floor((level-1)/3));
+    var rs=Math.floor(Math.random()*H),rd=Math.floor(Math.random()*H),x,y,i;
+    cells=[];for(i=0;i<W*H;i++)cells.push({m:0,fix:0,rock:0,wet:0});
+    var path=makePath(1,rs,W-2,rd);
+    /* path pieces: the opening it came in from plus the one it leaves by */
+    for(i=0;i<path.length;i++){
+      var p=path[i],inD=i===0?3:opp(dirTo(path[i-1],p)),outD=i===path.length-1?1:dirTo(p,path[i+1]);
+      at(p[0],p[1]).m=bit(inD)|bit(outD);at(p[0],p[1]).path=1;
+    }
+    var rockP=Math.min(0.14,0.02*level);
+    for(y=0;y<H;y++)for(x=1;x<W-1;x++){
+      var c=at(x,y);if(c.path)continue;
+      var r=Math.random();
+      if(r<rockP){c.rock=1;c.fix=1;c.m=0;}
+      else if(r<rockP+0.1)c.m=15;
+      else if(r<0.55)c.m=Math.random()<0.5?5:10;
+      else c.m=[3,6,12,9][Math.floor(Math.random()*4)];
+    }
+    /* spin every pipe, and make sure the board does not start solved */
+    for(y=0;y<H;y++)for(x=1;x<W-1;x++){var q=at(x,y);if(!q.fix){var n=Math.floor(Math.random()*4);while(n--)q.m=rot(q.m);}}
+    for(y=0;y<H;y++){at(0,y).fix=1;at(0,y).rock=y!==rs?1:0;at(0,y).m=y===rs?2:0;at(W-1,y).fix=1;at(W-1,y).rock=y!==rd?1:0;at(W-1,y).m=y===rd?8:0;}
+    at(0,rs).tank=1;at(W-1,rd).drain=1;
+    if(solved(rs))at(path[0][0],path[0][1]).m=rot(at(path[0][0],path[0][1]).m);
+    waitMax=Math.max(9,24-level*1.2+path.length*0.3);wait=waitMax;
+    cellT=Math.max(0.42,1.25-level*0.06);
+    head={x:0,y:rs,din:3,p:0,out:1};at(0,rs).wet=1;filled=0;drops=[];
+    if(!cur||cur.x>=W||cur.y>=H)cur={x:1,y:0};
+    metrics();
+  }
+  /* would the water reach the drain right now? (used so a level never starts already solved) */
+  function solved(rs){
+    var x=0,y=rs,out=1,n,din,k;
+    for(k=0;k<W*H*2;k++){
+      x+=DX[out];y+=DY[out];n=at(x,y);din=opp(out);
+      if(!n||n.rock||!(n.m&bit(din)))return false;
+      if(n.drain)return true;
+      out=n.m===15?opp(din):[0,1,2,3].filter(function(d){return d!==din&&(n.m&bit(d));})[0];
+    }
+    return false;
+  }
+  function dirTo(a,b){for(var d=0;d<4;d++)if(a[0]+DX[d]===b[0]&&a[1]+DY[d]===b[1])return d;return 0;}
+  function metrics(){
+    var top=vWide()?78:96;
+    S=Math.max(24,Math.floor(Math.min((V.w-30)/W,(V.h-top-40)/H)));
+    ox=Math.floor((V.w-S*W)/2);oy=top+Math.floor(Math.max(0,(V.h-top-40-S*H)/2));
+    var bw=130,bh=36;goR={x:V.w-bw-12,y:40,w:bw,h:bh};
+  }
+  function reset(){level=1;score=0;newBest=false;st='run';t=0;msg='';msgT=0;cur=null;useKeys=false;build();}
+  g.start=function(){best=lsGet('by.pipe',0);reset();};
+  g.resize=function(){metrics();};
+  g.stop=function(){};
+  function turn(x,y){
+    var c=at(x,y);if(!c||c.fix||c.wet||st!=='run')return;
+    c.m=rot(c.m);beep(520,0.04,'square',0.03,1.3);
+  }
+  function go(){if(st==='run'&&wait>0){score+=Math.ceil(wait)*5;msg='Go! +'+Math.ceil(wait)*5;msgT=1;wait=0;beep(700,0.1,'square',0.04,1.5);}}
+  function over(){
+    st='over';t=0;beep(160,0.5,'sawtooth',0.06,0.4);
+    if(score>best){best=score;newBest=true;lsSet('by.pipe',best);}
+  }
+  function cleared(){
+    var b=50+level*20+filled*10;score+=b;msg='Level clear! +'+b;msgT=1.6;st='clear';t=0;
+    beep(880,0.25,'square',0.05,1.8);
+    if(score>best){best=score;newBest=true;lsSet('by.pipe',best);}
+  }
+  g.down=function(x,y){
+    if(st==='over'){if(t>0.7)reset();return;}
+    if(st!=='run')return;
+    useKeys=false;
+    if(wait>0&&x>=goR.x&&x<=goR.x+goR.w&&y>=goR.y&&y<=goR.y+goR.h){go();return;}
+    var cx=Math.floor((x-ox)/S),cy=Math.floor((y-oy)/S);
+    if(cx>=0&&cy>=0&&cx<W&&cy<H){cur={x:cx,y:cy};turn(cx,cy);}
+  };
+  g.move=function(){};g.up=function(){};
+  g.key=function(c,d){
+    if(!d)return;
+    if(st==='over'){if(t>0.7)reset();return;}
+    if(st!=='run')return;
+    useKeys=true;
+    if(c==='ArrowUp'||c==='KeyW')cur.y=Math.max(0,cur.y-1);
+    else if(c==='ArrowDown'||c==='KeyS')cur.y=Math.min(H-1,cur.y+1);
+    else if(c==='ArrowLeft'||c==='KeyA')cur.x=Math.max(0,cur.x-1);
+    else if(c==='ArrowRight'||c==='KeyD')cur.x=Math.min(W-1,cur.x+1);
+    else if(c==='Space'||c==='Enter')turn(cur.x,cur.y);
+    else if(c==='KeyG')go();
+  };
+  g.update=function(dt){
+    t+=dt;if(msgT>0)msgT-=dt;
+    drops=drops.filter(function(d){d.vy+=500*dt;d.x+=d.vx*dt;d.y+=d.vy*dt;d.t-=dt;return d.t>0;});
+    if(st==='clear'){if(t>1.4){level++;st='run';t=0;build();}return;}
+    if(st!=='run')return;
+    if(wait>0){wait-=dt;if(wait<=0){wait=0;msg='Here comes the water!';msgT=1.2;beep(300,0.2,'sine',0.05,1.6);}return;}
+    head.p+=dt/cellT;
+    if(head.p<1)return;
+    /* water reached the far side of this pipe: find the next one */
+    var nx=head.x+DX[head.out],ny=head.y+DY[head.out],n=at(nx,ny),din=opp(head.out);
+    if(!n||n.rock||!(n.m&bit(din))){leak(nx,ny);return;}
+    if(n.drain){head={x:nx,y:ny,din:din,p:1,out:din};n.wet=1;cleared();return;}
+    if(n.wet&&n.m!==15){leak(nx,ny);return;}
+    var out=n.m===15?opp(din):[0,1,2,3].filter(function(d){return d!==din&&(n.m&bit(d));})[0];
+    n.wet=1;filled++;score+=10;
+    head={x:nx,y:ny,din:din,p:0,out:out};
+    beep(240+Math.min(400,filled*12),0.03,'sine',0.025,1.2);
+  };
+  function leak(nx,ny){
+    msg='Leak!';msgT=2;
+    var lx=ox+(head.x+0.5+DX[head.out]*0.5)*S,ly=oy+(head.y+0.5+DY[head.out]*0.5)*S;
+    for(var i=0;i<16;i++)drops.push({x:lx,y:ly,vx:(Math.random()-0.5)*160+DX[head.out]*80,vy:-60-Math.random()*120,t:1+Math.random()*0.5});
+    over();
+  }
+  function pipeLines(cx,cy,m,col,wd){
+    ctx.strokeStyle=col;ctx.lineWidth=wd;ctx.lineCap='butt';ctx.beginPath();
+    for(var d=0;d<4;d++)if(m&bit(d)){ctx.moveTo(cx,cy);ctx.lineTo(cx+DX[d]*S/2,cy+DY[d]*S/2);}
+    ctx.stroke();
+  }
+  function seg(cx,cy,d,from,to,col,wd){
+    /* part of the arm toward side d, from 'from' to 'to' (0 = centre, 1 = edge) */
+    ctx.strokeStyle=col;ctx.lineWidth=wd;ctx.beginPath();
+    ctx.moveTo(cx+DX[d]*S/2*from,cy+DY[d]*S/2*from);ctx.lineTo(cx+DX[d]*S/2*to,cy+DY[d]*S/2*to);ctx.stroke();
+  }
+  g.draw=function(){
+    ctx.fillStyle='#10192f';ctx.fillRect(0,0,V.w,V.h);
+    var x,y,wd=Math.max(6,S*0.24),ww=Math.max(3,S*0.13),WATER=P.sky;
+    for(y=0;y<H;y++)for(x=0;x<W;x++){
+      var c=at(x,y),X=ox+x*S,Y=oy+y*S,cx=X+S/2,cy=Y+S/2;
+      if(c.rock){if(x>0&&x<W-1){box(X+3,Y+3,S-6,S-6,'#4a5272');ctx.fillStyle='#5e6788';ctx.fillRect(X+S*0.25,Y+S*0.25,S*0.2,S*0.15);}continue;}
+      if(c.tank){box(X+4,Y+4,S-8,S-8,P.blue);ctx.fillStyle=WATER;ctx.fillRect(X+8,Y+S*0.45,S-16,S*0.45-8);pipeLines(cx,cy,2,P.ink,wd+4);pipeLines(cx,cy,2,WATER,ww);continue;}
+      if(c.drain){box(X+4,Y+4,S-8,S-8,'#2b3a5e');ctx.fillStyle=P.ink;for(var k=0;k<3;k++)ctx.fillRect(X+S*0.3,Y+S*(0.3+k*0.17),S*0.4,S*0.06);pipeLines(cx,cy,8,P.ink,wd+4);pipeLines(cx,cy,8,'#8fa6d8',wd);if(c.wet)pipeLines(cx,cy,8,WATER,ww);continue;}
+      ctx.fillStyle=(x+y)%2?'#1b2747':'#1e2b4f';ctx.fillRect(X+1,Y+1,S-2,S-2);
+      pipeLines(cx,cy,c.m,P.ink,wd+4);
+      pipeLines(cx,cy,c.m,c.wet?'#9fb6e6':'#8fa6d8',wd);
+      if(c.wet&&!(head.x===x&&head.y===y)){
+        if(c.m===15)pipeLines(cx,cy,c.m,WATER,ww);else pipeLines(cx,cy,c.m,WATER,ww);
+      }
+    }
+    /* the pipe the water is moving through right now */
+    if(wait<=0&&(st==='run'||st==='over')){
+      var hx=ox+head.x*S+S/2,hy=oy+head.y*S+S/2,p=clampN(head.p,0,1);
+      if(at(head.x,head.y).tank)seg(hx,hy,head.out,0,p,WATER,ww);
+      else{
+        seg(hx,hy,head.din,1,1-Math.min(1,p*2),WATER,ww);
+        if(p>0.5)seg(hx,hy,head.out,0,(p-0.5)*2,WATER,ww);
+      }
+    }
+    drops.forEach(function(d){ctx.fillStyle=WATER;ctx.fillRect(d.x-3,d.y-3,6,6);});
+    if(useKeys&&st==='run'){ctx.strokeStyle=P.sun;ctx.lineWidth=3;ctx.strokeRect(ox+cur.x*S+2,oy+cur.y*S+2,S-4,S-4);}
+    txt('Score '+score,12,22,18,'#fff','left');
+    txt('Level '+level,V.w/2,22,18,P.sun);
+    txt('Best '+best,V.w-12,22,16,P.sun,'right');
+    if(wait>0&&st==='run'){
+      var bw=Math.min(260,V.w-goR.w-60),bx=12;
+      box(bx,48,bw,18,'#2a3558');box(bx,48,bw*clampN(wait/waitMax,0,1),18,wait<4?P.brick:P.grass);
+      txt('Water in '+Math.ceil(wait)+'s',bx+bw/2,58,Math.max(12,10*V.css),'#fff');
+      box(goR.x,goR.y,goR.w,goR.h,P.sun);
+      ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(goR.x+1.5,goR.y+1.5,goR.w-3,goR.h-3);
+      txt('GO NOW',goR.x+goR.w/2,goR.y+goR.h/2+1,17,P.ink);
+    }else if(st==='run')txt('Flowing...',12,55,Math.max(13,10*V.css),P.sky,'left');
+    if(msgT>0&&msg)txt(msg,V.w/2,V.h-22,20,msg==='Leak!'?P.brick:P.sun);
+    else if(st==='run')txt('Tap a pipe to turn it. Join the tank to the drain!',V.w/2,V.h-18,Math.max(13,10*V.css),'#9fb0d8');
+    if(st==='over'&&t>0.6){
+      ctx.fillStyle='rgba(16,25,47,.82)';ctx.fillRect(0,0,V.w,V.h);
+      txt('LEAK!',V.w/2,V.h*0.38,34,P.brick);
+      txt('Score '+score+' · Level '+level,V.w/2,V.h*0.38+44,22,'#fff');
+      if(newBest)txt('NEW BEST!',V.w/2,V.h*0.38+76,18,P.sun);
+      if(t>0.9)txt('Tap to play again',V.w/2,V.h*0.38+(newBest?108:82),16,'#fff');
+    }
   };
   return g;
 })();
