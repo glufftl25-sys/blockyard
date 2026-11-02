@@ -4,13 +4,16 @@
    special check. Then two copies of the game join one Blaster Duel match together, through a stand-in for the online
    database (tools/fbmock), to check that playing with a friend works. Last, two friends chat through a stand-in for
    Claude's database (window.claude): A sends B a message and a party message to B and C; they must read them, an
-   outsider who copies a locked message must not, and the database must hold only locked copies.
+   outsider who copies a locked message must not, and the database must hold only locked copies. Then the website check:
+   index.html at phone width loads with no errors, every picture loads, nothing scrolls sideways, every game card opens a
+   game that exists, and game.html#play=snake starts Block Snake.
    Writes <out>/report.json, a small picture of every game's last frame, and a contact sheet per size
    (sheet-laptop.jpg, sheet-phone.jpg). GitHub runs this every day (.github/workflows/test-bots.yml) and the Bots page
    (bots.html) shows the report.
    Usage: node tools/playtest.js [path/to/game.html] [outDir]
    Optional: PLAYTEST_MS (ms per game on the laptop, default 4000; the phone gets 3/4 of it), PLAYTEST_MP=0 to skip the
-   two-player check, PLAYTEST_ONLYMP=1 to do only the two-player check. */
+   two-player check, PLAYTEST_ONLYMP=1 to do only the two-player, chat and website checks, PLAYTEST_SITE=0 to skip the website
+   check, PLAYTEST_DEBUG=1 to print the chat screens when the chat check fails. */
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -29,7 +32,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* the game's folder over http, so two copies of the game can talk (the stand-in database needs a real page origin) */
 function serve(dir) {
-  const types = { '.html': 'text/html', '.js': 'application/javascript', '.json': 'application/json', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
+  const types = { '.html': 'text/html', '.js': 'application/javascript', '.json': 'application/json', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.css': 'text/css', '.ico': 'image/x-icon' };
   const srv = http.createServer((req, res) => {
     const p = path.join(dir, decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, ''));
     if (!p.startsWith(dir) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) { res.writeHead(404); res.end(); return; }
@@ -250,6 +253,75 @@ async function friendChat(browser) {
   r.ok = !r.fail && !Object.keys(r.err).length;
   return r;
 }
+/* the website: index.html loads without errors, every picture loads, nothing scrolls sideways on a phone, every game card
+   opens a game that exists, and a card link really starts its game */
+async function websiteCheck(browser) {
+  const r = { id: 'm.site', t: 'Website home page', check: true, err: {}, ok: true, steps: 0, fail: '' };
+  const home = path.join(path.dirname(game), 'index.html');
+  if (!fs.existsSync(home)) { r.fail = 'there is no index.html next to the game'; r.ok = false; return r; }
+  const srv = await serve(path.dirname(game));
+  const base = 'http://127.0.0.1:' + srv.address().port + '/';
+  const say = m => { r.err[m] = (r.err[m] || 0) + 1; };
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, rt => rt.abort());
+  const pg = await ctx.newPage();
+  pg.on('pageerror', e => say(String(e.message).slice(0, 110)));
+  let cards = [], tiles = [];
+  const steps = [
+    ['index.html did not load', async () => { const res = await pg.goto(base + 'index.html', { waitUntil: 'load' }); return !!res && res.ok(); }],
+    ['a picture on the home page did not load', async () => {
+      /* load the lazy pictures too, then look at every one */
+      const bad = await pg.evaluate(async () => {
+        const ims = [...document.images];
+        ims.forEach(im => { if (im.loading === 'lazy') im.loading = 'eager'; });
+        await Promise.all(ims.map(im => im.complete ? 0 : new Promise(f => { im.onload = im.onerror = f; setTimeout(f, 5000); })));
+        return ims.filter(im => !im.naturalWidth).map(im => im.getAttribute('src'));
+      });
+      if (bad.length) r.fail = 'a picture on the home page did not load: ' + bad.slice(0, 3).join(', ');
+      return !bad.length;
+    }],
+    ['the home page scrolls sideways at 390 px wide', async () => {
+      /* against 390 itself: a phone zooms out to fit wide content, so innerWidth grows with it */
+      const w = await pg.evaluate(() => ({ sw: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth), iw: 390 }));
+      if (w.sw > w.iw + 1) r.fail = 'the home page scrolls sideways at 390 px wide (' + w.sw + ' px of content)';
+      return w.sw <= w.iw + 1;
+    }],
+    ['a game card links to a game that does not exist', async () => {
+      cards = await pg.evaluate(() => [...document.querySelectorAll('a[href*="#play="]')].map(a => a.getAttribute('href')));
+      await pg.goto(base + path.basename(game), { waitUntil: 'load' });
+      tiles = await pg.evaluate(() => [...document.querySelectorAll('#games .tile[data-game]')].map(t => t.getAttribute('data-game')));
+      const bad = [...new Set(cards.map(h => (/#play=([a-z0-9]+)$/.exec(h) || [])[1] || h))].filter(id => !tiles.includes(id));
+      if (bad.length) r.fail = 'a game card links to a game that does not exist: ' + bad.slice(0, 5).join(', ');
+      return cards.length > 0 && !bad.length;
+    }],
+    ['a card link (game.html#play=snake) did not start the game', async () => {
+      const id = tiles.includes('snake') ? 'snake' : tiles[0];
+      /* a fresh page, like a click from the home page (going from game.html to game.html#play= would not reload it) */
+      const p2 = await ctx.newPage();
+      p2.on('pageerror', e => say(String(e.message).slice(0, 110)));
+      await p2.goto(base + path.basename(game) + '#play=' + id, { waitUntil: 'load' });
+      const t0 = Date.now();
+      while (Date.now() - t0 < 6000) {
+        if (await p2.evaluate(() => document.getElementById('hub').hidden && !document.getElementById('play').hidden)) return true;
+        await sleep(200);
+      }
+      return false;
+    }]
+  ];
+  try {
+    for (const s of steps) {
+      r.steps++;
+      let ok = false;
+      try { ok = await s[1](); } catch (e) { r.fail = s[0] + ' (' + String(e.message).slice(0, 80) + ')'; break; }
+      if (!ok) { if (!r.fail) r.fail = s[0]; break; }
+    }
+  } catch (e) { r.fail = 'it could not start: ' + String(e.message).slice(0, 80); }
+  r.cards = cards.length;
+  await ctx.close().catch(() => {});
+  srv.close();
+  r.ok = !r.fail && !Object.keys(r.err).length;
+  return r;
+}
 function problemOf(r) {
   const b = [], em = Object.keys(r.err || {});
   if (r.fail) b.push(r.fail);
@@ -313,6 +385,13 @@ function problemOf(r) {
     const fc = await friendChat(browser);
     lap.results.push(fc);
     if (!fc.ok) lap.problems.push(problemOf(fc));
+  }
+  if (process.env.PLAYTEST_SITE !== '0') {
+    const site = await websiteCheck(browser);
+    if (!report.runs.length) report.runs.push({ size: 'laptop', w: 1280, h: 720, problems: [], results: [], lag: [], pageErrors: [] });
+    const lap = report.runs[0];
+    lap.results.push(site);
+    if (!site.ok) lap.problems.push(problemOf(site));
   }
   report.secs = Math.round((Date.now() - t0) / 1000);
   fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify(report, null, 1));
