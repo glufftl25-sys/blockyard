@@ -8119,7 +8119,9 @@ GAMES.merge=(function(){
   return g;
 })();
 
-/* ===== Block Golf: putt the ball into the cup in as few shots as you can ===== */
+/* ===== Block Golf: putt the ball into the cup in as few shots as you can. Two courses: course 1 is the first
+   4 holes, course 2 has 6 holes with sliding walls (mv: x, z, width, depth, which way it slides, how far, how fast)
+   and bouncy bumpers (bump: x, z, size). ===== */
 GAMES.golf=(function(){
   var g={kind:'canvas',title:'Block Golf',lw:400,is3d:true};
   var HOLES=[
@@ -8128,20 +8130,35 @@ GAMES.golf=(function(){
     {tee:[0,-10],cup:[0,10],par:3,walls:[[-3,2,1,8],[3,-2,1,8],[0,6,4,1]],sand:[[-4,-3,3,3],[4,3,3,3]],w:7,d:13},
     {tee:[-6,-9],cup:[6,9],par:4,walls:[[-2,-4,1,9],[2,4,1,9],[0,0,6,1]],sand:[[0,-9,4,2],[0,9,4,2]],w:9,d:13}
   ];
+  var HOLES2=[
+    {tee:[0,-9],cup:[0,9],par:2,walls:[],sand:[],mv:[{x:0,z:0,w:4,d:1,ax:'x',amp:3,sp:1.6}],bump:[],w:6,d:11},
+    {tee:[0,-10],cup:[0,10],par:3,walls:[],sand:[[0,-5,4,2]],mv:[],bump:[[-3,-1,0.8],[3,-1,0.8],[0,3,0.8],[-3,7,0.8],[3,7,0.8]],w:7,d:12},
+    {tee:[-6,-9],cup:[6,9],par:4,walls:[[-2,-2,1,14]],sand:[[5,-4,4,4]],mv:[{x:1,z:8.5,w:1,d:3,ax:'z',amp:2.2,sp:1.4}],bump:[],w:8,d:12},
+    {tee:[0,-11],cup:[0,11],par:4,walls:[],sand:[[-5,8,3,3]],mv:[{x:0,z:-4,w:6,d:1,ax:'x',amp:3.5,sp:1.3},{x:0,z:4,w:6,d:1,ax:'x',amp:3.5,sp:-1.7}],bump:[[0,0,0.9]],w:8,d:13},
+    {tee:[0,-10],cup:[0,8.25],par:3,walls:[[0,-3,4,1]],sand:[[0,6,8,2],[0,10.5,8,1],[-3.5,8.25,1,2.5],[3.5,8.25,1,2.5]],mv:[],bump:[[-5,-2,1],[5,-2,1]],w:7,d:12},
+    {tee:[-4,-10],cup:[4,10],par:4,walls:[[-2.5,-5,9,1],[2.5,1,9,1]],sand:[],mv:[{x:0,z:6,w:3,d:1,ax:'x',amp:4,sp:1.5}],bump:[[0,-2,0.8]],w:7,d:12}
+  ];
+  var COURSES=[HOLES,HOLES2],CN=['Course 1','Course 2'],CK=['by.golf','by.golf2'];
+  var C=0,sel=0,CUR=HOLES,card=[],bumpT=[];
   var hole,H,bx,bz,vx,vz,shots,total,st,aim,power,charging,t,best,msg,msgT,overT,ptr,newBest,kch,kt,held={};
   function reset(h){
-    hole=h;H=HOLES[h];bx=H.tee[0];bz=H.tee[1];vx=vz=0;shots=0;st='aim';aim=Math.atan2(H.cup[0]-bx,H.cup[1]-bz);power=0;charging=false;kch=false;msg='';msgT=0;
+    hole=h;H=CUR[h];bx=H.tee[0];bz=H.tee[1];vx=vz=0;shots=0;st='aim';aim=Math.atan2(H.cup[0]-bx,H.cup[1]-bz);power=0;charging=false;kch=false;msg='';msgT=0;bumpT=[];
   }
-  g.start=function(){total=0;newBest=false;held={};ptr=null;best=lsGet('by.golf',0);reset(0);t=0;overT=0;CAM3.snap=true;STAT.add('plays3d',1);};
+  function course(c){C=c;sel=c;CUR=COURSES[c];total=0;newBest=false;card=[];best=lsGet(CK[c],0);reset(0);overT=0;}
+  g.start=function(){held={};ptr=null;course(0);st='pick';t=0;CAM3.snap=true;STAT.add('plays3d',1);};
   g.stop=function(){held={};ptr=null;};
   function moving(){return Math.hypot(vx,vz)>0.08;}
-  function again(){total=0;newBest=false;reset(0);overT=0;}
+  function again(){course(C);st='pick';}
   /* which way the camera looks: back view looks along +z, front view along -z, first person along the aim */
   function camYaw(){return CAM3.mode===1?Math.PI:(CAM3.mode===2?aim:0);}
   function putt(p){vx=Math.sin(aim)*p*16;vz=Math.cos(aim)*p*16;shots++;beep(560,0.08,'square',0.04,1.5);}
+  /* the two course buttons on the pick screen */
+  function pickBox(i){var h=clampN(V.h-96-24,36,70),w=150;return {x:i?V.w/2+8:V.w/2-158,y:96,w:w,h:h};}
+  function inBox(x,y,b){return x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h;}
   g.down=function(x,y,id){
     if(st==='done'){if(overT>0.6)again();return;}
     if(CAM3.hit(x,y)){CAM3.cycle(aim);return;}
+    if(st==='pick'){for(var i=0;i<2;i++)if(inBox(x,y,pickBox(i))){course(i);beep(640,0.07,'square',0.04,1.5);}return;}
     if(moving()||st!=='aim'||kch)return;
     ptr={x:x,y:y,id:id,yaw:camYaw()};charging=true;power=0;
   };
@@ -8165,6 +8182,13 @@ GAMES.golf=(function(){
   g.key=function(c,d){
     if(c==='KeyV'){if(d)CAM3.cycle(aim);return;}
     if(st==='done'){if(d&&overT>0.6)again();return;}
+    if(st==='pick'){
+      if(!d)return;
+      if(c==='Digit1'||c==='Digit2'){course(c==='Digit1'?0:1);return;}
+      if(c==='ArrowLeft'||c==='KeyA'||c==='ArrowRight'||c==='KeyD'){sel=1-sel;beep(520,0.05,'square',0.03,1.3);}
+      else if(c==='Space'||c==='Enter'||c==='KeyF')course(sel);
+      return;
+    }
     held[c]=d;
     if(c==='Space'||c==='KeyF'){
       if(d&&!kch&&!ptr&&st==='aim'&&!moving()){kch=true;kt=0;charging=true;power=0;}
@@ -8172,38 +8196,106 @@ GAMES.golf=(function(){
     }
   };
   function inRect(x,z,r){return Math.abs(x-r[0])<r[2]/2&&Math.abs(z-r[1])<r[3]/2;}
+  /* where a sliding wall is at time tm, as a wall [x, z, width, depth] */
+  function mvRect(m,tm){var o=Math.sin(tm*m.sp)*m.amp;return m.ax==='x'?[m.x+o,m.z,m.w,m.d]:[m.x,m.z+o,m.w,m.d];}
+  function hitWall(o,w,live){
+    if(!inRect(o.x,o.z,[w[0],w[1],w[2]+0.5,w[3]+0.5]))return;
+    var ox=(w[2]+0.5)/2-Math.abs(o.x-w[0]),oz=(w[3]+0.5)/2-Math.abs(o.z-w[1]);
+    if(ox<oz){o.x+=o.x<w[0]?-ox:ox;o.vx=-o.vx*0.7;}else{o.z+=o.z<w[1]?-oz:oz;o.vz=-o.vz*0.7;}
+    if(live)beep(380,0.05,'square',0.03,1.2);
+  }
+  /* one small step of the ball o {x, z, vx, vz} at course time tm; true when it drops in the cup */
+  function step(o,dtn,tm,live){
+    var sand=H.sand.some(function(r){return inRect(o.x,o.z,r);});
+    var fr=sand?3.4:1.1;
+    o.x+=o.vx*dtn;o.z+=o.vz*dtn;
+    var sp=Math.hypot(o.vx,o.vz),dec=fr*dtn*6;
+    if(sp>0){var k=Math.max(0,sp-dec)/sp;o.vx*=k;o.vz*=k;}
+    H.walls.forEach(function(w){hitWall(o,w,live);});
+    (H.mv||[]).forEach(function(m){hitWall(o,mvRect(m,tm),live);});
+    (H.bump||[]).forEach(function(b,i){
+      var dx=o.x-b[0],dz=o.z-b[1],d=Math.hypot(dx,dz),rr=b[2]+0.22;
+      if(d>=rr||d<0.0001)return;
+      var nx=dx/d,nz=dz/d,vn=o.vx*nx+o.vz*nz;
+      o.x=b[0]+nx*rr;o.z=b[1]+nz*rr;
+      if(vn<0){o.vx-=2*vn*nx;o.vz-=2*vn*nz;}
+      var s2=Math.hypot(o.vx,o.vz),want=Math.min(15,Math.max(s2*1.15,6));
+      if(s2>0.01){o.vx*=want/s2;o.vz*=want/s2;}else{o.vx=nx*want;o.vz=nz*want;}
+      if(live){bumpT[i]=0.25;beep(700,0.07,'square',0.04,1.6);}
+    });
+    if(Math.abs(o.x)>H.w){o.x=clampN(o.x,-H.w,H.w);o.vx=-o.vx*0.7;}
+    if(Math.abs(o.z)>H.d){o.z=clampN(o.z,-H.d,H.d);o.vz=-o.vz*0.7;}
+    return Math.hypot(o.x-H.cup[0],o.z-H.cup[1])<0.55&&Math.hypot(o.vx,o.vz)<9;
+  }
   g.update=function(dt){
     t+=dt;if(msgT>0)msgT-=dt;CAM3.tick(dt);
-    if(st==='done'){overT+=dt;return;}
-    if(st==='sunk'){overT+=dt;if(overT>1.2){if(hole+1<HOLES.length){reset(hole+1);overT=0;}else{st='done';overT=0;if(!best||total<best){best=total;newBest=true;lsSet('by.golf',total);}}}return;}
+    for(var q=0;q<bumpT.length;q++)if(bumpT[q]>0)bumpT[q]-=dt;
+    if(st==='done'||st==='pick'){overT+=dt;return;}
+    if(st==='sunk'){overT+=dt;if(overT>1.2){if(hole+1<CUR.length){reset(hole+1);overT=0;}else{st='done';overT=0;if(!best||total<best){best=total;newBest=true;lsSet(CK[C],total);}}}return;}
     var turn=((held.ArrowRight||held.KeyD)?1:0)-((held.ArrowLeft||held.KeyA)?1:0);
     if(turn&&!ptr)aim+=turn*(CAM3.mode===1?-1:1)*1.7*dt;
     if(kch){kt+=dt;var ph=(kt/1.2)%2;power=ph<1?ph:2-ph;}
-    var n=3,i;
+    var n=3,i,o={x:bx,z:bz,vx:vx,vz:vz};
     for(i=0;i<n;i++){
-      var f=inRect(bx,bz,[0,0,99,99])?1:1;
-      var sand=H.sand.some(function(r){return inRect(bx,bz,r);});
-      var fr=sand?3.4:1.1;
-      bx+=vx*dt/n;bz+=vz*dt/n;
-      var sp=Math.hypot(vx,vz),dec=fr*dt/n*6;
-      if(sp>0){var k=Math.max(0,sp-dec)/sp;vx*=k;vz*=k;}
-      H.walls.forEach(function(w){
-        if(!inRect(bx,bz,[w[0],w[1],w[2]+0.5,w[3]+0.5]))return;
-        var ox=(w[2]+0.5)/2-Math.abs(bx-w[0]),oz=(w[3]+0.5)/2-Math.abs(bz-w[1]);
-        if(ox<oz){bx+=bx<w[0]?-ox:ox;vx=-vx*0.7;}else{bz+=bz<w[1]?-oz:oz;vz=-vz*0.7;}
-        beep(380,0.05,'square',0.03,1.2);
-      });
-      if(Math.abs(bx)>H.w){bx=clampN(bx,-H.w,H.w);vx=-vx*0.7;}
-      if(Math.abs(bz)>H.d){bz=clampN(bz,-H.d,H.d);vz=-vz*0.7;}
-      if(Math.hypot(bx-H.cup[0],bz-H.cup[1])<0.55&&Math.hypot(vx,vz)<9){
-        total+=shots;st='sunk';overT=0;
+      var tm=t-dt+dt*(i+1)/n;
+      if(step(o,dt/n,tm,true)){
+        bx=o.x;bz=o.z;vx=o.vx;vz=o.vz;
+        total+=shots;card[hole]=shots;st='sunk';overT=0;
         msg=shots<=H.par-1?'BIRDIE!':(shots===H.par?'PAR!':'+'+(shots-H.par));
         msgT=1.4;beep(880,0.3,'square',0.06,1.9);
         return;
       }
     }
+    bx=o.x;bz=o.z;vx=o.vx;vz=o.vz;
     if(!moving()){vx=vz=0;}
   };
+  /* when the cup is off the screen or hidden behind the camera button, a red marker shows where it is */
+  function cupMark(){
+    var p=R3.project(H.cup[0],1.2,H.cup[1]),m=24,sx,sy;
+    if(p){sx=p[0];sy=p[1];}else{var q=R3.rel(H.cup[0],1.2,H.cup[1]);sx=q[0]>=0?V.w-m:m;sy=V.h*0.5;}
+    var under=p&&Math.abs(sx-V.w/2)<56&&sy<80;
+    if(p&&!under&&sx>m&&sx<V.w-m&&sy>m&&sy<V.h-m)return;
+    if(under){sx=V.w/2;sy=92;}
+    sx=clampN(sx,m,V.w-m);sy=clampN(sy,84,V.h-m);
+    ctx.fillStyle=P.brick;ctx.strokeStyle=P.ink;ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(sx,sy,9,0,6.2832);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#fff';ctx.fillRect(sx-1,sy-5,2,10);ctx.fillRect(sx+1,sy-5,5,4);
+    txt(under?'Hole ahead':'Hole',sx,sy+17,10,'#fff');
+  }
+  function pickScreen(){
+    ctx.fillStyle='rgba(20,33,61,0.55)';ctx.fillRect(0,0,V.w,V.h);
+    txt('Pick a course',V.w/2,84,14,'#fff');
+    for(var i=0;i<2;i++){
+      var b=pickBox(i),bs=lsGet(CK[i],0),k=Math.min(1,b.h/70);
+      ctx.fillStyle=i?'#b9a4ff':'#3fd58a';ctx.fillRect(b.x,b.y,b.w,b.h);
+      ctx.lineWidth=sel===i&&keys3()?5:3;ctx.strokeStyle=sel===i&&keys3()?P.sun:P.ink;ctx.strokeRect(b.x+1.5,b.y+1.5,b.w-3,b.h-3);
+      txt(CN[i],b.x+b.w/2,b.y+b.h*0.32,Math.round(20*k),'#fff');
+      txt(COURSES[i].length+' holes'+(i?', sliding walls':''),b.x+b.w/2,b.y+b.h*0.6,Math.max(9,Math.round(11*k)),'#fff');
+      txt(bs?'Best '+bs+' shots':'Not played',b.x+b.w/2,b.y+b.h*0.82,Math.max(9,Math.round(11*k)),P.sun);
+    }
+    txt(keys3()?'Left and right to pick, Space to play (or press 1 or 2)':'Tap a course to play',V.w/2,Math.min(V.h-10,96+pickBox(0).h+14),11,'#fff');
+  }
+  /* the card at the end: shots on every hole next to its par */
+  function scoreCard(){
+    ctx.fillStyle='rgba(20,33,61,0.65)';ctx.fillRect(0,0,V.w,V.h);
+    var n=CUR.length,k=Math.min(1,(V.h-80)/124),cw=Math.min(38,(V.w-110)/(n+1)),x0=V.w/2-((n+1)*cw+50)/2+50,y=80,i,par=0;
+    txt('COURSE DONE!',V.w/2,y+12*k,Math.round(26*k),P.sun);y+=30*k;
+    var rows=[['Hole',function(i){return i+1;},'#fff'],['Par',function(i){return CUR[i].par;},'#fff'],['Shots',function(i){return card[i]==null?'-':card[i];},P.sun]];
+    for(i=0;i<n;i++)par+=CUR[i].par;
+    rows.forEach(function(r,ri){
+      var fs=Math.max(9,Math.round(13*k));
+      txt(r[0],x0-8,y,fs,r[2],'right');
+      for(i=0;i<n;i++){
+        var v=r[1](i),col=r[2];
+        if(ri===2&&card[i]!=null)col=card[i]<CUR[i].par?'#5ed88a':(card[i]>CUR[i].par?P.brick:P.sun);
+        txt(String(v),x0+cw*(i+0.5),y,fs,col);
+      }
+      txt(ri===0?'All':(ri===1?String(par):String(total)),x0+cw*(n+0.6),y,fs,r[2]);
+      y+=17*k;
+    });
+    txt(newBest?'NEW BEST!':'Best '+best,V.w/2,y+4*k,Math.max(9,Math.round(15*k)),newBest?P.sun:'#fff');y+=20*k;
+    if(overT>0.6)txt(keys3()?'Press Space to play again':'Tap to play again',V.w/2,Math.min(V.h-8,y+4*k),Math.max(9,Math.round(14*k)),'#fff');
+  }
   g.draw=function(){
     R3.sky('#7cc8ff','#eaf6ff',V.h);
     R3.fog([234,246,255],30,80);
@@ -8214,6 +8306,12 @@ GAMES.golf=(function(){
     for(x=-H.w;x<H.w;x+=2)for(z=-H.d;z<H.d;z+=2)R3.box(x+1,-0.3,z+1,2,0.3,2,((x+z)/2&1)?[108,206,124]:[96,192,114],0,true);
     H.sand.forEach(function(r){R3.box(r[0],-0.02,r[1],r[2],0.08,r[3],[240,222,160],0,true);});
     H.walls.forEach(function(w){R3.box(w[0],0,w[1],w[2],0.7,w[3],[150,120,90]);});
+    (H.mv||[]).forEach(function(m){var w=mvRect(m,t);R3.box(w[0],0,w[1],w[2],0.8,w[3],[184,160,255]);R3.box(w[0],0.8,w[1],w[2]+0.1,0.12,w[3]+0.1,[214,196,255]);});
+    (H.bump||[]).forEach(function(b,i){
+      var c=bumpT[i]>0?[255,236,140]:[255,90,77],s=b[2]*2*(bumpT[i]>0?1.12:1);
+      R3.box(b[0],0,b[1],s*0.82,0.7,s*0.82,c,0);R3.box(b[0],0,b[1],s*0.82,0.7,s*0.82,c,0.785);
+      R3.box(b[0],0.7,b[1],s*0.4,0.12,s*0.4,[255,255,255],t);
+    });
     R3.box(H.cup[0],-0.05,H.cup[1],1,0.12,1,[40,40,50],0,true);
     R3.box(H.cup[0]+0.0,0.1,H.cup[1],0.08,2.2,0.08,[230,232,240]);
     R3.box(H.cup[0]+0.3,1.9,H.cup[1],0.6,0.4,0.05,[255,90,77]);
@@ -8226,7 +8324,9 @@ GAMES.golf=(function(){
       }
     }
     R3.flush();
-    txt('Hole '+(hole+1)+'/'+HOLES.length,12,24,18,'#fff','left');
+    if(st==='pick'){pickScreen();CAM3.draw(false);return;}
+    if(st!=='done')cupMark();
+    txt((C?'C2 · ':'')+'Hole '+(hole+1)+'/'+CUR.length,12,24,18,'#fff','left');
     txt('Par '+H.par+'  ·  Shots '+shots,12,46,13,P.sun,'left');
     txt('Total '+total,V.w-12,24,16,'#fff','right');
     if(best)txt('Best '+best,V.w-12,46,12,P.sun,'right');
@@ -8237,35 +8337,22 @@ GAMES.golf=(function(){
       ctx.fillStyle=power>0.8?P.brick:P.sun;ctx.fillRect(V.w/2-68,V.h-54,136*power,12);
       txt('POWER',V.w/2,V.h-48,11,'#fff');
     }
-    if(st==='done'){
-      card3([['COURSE DONE!',30,P.sun],[total+' shots',22],[newBest?'NEW BEST!':'Best '+best,16,newBest?P.sun:'#fff'],
-        [overT>0.6?(keys3()?'Press Space to play again':'Tap to play again'):'',16]],0.6);
-    }
+    if(st==='done')scoreCard();
     CAM3.draw(false);
   };
-  /* test bots: play for real */
-  function tbShot(ang,pw){
-    var x=bx,z=bz,vx2=Math.sin(ang)*pw*16,vz2=Math.cos(ang)*pw*16,dt=1/30,n=3,f,i;
+  /* test bots: play for real. Both courses get played: the bot picks one at random. */
+  function tbShot(ang,pw,tm){
+    var o={x:bx,z:bz,vx:Math.sin(ang)*pw*16,vz:Math.cos(ang)*pw*16},dt=1/30,n=3,f,i;
     for(f=0;f<240;f++){
-      for(i=0;i<n;i++){
-        var sand=H.sand.some(function(r){return inRect(x,z,r);}),fr=sand?3.4:1.1;
-        x+=vx2*dt/n;z+=vz2*dt/n;
-        var sp=Math.hypot(vx2,vz2),dec=fr*dt/n*6;if(sp>0){var k=Math.max(0,sp-dec)/sp;vx2*=k;vz2*=k;}
-        H.walls.forEach(function(w){
-          if(!inRect(x,z,[w[0],w[1],w[2]+0.5,w[3]+0.5]))return;
-          var ox=(w[2]+0.5)/2-Math.abs(x-w[0]),oz=(w[3]+0.5)/2-Math.abs(z-w[1]);
-          if(ox<oz){x+=x<w[0]?-ox:ox;vx2=-vx2*0.7;}else{z+=z<w[1]?-oz:oz;vz2=-vz2*0.7;}
-        });
-        if(Math.abs(x)>H.w){x=clampN(x,-H.w,H.w);vx2=-vx2*0.7;}
-        if(Math.abs(z)>H.d){z=clampN(z,-H.d,H.d);vz2=-vz2*0.7;}
-        if(Math.hypot(x-H.cup[0],z-H.cup[1])<0.55&&Math.hypot(vx2,vz2)<9)return -1+pw*0.1;
-      }
-      if(Math.hypot(vx2,vz2)<=0.08)break;
+      for(i=0;i<n;i++){tm+=dt/n;if(step(o,dt/n,tm,false))return -1+pw*0.1;}
+      if(Math.hypot(o.vx,o.vz)<=0.08)break;
     }
-    return Math.hypot(x-H.cup[0],z-H.cup[1])+(H.sand.some(function(r){return inRect(x,z,r);})?2:0);
+    return Math.hypot(o.x-H.cup[0],o.z-H.cup[1])+(H.sand.some(function(r){return inRect(o.x,o.z,r);})?2:0);
   }
   g.tbp=function(tb,dt){
     var m=tb.m,done=hole+((st==='sunk'||st==='done')?1:0);
+    if(st==='pick'){if(!m.pk){m.pk=1;var b=pickBox(Math.random()<0.5?0:1);tb.tap(b.x+b.w/2,b.y+b.h/2);}return [0,'holes'];}
+    m.pk=0;
     if(st==='done'){if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [done,'holes'];}
     m.o=0;
     if(st!=='aim'||moving()){m.s=null;return [done,'holes'];}
@@ -8275,8 +8362,9 @@ GAMES.golf=(function(){
     }
     if(m.ph===2){tb.up();m.ph=0;m.s=null;return [done,'holes'];}
     if(!m.s)m.s={i:0,best:null};
-    var pw=0.22+m.s.i*0.11;
-    for(var k=0;k<72;k++){var ang=k*Math.PI/36,r=tbShot(ang,pw);if(!m.s.best||r<m.s.best.r)m.s.best={r:r,a:ang,p:pw};}
+    /* sliding walls move while the bot thinks, so it plans for the moment it will really putt */
+    var pw=0.22+m.s.i*0.11,tm=t+(8-m.s.i+2)*Math.max(dt,1/60);
+    for(var k=0;k<72;k++){var ang=k*Math.PI/36,r=tbShot(ang,pw,tm);if(!m.s.best||r<m.s.best.r)m.s.best={r:r,a:ang,p:pw};}
     if(++m.s.i<8)return [done,'holes'];
     m.best=m.s.best;m.sx=V.w/2;m.sy=V.h*0.6;m.yaw=camYaw();tb.down(m.sx,m.sy);m.ph=1;
     return [done,'holes'];
