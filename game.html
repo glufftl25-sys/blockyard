@@ -4474,6 +4474,8 @@ GAMES.party=(function(){
   var CAMP={x:0,z:-13.5};
   var t=0,x=0,z=0,y=0,vx=0,vz=0,vy=0,face=0,step=0,buf=0,flash=0,claims=[],gone={},myRound=-1,wonShown=-1;
   var H=null,lastSeen=null;
+  /* polish: prevSS = the stars seen last frame (to puff the ones someone grabs), myPts = my score last frame, lastSec = the last countdown tick, fxR = the round whose confetti played */
+  var prevSS=[],myPts=0,lastSec=-1,fxR=-1;
   /* fair star claims (host only): pendC[star id] = {at: when the first claim arrived, c: {peer: touch time}} */
   var pendC={},pendR=-1,CWAIT=300;
   function starOff(){return (typeof FBN!=='undefined'&&SOLO&&FBN.ok)?(FBN.off||0):0;}
@@ -4511,7 +4513,7 @@ GAMES.party=(function(){
     return o;
   }
   function amHost(){return hostPeer()===me();}
-  g.start=function(){PAD.reset();t=0;x=(Math.random()*2-1)*4;z=-6;y=0;vx=vz=vy=0;face=0;claims=[];gone={};H=null;pendC={};pendR=-1;myRound=-1;wonShown=-1;bots=[];CAMP.x=0;CAMP.z=-13.5;netJoin('w3-party');STAT.add('plays3d',1);};
+  g.start=function(){PAD.reset();t=0;x=(Math.random()*2-1)*4;z=-6;y=0;vx=vz=vy=0;face=0;claims=[];gone={};H=null;pendC={};pendR=-1;myRound=-1;wonShown=-1;bots=[];CAMP.x=0;CAMP.z=-13.5;nfxClear();prevSS=[];myPts=0;lastSec=-1;fxR=-1;netJoin('w3-party');STAT.add('plays3d',1);};
   function botStep(dt,S){
     if(!bots.length)for(var i=0;i<3;i++){var a=i*2.1+0.6;bots.push({k:'bot'+i,x:Math.cos(a)*8,z:Math.sin(a)*8,y:0,vx:0,vz:0,face:0,step:0,c:BOTC[i],n:BOTN[i],sp:5.4+i*0.45,think:0,tx:0,tz:0});}
     bots.forEach(function(b){
@@ -4602,9 +4604,19 @@ GAMES.party=(function(){
       if(gone[s[0]])return;
       if(Math.hypot(x-s[1],z-s[2])<1.2&&y<1.6){
         gone[s[0]]=1;claims.push([S.r,s[0],Date.now()+starOff()]);if(claims.length>8)claims.shift();
-        STAT.add('stars',1);beep(900,0.12,'square',0.05,1.5);flash=0.15;
+        STAT.add('stars',1);beep(900,0.12,'square',0.05,1.5);flash=0.15;nfxBurst(s[1],0.9,s[2],[255,210,63],10,3.5);
       }
     });
+    /* stars someone else grabbed puff away; my score going up pops a +1 */
+    if(S&&S.ph==='play'){
+      var ids={};S.ss.forEach(function(q){ids[q[0]]=1;});
+      prevSS.forEach(function(q){if(!ids[q[0]]&&!gone[q[0]])nfxBurst(q[1],0.9,q[2],[255,236,140],6,2.5);});
+      prevSS=S.ss.map(function(q){return q.slice();});
+      var mp=S.sc[me()]||0;if(mp>myPts){nfxPop(x,y+2.5,z,'+'+(mp-myPts),P.sun);}myPts=mp;
+      var sl=Math.ceil(S.left);if(sl<=5&&sl>0&&sl!==lastSec){lastSec=sl;beep(sl<=2?880:660,0.05,'square',0.03,1);}
+    }else{prevSS=[];if(S&&S.ph==='end')myPts=0;}
+    if(S&&S.ph==='end'&&fxR!==S.r){fxR=S.r;var tw=board(S)[0];if(tw&&tw.pts>0)nfxConfetti(x,y+3,z+3);}
+    nfxStep(dt);
     if(S&&S.ph==='end'&&wonShown!==S.r){
       wonShown=S.r;
       var top=board(S)[0];
@@ -4643,21 +4655,34 @@ GAMES.party=(function(){
       if(gone[s[0]])return;
       R3.box(s[1],0.9+Math.sin(t*4+s[0])*0.15,s[2],0.7,0.7,0.7,[255,210,63],t*3);
       R3.box(s[1],0.9+Math.sin(t*4+s[0])*0.15,s[2],0.7,0.7,0.7,[255,236,140],t*3+0.785);
+      R3.shadow(s[1],0.02,s[2],0.32+Math.sin(t*4+s[0])*0.05);
     });
     var tags=netDraw(dt);
     if(botsOn())bots.forEach(function(b){blockPerson(b.x,b.y,b.z,b.face,b.c,b.step,false,null);R3.shadow(b.x,0.02,b.z,0.42);tags.push({x:b.x,y:b.y+2.0,z:b.z,n:b.n});});
     var col=hex2rgb(avPart('body',avOf(W&&W.av).body).c);
     if(CAM3.mode!==2)blockPerson(x,y,z,face,col,step,false,myAv3());
     R3.shadow(x,0.02,z,0.45);
+    /* a gold crown over the round leader */
+    var lp=S&&S.ph==='play'?leaderPos(S):null;if(lp){R3.box(lp[0],lp[1]+2.35,lp[2],0.6,0.18,0.6,[255,210,63],t*2);R3.box(lp[0],lp[1]+2.53,lp[2],0.18,0.2,0.18,[255,236,140],t*2);}
+    nfxDraw();
     R3.flush();
     netTags(tags);
+    nfxText();
     hud(S);
     if(flash>0){ctx.fillStyle='rgba(255,236,140,'+(flash/0.15*0.25)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
+  function leaderPos(S){
+    var best=null;
+    board(S).forEach(function(r){if(r.pts>0&&(!best||r.pts>best.pts))best=r;});
+    if(!best)return null;
+    if(best.me)return [x,y,z];
+    if(best.bot){var bb=null;bots.forEach(function(b){if(b.k===best.peer)bb=b;});return bb?[bb.x,bb.y,bb.z]:null;}
+    var sm=NET.sm[best.peer];return sm?[sm.x,sm.y,sm.z]:null;
+  }
   function hud(S){
     var b=board(S);
     var sl=Math.max(0,Math.ceil(S?S.left:0));
-    txt(S?(S.ph==='play'?Math.floor(sl/60)+':'+(sl%60<10?'0':'')+(sl%60):'Next round '+sl):'Starting...',12,24,18,'#fff','left');
+    txt(S?(S.ph==='play'?Math.floor(sl/60)+':'+(sl%60<10?'0':'')+(sl%60):'Next round '+sl):'Starting...',12,24,18,S&&S.ph==='play'&&sl<=10?'#ff8a7a':'#fff','left');
     txt(botsOn()&&!NET.blocked?(NET.room?'Playing with bots until friends join':'Playing with bots'):netStatus(),12,46,12,P.sun,'left');
     b.slice(0,5).forEach(function(r,i){txt((i+1)+'. '+r.n+'  '+r.pts,V.w-12,24+i*20,14,r.me?P.sun:'#fff','right');});
     if(S&&S.ph==='end'){
