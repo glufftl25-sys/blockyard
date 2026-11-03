@@ -766,6 +766,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><span class="b3d">3D</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#c9b8ff" width="88" height="88"/><path d="M10 10H78V78H10ZM10 30H52M30 30V58M30 58H66M52 10V30M66 44V78M10 58H18" fill="none" stroke="#14213d" stroke-width="5"/><rect x="62" y="64" width="12" height="10" fill="#5ed88a" stroke="#14213d" stroke-width="2"/><circle cx="42" cy="44" r="5" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="46" y="42" width="10" height="4" fill="#ffd23f" stroke="#14213d" stroke-width="1.5"/><rect x="16" y="16" width="8" height="10" fill="#3f8cff" stroke="#14213d" stroke-width="2"/></svg></span>
           <span class="tt">Maze Escape</span><span class="ts"><span id="best-escape">Best 0</span> · Find the keys</span>
         </button>
+        <button class="tile" type="button" data-game="bowl" data-name="block bowling pins strike spare alley 3d" style="--c:#3f8cff">
+          <span class="thumb"><span class="b3d">3D</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#2c3a6a" width="88" height="88"/><polygon points="30,88 58,88 50,20 38,20" fill="#d6aa70"/><rect x="38" y="18" width="5" height="12" fill="#fff" stroke="#14213d" stroke-width="1.5"/><rect x="45" y="18" width="5" height="12" fill="#fff" stroke="#14213d" stroke-width="1.5"/><rect x="41" y="10" width="5" height="12" fill="#fff" stroke="#14213d" stroke-width="1.5"/><rect x="38" y="24" width="5" height="2" fill="#ff5a4d"/><rect x="45" y="24" width="5" height="2" fill="#ff5a4d"/><circle cx="44" cy="66" r="9" fill="#3f8cff" stroke="#14213d" stroke-width="3"/><circle cx="41" cy="63" r="1.5" fill="#14213d"/><circle cx="46" cy="62" r="1.5" fill="#14213d"/></svg></span>
+          <span class="tt">Block Bowling</span><span class="ts"><span id="best-bowl">Best 0</span> · Strike!</span>
+        </button>
         <button class="tile" type="button" data-game="tag" data-name="block tag online multiplayer 3d chase" style="--c:#ff9a3c">
           <span class="thumb"><span class="b3d">3D</span><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#ffd79a" width="88" height="88"/><rect x="12" y="34" width="16" height="26" fill="#ff5a4d" stroke="#14213d" stroke-width="3"/><rect x="14" y="22" width="12" height="12" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><rect x="54" y="38" width="16" height="24" fill="#3f8cff" stroke="#14213d" stroke-width="3"/><rect x="56" y="26" width="12" height="12" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><polygon points="34,44 48,38 48,50" fill="#14213d"/></svg></span>
           <span class="tt">Block Tag</span><span class="ts">Online · Chase and tag</span>
@@ -1104,6 +1108,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
         <button class="card" type="button" data-game="escape" style="background:var(--lilac)">
           <svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#c9b8ff" width="88" height="88"/><path d="M10 10H78V78H10ZM10 30H52M30 30V58M30 58H66M52 10V30M66 44V78M10 58H18" fill="none" stroke="#14213d" stroke-width="5"/><rect x="62" y="64" width="12" height="10" fill="#5ed88a" stroke="#14213d" stroke-width="2"/><circle cx="42" cy="44" r="5" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="46" y="42" width="10" height="4" fill="#ffd23f" stroke="#14213d" stroke-width="1.5"/><rect x="16" y="16" width="8" height="10" fill="#3f8cff" stroke="#14213d" stroke-width="2"/></svg>
           <span class="txt"><strong>Maze Escape</strong><span class="tag">Find 3 keys and get out before time runs out.</span><span class="best" id="m3-best-escape">Best 0</span></span>
+        </button>
+        <button class="card" type="button" data-game="bowl" style="background:var(--blue)">
+          <svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#2c3a6a" width="88" height="88"/><polygon points="30,88 58,88 50,20 38,20" fill="#d6aa70"/><rect x="38" y="18" width="5" height="12" fill="#fff" stroke="#14213d" stroke-width="1.5"/><rect x="45" y="18" width="5" height="12" fill="#fff" stroke="#14213d" stroke-width="1.5"/><rect x="41" y="10" width="5" height="12" fill="#fff" stroke="#14213d" stroke-width="1.5"/><rect x="38" y="24" width="5" height="2" fill="#ff5a4d"/><rect x="45" y="24" width="5" height="2" fill="#ff5a4d"/><circle cx="44" cy="66" r="9" fill="#3f8cff" stroke="#14213d" stroke-width="3"/><circle cx="41" cy="63" r="1.5" fill="#14213d"/><circle cx="46" cy="62" r="1.5" fill="#14213d"/></svg>
+          <span class="txt"><strong>Block Bowling</strong><span class="tag">5 frames. Knock down all 10 pins for a strike!</span><span class="best" id="m3-best-bowl">Best 0</span></span>
         </button>
       </div>
       <p class="note">Tip: tap the eye at the top of a 3D game to see your player from behind, from the front, or through their eyes.</p>
@@ -9124,6 +9132,208 @@ GAMES.escape=(function(){
   return g;
 })();
 
+/* ===== Block Bowling (3D solo): 5 frames, 2 rolls each. Pull back to aim and choose power (or move with A and D,
+   turn with the arrows, hold Space for power). Pins knock each other over. A strike (all 10 with the first roll)
+   gives +10 and a spare (all 10 with two rolls) gives +5. ===== */
+HUBBEST['best-bowl']='by.bowl';
+GAMES.bowl=(function(){
+  var g={kind:'canvas',title:'Block Bowling',lw:400,is3d:true};
+  var LW=2.6,LEN=20,PZ=17,BR=0.32,PR=0.22,FR=5;
+  var pins,ball,frame,roll,frames,score,best,newBest,st,t,aim,bx,power,charging,kch,kt,ptr,held={},msg,msgT,overT,waitT,parts=[],shake=0;
+  function setPins(){
+    pins=[];var r,c;
+    for(r=0;r<4;r++)for(c=0;c<=r;c++)pins.push({x:(c-r/2)*0.62,z:PZ+r*0.55,vx:0,vz:0,down:false,tilt:0,hit:false});
+  }
+  function standing(){return pins.filter(function(p){return !p.down;}).length;}
+  function reset(){frame=0;roll=0;frames=[];score=0;newBest=false;st='ready';t=0;overT=0;msg='';msgT=0;setPins();newRoll();}
+  function newRoll(){ball=null;bx=0;aim=0;power=0;charging=false;kch=false;ptr=null;waitT=0;}
+  g.start=function(){best=lsGet('by.bowl',0);held={};reset();CAM3.snap=true;STAT.add('plays3d',1);};
+  g.stop=function(){held={};ptr=null;};
+  function camYaw(){return CAM3.mode===1?Math.PI:0;}
+  function throwIt(p){ball={x:bx,z:0.6,vx:Math.sin(aim)*(5+p*13),vz:Math.cos(aim)*(5+p*13),y:0};beep(300,0.2,'triangle',0.05,0.6);st='roll';}
+  function again(){reset();}
+  g.down=function(x,y,id){
+    if(CAM3.hit(x,y)){CAM3.cycle(0);return;}
+    if(st==='over'){if(overT>0.7)again();return;}
+    if(st==='ready')st='aim';
+    if(st!=='aim'||kch)return;
+    ptr={x:x,y:y,id:id,yaw:camYaw()};charging=true;power=0;
+  };
+  /* pull back like a slingshot: sideways pull turns the throw, a longer pull throws harder */
+  g.move=function(x,y,id){
+    if(!ptr||ptr.id!==id)return;
+    var dx=x-ptr.x,dy=y-ptr.y,f=ptr.yaw?-1:1;
+    if(dy>4)aim=clampN(Math.atan2(-dx*f,dy),-0.35,0.35);
+    power=clampN(Math.hypot(dx,dy)/90,0,1);
+  };
+  g.up=function(x,y,id){
+    if(!ptr||ptr.id!==id)return;ptr=null;
+    if(charging&&power>0.08&&st==='aim')throwIt(power);
+    charging=false;power=0;
+  };
+  g.key=function(c,d){
+    if(c==='KeyV'){if(d)CAM3.cycle(0);return;}
+    if(st==='over'){if(d&&overT>0.7)again();return;}
+    if(d&&st==='ready')st='aim';
+    held[c]=d;
+    if(c==='Space'||c==='KeyF'){
+      if(d&&!kch&&!ptr&&st==='aim'){kch=true;kt=0;charging=true;power=0;}
+      else if(!d&&kch){kch=false;charging=false;if(power>0.08&&st==='aim')throwIt(power);power=0;}
+    }
+  };
+  function burst(x,y,z,c,n){for(var k=0;k<n;k++)parts.push({x:x,y:y,z:z,vx:(Math.random()-0.5)*4,vy:1.5+Math.random()*3,vz:(Math.random()-0.2)*4,l:0.5+Math.random()*0.3,c:c});}
+  /* one physics step: the ball rolls, pins get knocked and knock each other */
+  function phys(B,P,dt,live){
+    if(B){
+      B.x+=B.vx*dt;B.z+=B.vz*dt;
+      var sp=Math.hypot(B.vx,B.vz);if(sp>0){var k=Math.max(0,sp-0.6*dt)/sp;B.vx*=k;B.vz*=k;}
+      if(!B.gut&&Math.abs(B.x)>LW/2-BR*0.4){B.gut=true;B.x=(B.x<0?-1:1)*(LW/2+0.35);B.vx=0;if(live)beep(160,0.2,'triangle',0.04,0.6);}
+    }
+    P.forEach(function(p){
+      if(B&&!B.gut){
+        var dx=p.x-B.x,dz=p.z-B.z,d=Math.hypot(dx,dz);
+        if(d<BR+PR&&d>0.001){
+          var nx=dx/d,nz=dz/d,rel=B.vx*nx+B.vz*nz;
+          if(rel>0){p.vx+=nx*rel*1.4;p.vz+=nz*rel*1.4;B.vx-=nx*rel*0.35;B.vz-=nz*rel*0.35;}
+          p.x=B.x+nx*(BR+PR);p.z=B.z+nz*(BR+PR);
+          if(!p.hit&&live){beep(500+Math.random()*200,0.06,'square',0.04,1.2);burst(p.x,0.6,p.z,[255,255,255],4);}
+          p.hit=true;
+        }
+      }
+    });
+    for(var i=0;i<P.length;i++)for(var j=i+1;j<P.length;j++){
+      var a=P[i],b=P[j],dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz);
+      if(d<PR*2&&d>0.001){
+        var nx=dx/d,nz=dz/d,rel=(a.vx-b.vx)*nx+(a.vz-b.vz)*nz;
+        if(rel>0){a.vx-=nx*rel*0.55;a.vz-=nz*rel*0.55;b.vx+=nx*rel*0.55;b.vz+=nz*rel*0.55;if(Math.abs(rel)>0.5){a.hit=b.hit=true;}}
+        var o=(PR*2-d)/2;a.x-=nx*o;a.z-=nz*o;b.x+=nx*o;b.z+=nz*o;
+      }
+    }
+    P.forEach(function(p){
+      p.x+=p.vx*dt;p.z+=p.vz*dt;var k=Math.max(0,1-3*dt);p.vx*=k;p.vz*=k;
+      if(p.hit&&!p.down&&(Math.hypot(p.vx,p.vz)>0.6||Math.abs(p.x)>LW/2+0.1)){p.down=true;}
+    });
+  }
+  function settle(){
+    var n0=frames[frame]?frames[frame][0]:null,downNow=10-standing();
+    if(roll===0){
+      frames[frame]=[downNow];
+      if(downNow===10){msg='STRIKE!';msgT=1.6;beep(880,0.3,'square',0.06,1.9);burst(0,1,PZ,[255,210,63],24);shake=0.3;nextFrame();return;}
+      msg=downNow?downNow+' pins':'Gutter ball';msgT=1.1;roll=1;
+      pins=pins.filter(function(p){return !p.down;});pins.forEach(function(p){p.vx=p.vz=0;p.hit=false;});
+      newRoll();st='aim';return;
+    }
+    frames[frame][1]=downNow-n0;
+    if(downNow===10){msg='SPARE!';msgT=1.4;beep(780,0.25,'square',0.05,1.7);burst(0,1,PZ,[94,216,138],16);}
+    else{msg=(downNow-n0)+' more';msgT=1;}
+    nextFrame();
+  }
+  function frameScore(f){if(!f)return 0;var a=f[0]||0,b=f[1]||0;return a+b+(a===10?10:(a+b===10?5:0));}
+  function nextFrame(){
+    score=0;for(var i=0;i<frames.length;i++)score+=frameScore(frames[i]);
+    frame++;roll=0;
+    if(frame>=FR){st='over';overT=0;if(score>best){best=score;newBest=true;lsSet('by.bowl',best);}return;}
+    setPins();newRoll();st='aim';
+  }
+  g.update=function(dt){
+    t+=dt;if(msgT>0)msgT-=dt;if(shake>0)shake-=dt;CAM3.tick(dt);
+    for(var q=parts.length-1;q>=0;q--){var pp=parts[q];pp.l-=dt;if(pp.l<=0){parts.splice(q,1);continue;}pp.vy-=12*dt;pp.x+=pp.vx*dt;pp.y+=pp.vy*dt;pp.z+=pp.vz*dt;}
+    if(st==='over'){overT+=dt;return;}
+    if(st==='aim'){
+      var mvx=((held.KeyD?1:0)-(held.KeyA?1:0))*(CAM3.mode===1?-1:1),turn=((held.ArrowRight?1:0)-(held.ArrowLeft?1:0))*(CAM3.mode===1?-1:1);
+      if(mvx)bx=clampN(bx+mvx*1.6*dt,-LW/2+BR,LW/2-BR);
+      if(turn)aim=clampN(aim+turn*0.5*dt,-0.35,0.35);
+      if(kch){kt+=dt;var ph=(kt/1.1)%2;power=ph<1?ph:2-ph;}
+      return;
+    }
+    if(st!=='roll')return;
+    for(var i=0;i<4;i++)phys(ball,pins,dt/4,true);
+    if(ball&&(ball.z>LEN+1||Math.hypot(ball.vx,ball.vz)<0.2)){ball=null;}
+    if(!ball){waitT+=dt;var still=pins.every(function(p){return Math.hypot(p.vx,p.vz)<0.15;});if(waitT>1.0&&still||waitT>3)settle();}
+  };
+  function pin(p){
+    if(p.down)return;
+    R3.box(p.x,0,p.z,0.32,0.75,0.32,[250,250,252]);R3.box(p.x,0.5,p.z,0.34,0.1,0.34,[255,90,77]);R3.box(p.x,0.75,p.z,0.22,0.2,0.22,[250,250,252]);
+  }
+  g.draw=function(){
+    R3.sky('#24305a','#4a5e9a',V.h);
+    R3.fog([40,52,96],24,60);
+    var m=CAM3.mode,cz=ball?ball.z:0.6,cxp=ball?ball.x:bx,sx=shake>0?(Math.random()-0.5)*0.3:0;
+    if(m===2)R3.camera(cxp+sx,0.9,cz-0.4,aim,0.12,V.w*0.9,V.w/2,V.h*0.5);
+    else if(m===1)R3.look(sx,4.2,PZ+5,0,0.3,Math.min(cz,PZ-2)-2,V.w*0.9,V.w/2,V.h*0.45);
+    else R3.look(cxp*0.5+sx,3.4,Math.min(cz,PZ-6)-4.5,cxp*0.3,0.2,Math.min(cz+8,PZ+1),V.w*0.95,V.w/2,V.h*0.45);
+    var z;
+    for(z=-2;z<LEN+2;z+=2){
+      R3.box(0,-0.3,z+1,LW,0.3,2,((z/2)&1)?[214,170,112]:[204,160,104],0,true);
+      R3.box(-LW/2-0.35,-0.45,z+1,0.7,0.3,2,[70,72,90],0,true);R3.box(LW/2+0.35,-0.45,z+1,0.7,0.3,2,[70,72,90],0,true);
+      R3.box(-LW/2-1.0,0,z+1,0.2,0.5,2,[100,110,160]);R3.box(LW/2+1.0,0,z+1,0.2,0.5,2,[100,110,160]);
+      if((z/2)%3===0){R3.box(-LW/2-1.3,2.4,z+1,0.1,0.1,0.1,[255,230,150]);R3.box(LW/2+1.3,2.4,z+1,0.1,0.1,0.1,[255,230,150]);}
+    }
+    R3.box(0,0,LEN+1.5,LW+2.2,2.2,0.3,[60,64,90]);
+    R3.box(0,-0.02,0.9,LW,0.04,0.06,[255,90,77],0,true);
+    for(var a2=0;a2<3;a2++)R3.box((a2-1)*0.45,-0.02,5+a2*0.4,0.12,0.04,0.3,[150,100,60],0.785,true);
+    pins.forEach(pin);
+    if(ball)R3.box(ball.x,ball.gut?-0.4:0,ball.z,BR*2,BR*2,BR*2,[63,140,255],ball.z*3);
+    else if(st==='aim'||st==='ready'){
+      R3.box(bx,0,0.6,BR*2,BR*2,BR*2,[63,140,255]);
+      for(var i=1;i<=6;i++){var d=i*0.9*(0.5+power);R3.box(bx+Math.sin(aim)*d,0.02,0.6+Math.cos(aim)*d,0.1,0.1,0.1,[255,210,63]);}
+      if(m!==2)blockPerson(bx,0,-0.6,0,hex2rgb(SKIN.col(P.blue)),0,false,myAv3());
+    }
+    parts.forEach(function(q){R3.box(q.x,q.y,q.z,0.14,0.14,0.14,q.c);});
+    R3.flush();
+    txt('Frame '+Math.min(FR,frame+1)+'/'+FR+(roll?'  ·  roll 2':''),12,24,16,'#fff','left');
+    txt('Score '+score,V.w-12,24,18,P.sun,'right');
+    txt('Best '+best,V.w-12,46,12,'#fff','right');
+    sheet();
+    if(msgT>0&&msg)txt(msg,V.w/2,96,msg.indexOf('!')>0?26:16,P.sun);
+    if(st==='aim'&&!charging)txt(keys3()?'A and D move, arrows aim, hold Space to throw':'Pull back to aim, let go to throw',V.w/2,V.h-18,13,'#fff');
+    if(charging){
+      ctx.fillStyle='rgba(20,33,61,.6)';ctx.fillRect(V.w/2-70,V.h-44,140,16);
+      ctx.fillStyle=power>0.8?P.brick:P.sun;ctx.fillRect(V.w/2-68,V.h-42,136*power,12);
+      txt('POWER',V.w/2,V.h-36,11,'#fff');
+    }
+    if(st==='ready')card3([['BLOCK BOWLING',30,P.sun],['5 frames. Knock down all 10 pins!',14],
+      [keys3()?'Press Space to start':'Tap to start',16,P.sun]]);
+    if(st==='over')card3([['GAME OVER',32,P.sun],['Score '+score,24],[newBest?'NEW BEST!':'Best '+best,17,newBest?P.sun:'#fff'],
+      [overT>0.7?(keys3()?'Press Space to bowl again':'Tap to bowl again'):'',16]],0.55);
+    CAM3.draw(false);
+  };
+  /* the score sheet: one small box per frame */
+  function sheet(){
+    var w=26,x0=12,y0=38,i;
+    for(i=0;i<FR;i++){
+      var f=frames[i],x=x0+i*(w+3);
+      ctx.fillStyle=i===frame&&st!=='over'?'rgba(255,210,63,0.5)':'rgba(20,33,61,0.55)';ctx.fillRect(x,y0,w,18);
+      var tx=!f?'':(f[0]===10?'X':(f[1]!=null&&f[0]+f[1]===10?f[0]+'/':(f[0]+(f[1]!=null?' '+f[1]:''))));
+      txt(tx,x+w/2,y0+9,10,'#fff');
+    }
+  }
+  /* test bots: play for real. Try many throws in a copy of the lane, use the one that knocks down the most pins */
+  function tbTry(px,a,p){
+    var B={x:px,z:0.6,vx:Math.sin(a)*(5+p*13),vz:Math.cos(a)*(5+p*13)},P=pins.map(function(q){return {x:q.x,z:q.z,vx:0,vz:0,down:false,hit:false};}),k;
+    for(k=0;k<200&&B;k++){phys(B,P,1/60,false);if(B.z>LEN+1)B=null;}
+    for(k=0;k<60;k++)phys(null,P,1/60,false);
+    return P.filter(function(q){return q.down;}).length;
+  }
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(overT>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [score,'points'];}
+    m.o=0;
+    if(st==='ready'){tb.tap(V.w/2,V.h*0.7);return [score,'points'];}
+    if(st!=='aim'){m.ph=0;return [score+(10-standing())*0.1,'points'];}
+    if(m.ph===1){
+      var f=CAM3.mode===1?-1:1,dd=m.p*90+2;
+      tb.mv(m.sx-Math.sin(m.a)*dd*f,m.sy+Math.cos(m.a)*dd);m.ph=2;return [score,'points'];
+    }
+    if(m.ph===2){tb.up();m.ph=0;return [score,'points'];}
+    var bs=-1,ba=0,bp=0.6;
+    for(var k=0;k<14;k++){var a=(Math.random()-0.5)*0.4,p=0.4+Math.random()*0.6,n=tbTry(bx,a,p);if(n>bs){bs=n;ba=a;bp=p;}}
+    m.a=ba;m.p=bp;m.sx=V.w/2;m.sy=V.h*0.55;tb.down(m.sx,m.sy);m.ph=1;
+    return [score,'points'];
+  };
+  return g;
+})();
+
 /* ===== Block Tag (online): one player is It. Tag someone else to pass it on. ===== */
 GAMES.tag=(function(){
   var g={kind:'canvas',title:'Block Tag',lw:400,is3d:true};
@@ -10119,6 +10329,7 @@ function open3D(){
   var gf=lsGet('by.golf',0);$('m3-best-golf').textContent=gf?('Best '+gf+' shots'):'Not played';
   $('m3-best-dive').textContent='Best '+lsGet('by.dive',0);
   $('m3-best-sled').textContent='Best '+lsGet('by.sled',0);
+  if($('m3-best-bowl'))$('m3-best-bowl').textContent='Best '+lsGet('by.bowl',0);
   if($('m3-best-escape'))$('m3-best-escape').textContent='Best '+lsGet('by.escape',0);
 }
 $('m3-back').addEventListener('click',toHub);
