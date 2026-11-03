@@ -764,7 +764,7 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
         </button>
         <button class="tile" type="button" data-game="chain" data-name="sum chain numbers maths add puzzle target 2d" style="--c:#ffd23f">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#1a1440" width="88" height="88"/><g stroke="#14213d" stroke-width="2.5"><rect x="8" y="30" width="22" height="22" fill="#3cc8f0"/><rect x="33" y="30" width="22" height="22" fill="#fff"/><rect x="58" y="30" width="22" height="22" fill="#ff9a3c"/><rect x="8" y="55" width="22" height="22" fill="#5ed88a"/><rect x="33" y="55" width="22" height="22" fill="#fff"/><rect x="58" y="55" width="22" height="22" fill="#b48cff"/></g><path d="M44 41L44 66" stroke="#ffd23f" stroke-width="5" stroke-linecap="round"/><g fill="#14213d" font-family="sans-serif" font-weight="700" font-size="14" text-anchor="middle"><text x="44" y="46">4</text><text x="44" y="71">6</text></g><text x="44" y="22" fill="#ffd23f" font-family="sans-serif" font-weight="700" font-size="16" text-anchor="middle">=10</text></svg></span>
-          <span class="tt">Sum Chain</span><span class="ts"><span id="best-chain">Best 0</span> · Add up to the target</span>
+          <span class="tt">Number Trail</span><span class="ts"><span id="best-chain">Best 0</span> · Add up to the target</span>
         </button>
         <button class="tile" type="button" data-game="bust" data-name="brick buster breakout paddle ball 2d" style="--c:#ff6b5b">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#101a33" width="88" height="88"/><g><rect x="8" y="14" width="18" height="9" fill="#ff5a4d"/><rect x="29" y="14" width="18" height="9" fill="#ff9a3c"/><rect x="50" y="14" width="18" height="9" fill="#ffd23f"/><rect x="18" y="27" width="18" height="9" fill="#3fd58a"/><rect x="40" y="27" width="18" height="9" fill="#3f8cff"/></g><circle cx="44" cy="52" r="6" fill="#fff"/><rect x="28" y="68" width="32" height="8" rx="3" fill="#ffd23f" stroke="#14213d" stroke-width="3"/></svg></span>
@@ -14942,12 +14942,12 @@ GAMES.dung=(function(){
   return g;
 })();
 
-/* ===== Sum Chain (2D, original): drag through touching number tiles (sideways or diagonal) so they add up to exactly
+/* ===== Number Trail (2D, original): drag through touching number tiles (sideways or diagonal) so they add up to exactly
    the target. The chain clears, new tiles fall in, and you get more time. Longer chains score much more. Every target is
    made from a real path on the board, so there is always an answer.
    Touch: drag. Keys: arrows move the cursor, Space adds the tile (or takes the last one back), Escape/X clears. ===== */
 GAMES.chain=(function(){
-  var g={kind:'canvas',title:'Sum Chain',lw:400};
+  var g={kind:'canvas',title:'Number Trail',lw:400};
   g.pre=function(w,h){g.lw=tallLw(w,h);};
   HUBBEST['best-chain']='by.chain';
   var C=6,R=7,COLS=['#3cc8f0','#5ed88a','#ffd23f','#ff9a3c','#ff5a4d','#b48cff','#3c7cff','#ff7ab6','#8fe3d1'];
@@ -15084,7 +15084,7 @@ GAMES.chain=(function(){
     if(msgT>0)txt(msg,V.w/2,oy+S*R/2,34+Math.sin(t*12)*2,P.sun);
     if(st==='ready'){
       ctx.fillStyle='rgba(10,10,35,.75)';ctx.fillRect(V.w/2-180,V.h*0.3,360,150);
-      txt('SUM CHAIN',V.w/2,V.h*0.3+36,32,P.sun);
+      txt('NUMBER TRAIL',V.w/2,V.h*0.3+36,32,P.sun);
       txt('Drag through touching tiles that add up',V.w/2,V.h*0.3+70,Math.max(14,10*V.css),'#fff');
       txt('to exactly the target. Longer = more points!',V.w/2,V.h*0.3+94,Math.max(14,10*V.css),'#fff');
       txt('TAP TO START',V.w/2,V.h*0.3+128,18,P.sun);
