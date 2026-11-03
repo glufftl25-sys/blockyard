@@ -33,6 +33,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'byrel-'));
 fs.mkdirSync(path.join(tmp, 'tools'));
 fs.copyFileSync(path.join(root, 'tools/buildsite.js'), path.join(tmp, 'tools/buildsite.js'));
 fs.copyFileSync(path.join(root, 'game.html'), path.join(tmp, 'game.html'));
+fs.symlinkSync(path.join(root, 'site'), path.join(tmp, 'site'), 'dir'); /* buildsite uses the game pictures in site/ */
 execFileSync(process.execPath, [path.join(tmp, 'tools/buildsite.js')], { stdio: 'ignore' });
 const built = fs.readFileSync(path.join(tmp, 'index.html'), 'utf8');
 fs.rmSync(tmp, { recursive: true, force: true });
