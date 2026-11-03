@@ -798,6 +798,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><span class="b3d">3D</span><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#b9c2ff" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><polygon points="8,40 26,32 44,40 26,48" fill="#78c8ff"/><polygon points="44,40 62,32 80,40 62,48" fill="#64bef5"/><polygon points="26,48 44,40 62,48 44,56" fill="#78c8ff"/><polygon points="44,24 62,16 80,24 62,32" fill="#ff5a4d"/><polygon points="20,76 38,68 56,76 38,84" fill="#ffaa78"/><polygon points="8,62 20,58 30,62 18,66" fill="#64bef5" opacity=".7"/></g><rect x="38" y="20" width="10" height="14" fill="#3f8cff" stroke="#14213d" stroke-width="2"/><rect x="39" y="12" width="8" height="8" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><g fill="#fff"><rect x="66" y="40" width="3" height="3"/><rect x="72" y="48" width="3" height="3"/><rect x="60" y="52" width="3" height="3"/></g></svg></span>
           <span class="tt">Floor Drop</span><span class="ts"><span id="best-fall">Wins 0</span> · Last one standing</span>
         </button>
+        <button class="tile" type="button" data-game="bridge" data-name="bridge builders team build race blocks online multiplayer 3d" style="--c:#ff8a5a">
+          <span class="thumb"><span class="b3d">3D</span><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#8fd0ff" width="88" height="88"/><rect y="62" width="88" height="26" fill="#5a78aa"/><rect x="0" y="50" width="22" height="38" fill="#c4a06e" stroke="#14213d" stroke-width="2"/><rect x="66" y="50" width="22" height="38" fill="#c4a06e" stroke="#14213d" stroke-width="2"/><g stroke="#14213d" stroke-width="2"><rect x="22" y="50" width="10" height="6" fill="#ff5a4d"/><rect x="32" y="50" width="10" height="6" fill="#ff8a7a"/><rect x="42" y="50" width="10" height="6" fill="#ff5a4d"/><rect x="52" y="50" width="10" height="6" fill="#ffffff" opacity=".6"/></g><rect x="76" y="22" width="3" height="28" fill="#14213d"/><polygon points="79,22 88,26 79,30" fill="#ff5a4d"/><rect x="34" y="30" width="10" height="14" fill="#3f8cff" stroke="#14213d" stroke-width="2"/><rect x="35" y="22" width="8" height="8" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><rect x="35" y="12" width="8" height="8" fill="#ff5a4d" stroke="#14213d" stroke-width="2"/></svg></span>
+          <span class="tt">Bridge Builders</span><span class="ts"><span id="best-bridge">Wins 0</span> · Team bridge race</span>
+        </button>
         <button class="tile" type="button" data-game="obbymp" data-name="obby race online multiplayer 3d" style="--c:#5ed88a">
           <span class="thumb"><span class="b3d">3D</span><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true">
             <rect fill="#cdeeff" width="88" height="88"/>
@@ -9590,6 +9594,208 @@ GAMES.fall=(function(){
     return [Math.floor(surv),'seconds standing'];
   };
   HUBBEST['best-fall']=function(){return 'Wins '+lsGet('by.fall',0);};
+  return g;
+})();
+
+/* ===== Bridge Builders (3D online): Red and Blue each stand on a cliff with a pile of blocks and a wide gap in front.
+   Grab a block from your pile, carry it to the end of your bridge and it snaps on. When the bridge reaches the far side,
+   run across and touch your flag to win the round. Fall in and you go back to the start (and drop your block).
+   The lowest peer runs the round and both bridges; everyone else reports the blocks they place. Bots help when alone. ===== */
+GAMES.bridge=(function(){
+  var g={kind:'canvas',title:'Bridge Builders',lw:400,is3d:true};
+  var LX=[-6,6],LW=2.6,BW=1.6,GAP0=-6,SEG=2,NSEG=8,GOALZ=GAP0+SEG*NSEG,BACK=-15,FAR=15,SPD=7.2,JV=10.5,GR=30,OUTY=-10,COUNT=3,PLAY=150,ENDT=5;
+  var TEAMC=[[255,90,77],[63,140,255]],TEAMN=['Red','Blue'];
+  var BOTS=[{k:'bot0',n:'Bot Mint',c:[94,216,138],tm:0},{k:'bot1',n:'Bot Grape',c:[180,140,255],tm:1},{k:'bot2',n:'Bot Mango',c:[255,154,60],tm:1}];
+  var CAMP={x:0,z:-20},t=0,P={x:-6,y:0,z:-12,vx:0,vy:0,vz:0},face=0,step=0,buf=0,team=0,carry=false,claim=null,fin=null,myR=-1,
+      H=null,lastSeen=null,seen={},bots=[],fx=[],flash=0,msg='',msgT=0,wonSeen=-1,prevL=[0,0],placed=0;
+  function me(){return NET.me||'me';}
+  function botsOn(){return !netOthers().length;}
+  function hostPeer(){var ids=[me()];netOthers().forEach(function(p){ids.push(p.peer);});ids.sort();return ids[0];}
+  function amHost(){return hostPeer()===me();}
+  function cleanH(h){
+    if(!h||typeof h!=='object'||!Array.isArray(h.L))return null;
+    return {r:netNum(h.r,0,1e9,0)|0,ph:['count','play','end'].indexOf(h.ph)>=0?h.ph:'count',left:netNum(h.left,0,PLAY,0),
+      L:[netNum(h.L[0],0,NSEG,0)|0,netNum(h.L[1],0,NSEG,0)|0],w:(h.w===0||h.w===1)?h.w:-1};
+  }
+  function curH(){
+    if(amHost())return H;
+    var hp=hostPeer(),out=null;
+    netOthers().forEach(function(p){if(p.peer===hp&&p.presence.hs)out=cleanH(p.presence.hs);});
+    if(out)lastSeen=out;
+    return out||lastSeen;
+  }
+  /* teams: everyone in id order, alternating red and blue */
+  function teamOf(k){var ids=[me()];netOthers().forEach(function(p){ids.push(p.peer);});ids.sort();return Math.max(0,ids.indexOf(k))%2;}
+  function bridgeEnd(L){return GAP0+SEG*L;}
+  /* solid ground at (px, pz) in a lane with a bridge of L blocks */
+  function solid(px,pz,tm,L){
+    var lx=LX[tm];
+    if(Math.abs(px-lx)>LW+0.05)return false;
+    if(pz<=GAP0||pz>=GOALZ)return true;
+    return pz<=bridgeEnd(L)&&Math.abs(px-lx)<=BW/2+0.35;
+  }
+  function body(o,tm,ix,iz,jump,hold,sp,dt,L){
+    var onG=o.y===0&&solid(o.x,o.z,tm,L),acc=onG?60:26;
+    o.vx+=clampN(ix*sp-o.vx,-acc*dt,acc*dt);o.vz+=clampN(iz*sp-o.vz,-acc*dt,acc*dt);
+    o.x=clampN(o.x+o.vx*dt,LX[tm]-LW,LX[tm]+LW);o.z=clampN(o.z+o.vz*dt,BACK+0.5,FAR-0.5);
+    var jumped=false;
+    if(jump&&onG){o.vy=JV;jumped=true;}
+    if(!hold&&o.vy>4.5)o.vy=4.5;
+    if(o.y>0||o.vy>0||!solid(o.x,o.z,tm,L)){
+      var py=o.y;o.vy=Math.max(-30,o.vy-GR*dt);o.y+=o.vy*dt;
+      if(py>=0&&o.y<=0&&solid(o.x,o.z,tm,L)){o.y=0;o.vy=0;}
+    }
+    return jumped;
+  }
+  function pileAt(tm){return [LX[tm],-12.6];}
+  function newRound(r){return {r:r,ph:'count',left:COUNT,L:[0,0],w:-1};}
+  function home(){P.x=LX[team]+(Math.random()*2-1)*1.2;P.z=-10.5;P.y=0;P.vx=P.vy=P.vz=0;carry=false;face=0;CAM3.snap=true;}
+  function botHome(b){b.x=LX[b.tm]+(Math.random()*2-1)*1.2;b.z=-10.5;b.y=0;b.vx=b.vy=b.vz=0;b.carry=false;b.wait=0.3+Math.random()*0.6;}
+  function makeBots(){bots=BOTS.map(function(d){var b={k:d.k,n:d.n,c:d.c,tm:d.tm,face:0,step:0,sp:d.tm===0?5.2:4.8};botHome(b);return b;});}
+  function puff(x,y,z,c,n){for(var i=0;i<n;i++)fx.push({x:x,y:y,z:z,vx:(Math.random()-0.5)*4,vy:Math.random()*4,vz:(Math.random()-0.5)*4,t:0,c:c});if(fx.length>120)fx.splice(0,fx.length-120);}
+  /* host: count down, add the blocks people place, watch for a flag touch */
+  function place(S,tm,n){if(S.ph!=='play'||n!==S.L[tm]||S.L[tm]>=NSEG)return false;S.L[tm]++;return true;}
+  function hostTick(dt){
+    if(!H){H=lastSeen?JSON.parse(JSON.stringify(lastSeen)):newRound(1);}
+    H.left-=dt;
+    if(H.ph==='count'){if(H.left<=0){H.ph='play';H.left=PLAY;}}
+    else if(H.ph==='play'){
+      var all=[{peer:me(),tm:team,cl:claim,fn:fin}];
+      netOthers().forEach(function(p){var q=p.presence;all.push({peer:p.peer,tm:q.tm===1?1:0,cl:q.cl,fn:q.fin});});
+      all.forEach(function(a){
+        var c=a.cl;
+        if(c&&typeof c==='object'&&(c.r|0)===H.r){var key=a.peer+':'+c.at;if(!seen[key]){seen[key]=1;place(H,a.tm,c.n|0);}}
+        var f=a.fn;
+        if(f&&typeof f==='object'&&(f.r|0)===H.r&&H.w<0)H.w=a.tm;
+      });
+      if(H.w<0&&H.left<=0)H.w=H.L[0]>H.L[1]?0:(H.L[1]>H.L[0]?1:-2);
+      if(H.w!==-1){H.ph='end';H.left=ENDT;}
+    }else if(H.left<=0){H=newRound(H.r+1);seen={};}
+  }
+  function botStep(dt,S){
+    bots.forEach(function(b){
+      if(S.ph!=='play'){b.vx=b.vz=0;return;}
+      if(b.wait>0){b.wait-=dt;return;}
+      var L=S.L[b.tm],tx,tz,pl=pileAt(b.tm);
+      if(L>=NSEG){tx=LX[b.tm];tz=GOALZ+2;}
+      else if(!b.carry){tx=pl[0];tz=pl[1]+0.9;}
+      else{tx=LX[b.tm];tz=bridgeEnd(L)-0.7;}
+      var dx=tx-b.x,dz=tz-b.z,d=Math.hypot(dx,dz);
+      body(b,b.tm,d>0.25?dx/d:0,d>0.25?dz/d:0,false,true,b.sp,dt,L);
+      var s=Math.hypot(b.vx,b.vz);if(s>0.6){b.face=Math.atan2(b.vx,b.vz);b.step+=dt*s*1.5;}
+      if(!b.carry&&Math.hypot(b.x-pl[0],b.z-pl[1])<1.6){b.carry=true;b.wait=0.25;}
+      if(b.carry&&b.z>=bridgeEnd(L)-1.3&&b.y===0&&solid(b.x,b.z,b.tm,L)){if(place(S,b.tm,L)){b.carry=false;b.wait=0.2+Math.random()*0.5;}}
+      if(L>=NSEG&&b.z>GOALZ+1&&S.w<0){S.w=b.tm;S.ph='end';S.left=ENDT;}
+      if(b.y<OUTY)botHome(b);
+    });
+  }
+  g.start=function(){
+    PAD.reset();t=0;H=null;lastSeen=null;seen={};myR=-1;claim=null;fin=null;fx=[];msg='';msgT=0;flash=0;wonSeen=-1;prevL=[0,0];
+    team=0;home();makeBots();CAMP.x=0;CAMP.z=-20;
+    netJoin('w3-bridge');STAT.add('plays3d',1);
+  };
+  g.stop=function(){PAD.reset();netLeave();};
+  g.down=function(px,py,id){if(CAM3.hit(px,py)){CAM3.cycle(face);return;}PAD.down(px,py,id);};
+  g.move=function(px,py,id){PAD.move(px,py,id);};
+  g.up=function(px,py,id){PAD.up(px,py,id);};
+  g.key=function(c,d){if(d&&c==='KeyV'){CAM3.cycle(face);return;}PAD.key(c,d);};
+  g.update=function(dt){
+    t+=dt;if(flash>0)flash-=dt;if(msgT>0)msgT-=dt;
+    CAM3.tick(dt);
+    var nt=teamOf(me());if(nt!==team){team=nt;home();}
+    if(amHost())hostTick(dt);else H=null;
+    var S=curH()||newRound(0),L=S.L[team];
+    if(S.r!==myR&&(S.ph==='count'||myR<0)){myR=S.r;home();claim=null;fin=null;prevL=S.L.slice();if(botsOn())bots.forEach(botHome);}
+    if(botsOn()&&amHost())botStep(dt,S);
+    /* blocks that just snapped on: a puff and a clunk */
+    for(var tm=0;tm<2;tm++)if(S.L[tm]>prevL[tm]){var ez=bridgeEnd(S.L[tm])-SEG/2;puff(LX[tm],-0.2,ez,TEAMC[tm],8);beep(tm===team?620:420,0.09,'square',0.04,1.3);}
+    prevL=S.L.slice();
+    fx.forEach(function(p){p.t+=dt;p.vy-=14*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;});fx=fx.filter(function(p){return p.t<0.9;});
+    var moving=PAD.axes(),jp=PAD.take(),mv=CAM3.dir(PAD.ax,PAD.ay);
+    if(S.ph!=='play')mv=[0,0];
+    if(jp)buf=0.12;else buf-=dt;
+    if(body(P,team,mv[0],mv[1],buf>0,PAD.holding(),SPD*cheatSpd()*(carry?0.85:1),dt,L)){buf=0;beep(520,0.08,'square',0.035,1.8);}
+    var sp=Math.hypot(P.vx,P.vz);if(sp>0.7){face=Math.atan2(P.vx,P.vz);step+=dt*sp*1.5;}
+    if(S.ph==='play'){
+      var pl=pileAt(team);
+      if(!carry&&L<NSEG&&Math.hypot(P.x-pl[0],P.z-pl[1])<1.6){carry=true;beep(760,0.06,'square',0.03,1.4);}
+      if(carry&&L<NSEG&&P.y===0&&P.z>=bridgeEnd(L)-1.3&&solid(P.x,P.z,team,L)){
+        carry=false;placed++;claim={r:S.r,n:L,at:Date.now()};
+        if(amHost())place(H,team,L);
+      }
+      if(L>=NSEG)carry=false;
+      if(P.z>GOALZ+1&&P.y===0&&!fin){fin={r:S.r,at:Date.now()};if(amHost()&&H.w<0){H.w=team;H.ph='end';H.left=ENDT;}}
+    }
+    if(P.y<OUTY){puff(P.x,-2,P.z,[230,240,255],10);beep(200,0.3,'sawtooth',0.05,0.5);buzz(120,0.4);msg=carry?'Splash! You dropped your block':'Splash!';msgT=1.6;home();}
+    if(S.ph==='end'&&wonSeen!==S.r){
+      wonSeen=S.r;
+      if(S.w===team){lsSet('by.bridge',lsGet('by.bridge',0)+1);flash=0.5;beep(880,0.5,'square',0.06,2);}
+      else beep(260,0.4,'sawtooth',0.05,0.6);
+    }
+    netSend({x:Math.round(P.x*100)/100,y:Math.round(P.y*100)/100,z:Math.round(P.z*100)/100,f:Math.round(face*100)/100,tm:team,cr:carry?1:0,cl:claim,fin:fin,
+      hs:amHost()&&H?{r:H.r,ph:H.ph,left:Math.round(H.left*10)/10,L:H.L,w:H.w}:null});
+    netFlush();
+  };
+  g.draw=function(){
+    var S=curH()||newRound(0),i,tm;
+    R3.sky('#8fd0ff','#fff4dc',V.h);
+    R3.fog([255,244,220],34,95);
+    var fr=CAM3.mode===1,ez=fr?P.z+12:P.z-12;
+    if(CAM3.snap){CAMP.x=P.x*0.7;CAMP.z=ez;CAM3.snap=false;}else{CAMP.x+=(P.x*0.7-CAMP.x)*0.1;CAMP.z+=(ez-CAMP.z)*0.1;}
+    if(CAM3.mode===2)R3.camera(P.x,P.y+1.45,P.z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
+    else R3.look(CAMP.x,10+Math.max(P.y,-3)*0.5,CAMP.z,CAMP.x*0.9,Math.max(P.y,-3)*0.5-1,CAMP.z+(fr?-13:13),V.w*0.98,V.w/2,V.h*0.5);
+    /* the canyon floor far below, the cliffs, the middle wall */
+    R3.box(0,-9,0,30,0.5,34,[90,120,170],0,true);
+    for(tm=0;tm<2;tm++){
+      var lx=LX[tm],c=TEAMC[tm];
+      R3.box(lx,-3,(BACK+GAP0)/2,LW*2,3,GAP0-BACK,[118,198,120]);
+      R3.box(lx,-3,(GOALZ+FAR)/2,LW*2,3,FAR-GOALZ,[118,198,120]);
+      for(i=0;i<S.L[tm];i++){var bz=GAP0+SEG*(i+0.5);R3.box(lx,-0.45,bz,BW,0.45,SEG-0.08,i%2?c:[Math.min(255,c[0]+40),Math.min(255,c[1]+40),Math.min(255,c[2]+40)],0,true);}
+      /* the next block's ghost, so you know where to bring it */
+      if(S.L[tm]<NSEG&&tm===team&&S.ph==='play')R3.box(lx,-0.45,GAP0+SEG*(S.L[tm]+0.5),BW,0.45,SEG-0.08,[255,255,255],0,true);
+      var pl=pileAt(tm);for(i=0;i<3;i++)R3.box(pl[0]+(i-1)*0.75,0,pl[1],0.65,0.65,0.65,c,0);R3.box(pl[0],0.65,pl[1],0.65,0.65,0.65,c,0.4);
+      R3.box(lx,0,GOALZ+3,0.14,3.2,0.14,[60,60,80]);R3.box(lx+0.5,2.6,GOALZ+3,1,0.6,0.08,c,Math.sin(t*3)*0.25);
+    }
+    R3.box(0,-3,0,1.2,3.6,FAR-BACK,[150,140,170]);
+    fx.forEach(function(p){R3.box(p.x,p.y,p.z,0.22,0.22,0.22,p.c,p.t*6);});
+    var tags=netDraw(1/60);
+    netOthers().forEach(function(p){var s=NET.sm[p.peer];if(s&&p.presence.cr)R3.box(s.x,s.y+2.15,s.z,0.6,0.6,0.6,TEAMC[p.presence.tm===1?1:0],t*2);});
+    if(botsOn())bots.forEach(function(b){blockPerson(b.x,b.y,b.z,b.face,b.c,b.step,false,null);if(b.carry)R3.box(b.x,b.y+2.15,b.z,0.6,0.6,0.6,TEAMC[b.tm],t*2);if(b.y===0)R3.shadow(b.x,0.02,b.z,0.42);tags.push({x:b.x,y:b.y+2.6,z:b.z,n:b.n});});
+    if(CAM3.mode!==2)blockPerson(P.x,P.y,P.z,face,hex2rgb(avPart('body',avOf(W&&W.av).body).c),step,false,myAv3());
+    if(carry)R3.box(P.x,P.y+2.15,P.z,0.6,0.6,0.6,TEAMC[team],t*2);
+    if(P.y===0)R3.shadow(P.x,0.02,P.z,0.45);
+    R3.flush();
+    netTags(tags);
+    hud(S);
+    if(flash>0){ctx.fillStyle='rgba(255,236,140,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
+  };
+  function hud(S){
+    var ck=netCompact(),L=S.L;
+    txt('Red '+L[0]+'/'+NSEG,12,24,15,'#ff8a7a','left');txt('Blue '+L[1]+'/'+NSEG,V.w-12,24,15,'#9db8ff','right');
+    txt(botsOn()&&!NET.blocked?(NET.room?'Playing with bots until friends join':'Playing with bots'):netStatus(),12,44,11,P.sun,'left');
+    txt('You are '+TEAMN[team],V.w-12,44,11,team?'#9db8ff':'#ff8a7a','right');
+    if(S.ph==='count')txt('Get ready! '+Math.max(1,Math.ceil(S.left)),V.w/2,netMidY(0.28),ck?20:26,P.sun);
+    else if(S.ph==='play'){
+      var hint=L[team]>=NSEG?'Bridge done! Run across and touch your flag':(carry?'Bring the block to the end of your bridge':'Grab a block from your pile');
+      txt(hint,V.w/2,ck?V.h-14:V.h-40,ck?11:13,'#fff');
+    }else{
+      var oy=ck?80:V.h*0.24,win=S.w===team;
+      ctx.fillStyle='rgba(20,33,61,0.6)';ctx.fillRect(0,oy-24,V.w,ck?V.h-oy+24:120);
+      txt(S.w<0?'It is a tie!':(win?'YOUR TEAM WINS!':TEAMN[S.w]+' team wins'),V.w/2,oy+4,ck?22:30,win?P.sun:'#fff');
+      txt('Next round in '+Math.max(1,Math.ceil(S.left)),V.w/2,oy+(ck?32:48),ck?13:16,'#dfe6ff');
+    }
+    if(msgT>0&&msg)txt(msg,V.w/2,netMidY(0.3)+(ck?22:30),ck?13:16,P.sun);
+    PAD.draw();CAM3.draw(false);
+  }
+  /* test bots: play for real (pile, bridge end, flag) */
+  g.tbp=function(tb,dt){
+    var S=curH();if(!S||S.ph!=='play'){tb.only([]);return [placed,'blocks placed'];}
+    var L=S.L[team],pl=pileAt(team),tx,tz;
+    if(L>=NSEG){tx=LX[team];tz=GOALZ+2;}else if(!carry){tx=pl[0];tz=pl[1]+0.9;}else{tx=LX[team];tz=bridgeEnd(L)-0.6;}
+    tbWalk(tb,tx-P.x,tz-P.z);
+    return [placed,'blocks placed'];
+  };
+  HUBBEST['best-bridge']=function(){return 'Wins '+lsGet('by.bridge',0);};
   return g;
 })();
 
