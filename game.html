@@ -630,6 +630,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#101a33" width="88" height="88"/><rect x="8" y="8" width="22" height="22" fill="#3cc8f0"/><rect x="33" y="8" width="22" height="22" fill="#3cc8f0"/><rect x="58" y="8" width="22" height="22" fill="#ff6b5b"/><rect x="8" y="33" width="22" height="22" fill="#5ed88a"/><rect x="33" y="33" width="22" height="22" fill="#ff6b5b"/><rect x="58" y="33" width="22" height="22" fill="#ff6b5b"/><rect x="8" y="58" width="22" height="22" fill="#5ed88a"/><rect x="33" y="58" width="22" height="22" fill="#5ed88a"/><rect x="58" y="58" width="22" height="22" fill="#3cc8f0"/><rect x="36" y="36" width="16" height="16" fill="#fff" stroke="#14213d" stroke-width="3"/></svg></span>
           <span class="tt">Paint Battle</span><span class="ts"><span id="best-paint">Wins 0</span> · Online · 1-5 players + bots</span>
         </button>
+        <button class="tile" type="button" data-game="bumpers" data-name="block bumpers online multiplayer 2d ice push dash bump sumo bots" style="--c:#7fd3ff">
+          <span class="thumb"><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#123a6b" width="88" height="88"/><circle cx="44" cy="48" r="34" fill="#14213d"/><circle cx="44" cy="48" r="31" fill="#bfe9ff"/><path d="M24 40a22 22 0 0 1 18-14" fill="none" stroke="#fff" stroke-width="3"/><rect x="22" y="44" width="18" height="18" fill="#ff6b5b" stroke="#14213d" stroke-width="3"/><rect x="26" y="49" width="3" height="5" fill="#14213d"/><rect x="33" y="49" width="3" height="5" fill="#14213d"/><rect x="50" y="30" width="18" height="18" fill="#3cc8f0" stroke="#14213d" stroke-width="3"/><rect x="54" y="35" width="3" height="5" fill="#14213d"/><rect x="61" y="35" width="3" height="5" fill="#14213d"/><path d="M42 50l8-6M44 56l8-4" stroke="#ffd23f" stroke-width="3" stroke-linecap="round"/></svg></span>
+          <span class="tt">Block Bumpers</span><span class="ts"><span id="best-bumpers">Wins 0</span> · Online · Bump them off the ice</span>
+        </button>
         <button class="tile" type="button" data-game="hoops" data-name="hoops basketball shoot 2d" style="--c:#ff9a3c">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#2d3a6b" width="88" height="88"/><rect x="34" y="16" width="36" height="6" fill="#ff5a4d"/><path d="M36 22l8 16h18l6-16" fill="none" stroke="#fff" stroke-width="2"/><rect x="66" y="10" width="6" height="20" fill="#9aa4bb"/><circle cx="26" cy="58" r="13" fill="#ff9a3c" stroke="#14213d" stroke-width="3"/><path d="M13 58h26M26 45v26" stroke="#14213d" stroke-width="2"/></svg></span>
           <span class="tt">Hoops</span><span class="ts"><span id="best-hoops">Best 0</span> · Flick and score</span>
@@ -3833,6 +3837,589 @@ GAMES.hop=(function(){
   return g;
 })();
 
+/* ===== 2D online lobby kit: the walk-around lobby from Paint Battle, shared by the newer 2D online games. Walk onto a
+   yellow pad to pick how many players and bots; for 2+ players the pad turns green and the game waits there until
+   enough people step on, then the group moves to its own match room. The match host (lowest player id) sets the start
+   time and splits the bots by ping (best ping runs the most). lob2d(o) returns L, which the game drives:
+   o = {title, room, maxP, maxB, maxT (most players + bots), defNb, col, note(np,nb), onMatch(), onAct(a)}.
+   L.update(dt) is true while the lobby has the frame; in a match the game reads L.mStart, L.alloc, L.myBots(),
+   L.keyList(), L.amHost(), L.groupOthers() and sends its presence through L.send({...}). ===== */
+function lob2d(o){
+  var LW=10,LH=13,LPADS=[[2,2.6],[8,2.6],[2,10.4],[8,10.4]],POFF=[[0,0],[-0.55,-0.5],[0.55,-0.5],[-0.55,0.5],[0.55,0.5],[0,0.8]];
+  var FB='system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+  var L={st:'lobby',np:1,nb:o.defNb,gsz:1,gbots:o.defNb,cfg:'',role:'',padI:-1,gid:'',jt:0,goT:0,hostSeen:0,alloc:null,mStart:0,last:0,
+    msg:'',msgT:0,lx:5,ly:6.5,stick:null,keys:{},rects:[],t:0,pingT:-9,lcs:24,lox:0,loy:0};
+  function now(){return Date.now();}
+  L.now=now;
+  L.myKey=function(){return NET.me||'me';};
+  L.wide=function(){return V.w>V.h*1.2;};
+  L.layout=function(){
+    if(L.wide()){L.lcs=Math.floor(Math.min((V.w-16)/LW,(V.h-96)/LH));L.lox=Math.floor((V.w-L.lcs*LW)/2);L.loy=66;}
+    else{L.lcs=Math.floor(Math.min((V.w-16)/LW,(V.h-150)/LH));L.lox=Math.floor((V.w-L.lcs*LW)/2);L.loy=Math.max(84,Math.floor((V.h-L.lcs*LH)/2)+14);}
+  };
+  L.inMatch=function(){return L.st==='match';};
+  L.groupOthers=function(){
+    if(!L.cfg)return [];
+    return netOthers().filter(function(p){return p.presence.c===L.cfg&&p.presence.st==='m';});
+  };
+  L.keyList=function(){var k=[L.myKey()];L.groupOthers().forEach(function(p){k.push(p.peer);});return k.sort();};
+  L.amHost=function(){return L.keyList()[0]===L.myKey();};
+  L.hostPeer=function(){var h=L.keyList()[0];return L.groupOthers().filter(function(p){return p.peer===h;})[0]||null;};
+  function myPing(){var p=PERF.ping;return (typeof p==='number'&&p>=0)?p:999;}
+  L.myPing=myPing;
+  function pingOf(k){
+    if(k===L.myKey())return myPing();
+    var p=L.groupOthers().filter(function(x){return x.peer===k;})[0];
+    return p?netNum(p.presence.pg,0,999,999):999;
+  }
+  L.makeAlloc=function(){
+    var ks=L.keyList().map(function(k){return {k:k,p:pingOf(k)};});
+    ks.sort(function(a,b){return a.p-b.p||(a.k<b.k?-1:1);});
+    var n=ks.length,W=n*(n+1)/2,out=[],used=0;
+    ks.forEach(function(e,r){var sh=L.gbots*(n-r)/W,c=Math.floor(sh);used+=c;out.push({k:e.k,c:c,p:e.p});});
+    out.slice(0,L.gbots-used).forEach(function(e){e.c++;});
+    return out.map(function(e){return [e.k,e.c,e.p];});
+  };
+  /* the bot numbers my device runs */
+  L.myBots=function(){var a=L.alloc,s=0,r=[],k=L.myKey();if(!a)return r;for(var i=0;i<a.length;i++){if(a[i][0]===k){for(var j=0;j<a[i][1];j++)r.push(s+j);return r;}s+=a[i][1];}return r;};
+  function blocked(){return typeof amBlocked==='function'&&amBlocked();}
+  function onPad(){return L.st==='pad'||L.st==='go';}
+  function lobbyPeers(){return netOthers().filter(function(p){var q=p.presence;return q.st==='lobby'||q.st==='pad'||q.st==='go';});}
+  function padHosts(){
+    var h=LPADS.map(function(){return [];});
+    if(onPad()&&L.role==='host'&&L.padI>=0)h[L.padI].push({k:L.myKey(),gid:L.gid,np:L.gsz,nb:L.gbots,jt:L.jt,me:true,go:L.st==='go'});
+    lobbyPeers().forEach(function(p){
+      var q=p.presence,i=q.pad|0;
+      if((q.st==='pad'||q.st==='go')&&q.host===1&&i>=0&&i<LPADS.length&&typeof q.gid==='string')
+        h[i].push({k:p.peer,p:p,gid:q.gid.slice(0,16),np:clampN(q.np|0,2,o.maxP),nb:clampN(q.nb|0,0,o.maxB),jt:+q.jt||0,go:q.st==='go'});
+    });
+    return h.map(function(l){l.sort(function(a,b){return a.jt-b.jt||(a.k<b.k?-1:1);});return l[0]||null;});
+  }
+  function groupOf(h){
+    var j=[];
+    if(onPad()&&L.role==='join'&&L.gid===h.gid)j.push({k:L.myKey(),jt:L.jt,me:true,go:L.st==='go'});
+    lobbyPeers().forEach(function(p){var q=p.presence;if((q.st==='pad'||q.st==='go')&&q.host!==1&&q.gid===h.gid)j.push({k:p.peer,p:p,jt:+q.jt||0,go:q.st==='go'});});
+    j.sort(function(a,b){return a.jt-b.jt||(a.k<b.k?-1:1);});
+    return [{k:h.k,p:h.p,me:!!h.me,go:h.go}].concat(j.slice(0,h.np-1));
+  }
+  function padSpot(i,n){var p=LPADS[i],q=POFF[n%POFF.length];return [p[0]+q[0],p[1]+q[1]];}
+  function bump(i){if(i<0)return;var p=LPADS[i];L.lx=p[0]+(p[0]<LW/2?1.7:-1.7);L.ly=p[1]+(p[1]<LH/2?1.7:-1.7);}
+  function leavePad(){var i=L.padI;L.st='lobby';L.role='';L.gid='';L.padI=-1;bump(i);}
+  function say(s,t){L.msg=s;L.msgT=t||2.5;}
+  function tryJoin(i,h){
+    if(blocked()){say('Reported: only 1 player games for now');bump(i);return;}
+    if(groupOf(h).length>=h.np){say('That game is full',2);bump(i);return;}
+    L.role='join';L.padI=i;L.gid=h.gid;L.gsz=h.np;L.gbots=h.nb;L.jt=now();L.hostSeen=now();L.st='pad';L.stick=null;L.keys={};
+    beep(700,0.08,'square',0.04,1.4);
+  }
+  function fresh(){L.mStart=0;L.last=0;L.alloc=null;if(o.onMatch)o.onMatch();}
+  L.startSolo=function(){
+    L.gsz=1;L.gbots=L.nb;L.cfg='solo';L.role='';L.gid='';L.padI=-1;netLeave();fresh();
+    L.st='match';L.mStart=now()+3000;L.alloc=L.makeAlloc();if(o.onStart)o.onStart();
+  };
+  function makeGame(){
+    if(L.np===1){L.startSolo();return;}
+    if(blocked()){say('Reported: only 1 player games for now',3);return;}
+    var h=padHosts()[L.padI];
+    if(h&&!h.me){tryJoin(L.padI,h);return;}
+    L.role='host';L.gid=(now().toString(36)+Math.random().toString(36).slice(2,6)).slice(0,16);L.gsz=L.np;L.gbots=L.nb;L.jt=now();L.st='pad';L.stick=null;L.keys={};
+  }
+  function enterMatch(){
+    L.cfg='g'+L.gid;fresh();
+    netJoin(o.room+'-'+L.cfg.replace(/[^A-Za-z0-9]/g,''));L.st='match';L.role='';L.padI=-1;
+  }
+  function padCheck(hs){
+    var h=hs[L.padI];
+    if(L.role==='host'){if(!h||!h.me){say('Someone made a game on that square first');leavePad();return;}}
+    else{
+      if(!h||h.gid!==L.gid){if(now()-L.hostSeen>1500){say('The game maker left');leavePad();}return;}
+      L.hostSeen=now();
+    }
+    var m=groupOf(h);
+    if(!m.some(function(e){return e.me;})){say('That game filled up');leavePad();return;}
+    if(m.length>=L.gsz||m.some(function(e){return e.go;})){L.st='go';L.goT=0.8;beep(880,0.15,'square',0.05,1.6);}
+  }
+  L.toLobby=function(){
+    L.st='lobby';L.cfg='';L.role='';L.gid='';L.padI=-1;L.mStart=0;L.last=0;L.alloc=null;L.stick=null;L.lx=5;L.ly=6.5;
+    netJoin(o.room+'-lobby');
+  };
+  /* go again with the same players: the host sets a new start time and everyone copies it */
+  L.again=function(){
+    L.last=L.mStart;L.mStart=0;L.alloc=null;if(o.onMatch)o.onMatch();
+    if(L.cfg==='solo'){L.mStart=now()+3000;L.alloc=L.makeAlloc();if(o.onStart)o.onStart();}
+  };
+  L.start=function(){L.layout();L.keys={};L.msg='';L.msgT=0;L.np=1;L.nb=o.defNb;L.toLobby();};
+  L.stop=function(){netLeave();};
+  L.act=function(a){
+    if(!a)return;
+    var tot=o.maxT||99;
+    if(a.a==='np'){L.np=a.n;L.nb=Math.min(L.nb,Math.max(0,tot-L.np));}
+    else if(a.a==='nb'){L.nb=clampN(L.nb+a.d,0,Math.min(o.maxB,tot-L.np));}
+    else if(a.a==='go'){makeGame();}
+    else if(a.a==='back'){L.st='lobby';bump(L.padI);L.padI=-1;}
+    else if(a.a==='unpad'){leavePad();}
+    else if(a.a==='leave'){L.toLobby();}
+    else if(o.onAct){o.onAct(a);return;}
+    beep(600,0.04,'square',0.03,1.2);
+  };
+  /* buttons are checked first; anywhere else starts the move stick */
+  L.down=function(px,py,id){
+    for(var i=L.rects.length-1;i>=0;i--){var r=L.rects[i];if(px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h){L.act(r.a);return true;}}
+    if(L.st==='menu'||onPad()||(L.st==='match'&&!L.mStart))return true;
+    if(!L.stick)L.stick={id:id,ox:px,oy:py,dx:0,dy:0};
+    return false;
+  };
+  L.move=function(px,py,id){
+    var s=L.stick;if(!s||s.id!==id)return;
+    var dx=px-s.ox,dy=py-s.oy,m=Math.hypot(dx,dy);
+    if(m>40){s.ox+=dx/m*(m-40);s.oy+=dy/m*(m-40);dx=px-s.ox;dy=py-s.oy;}
+    s.dx=dx/40;s.dy=dy/40;
+  };
+  L.up=function(px,py,id){if(L.stick&&L.stick.id===id)L.stick=null;};
+  L.key=function(c,d){
+    L.keys[c]=d;
+    if(!d||L.st!=='menu')return;
+    if(c.indexOf('Digit')===0){var n=+c.slice(5);if(n>=1&&n<=o.maxP)L.act({a:'np',n:n});}
+    else if(c==='Enter')makeGame();
+  };
+  L.moveVec=function(){
+    var dx=0,dy=0,k=L.keys;
+    if(L.stick){dx=L.stick.dx;dy=L.stick.dy;}
+    if(k.KeyA||k.ArrowLeft)dx-=1;if(k.KeyD||k.ArrowRight)dx+=1;
+    if(k.KeyW||k.ArrowUp)dy-=1;if(k.KeyS||k.ArrowDown)dy+=1;
+    var m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}
+    return [dx,dy,m];
+  };
+  /* my presence in a match: the game adds its own fields; x and z must be numbers */
+  L.send=function(p){
+    p.st='m';p.c=L.cfg;p.pg=myPing();p.ms=L.amHost()?L.mStart:0;p.ba=L.amHost()?L.alloc:null;
+    netSend(p);netFlush();
+  };
+  L.update=function(dt){
+    L.t+=dt;if(L.msgT>0)L.msgT-=dt;
+    if(L.t-L.pingT>3){L.pingT=L.t;perfPing();}
+    if(L.st==='match'){
+      if(L.cfg==='solo')return false;
+      /* agree on the start time: the host sets it once the group is full; everyone else copies the host */
+      var hp=L.hostPeer();
+      if(L.amHost()){if(!L.mStart&&L.keyList().length>=L.gsz){L.mStart=now()+3500;L.alloc=L.makeAlloc();if(o.onStart)o.onStart();}}
+      else if(hp&&+hp.presence.ms>L.last&&+hp.presence.ms!==L.mStart){
+        L.mStart=+hp.presence.ms;
+        var ba=hp.presence.ba;
+        L.alloc=Array.isArray(ba)?ba.slice(0,8).filter(Array.isArray).map(function(e){return [String(e[0]),clampN(e[1]|0,0,o.maxB),netNum(e[2],0,999,999)];}):null;
+        if(o.onStart)o.onStart();
+      }
+      /* still waiting for the group: say I am here, so the others count me */
+      if(!L.mStart)L.send({x:0,z:0});
+      return false;
+    }
+    var hs=padHosts(),i,mv;
+    if(L.st==='lobby'){
+      mv=L.moveVec();
+      if(mv[2]>0.05){L.lx+=mv[0]*4.2*dt;L.ly+=mv[1]*4.2*dt;}
+      L.lx=clampN(L.lx,0.5,LW-0.5);L.ly=clampN(L.ly,0.5,LH-0.5);
+      for(i=0;i<LPADS.length;i++)if(Math.abs(L.lx-LPADS[i][0])<0.9&&Math.abs(L.ly-LPADS[i][1])<0.9){
+        if(hs[i]&&!hs[i].me)tryJoin(i,hs[i]);
+        else{L.st='menu';L.padI=i;L.stick=null;L.keys={};}
+        break;
+      }
+    }else if(L.st==='menu'){
+      if(L.padI>=0&&hs[L.padI]&&!hs[L.padI].me){say('Someone made a game on this square. Step back on to join it',3);L.st='lobby';bump(L.padI);L.padI=-1;}
+    }else if(L.st==='pad')padCheck(hs);
+    else if(L.st==='go'){L.goT-=dt;if(L.goT<=0){enterMatch();return true;}}
+    if(onPad()){
+      var hh=hs[L.padI],mm=hh?groupOf(hh):[],mi=0;
+      for(i=0;i<mm.length;i++)if(mm[i].me)mi=i;
+      var sp=padSpot(L.padI,mi);L.lx=sp[0];L.ly=sp[1];
+      netSend({x:Math.round(L.lx*100)/100,z:Math.round(L.ly*100)/100,st:L.st,pg:myPing(),pad:L.padI,gid:L.gid,host:L.role==='host'?1:0,np:L.gsz,nb:L.gbots,jt:L.jt});
+    }else netSend({x:Math.round(L.lx*100)/100,z:Math.round(L.ly*100)/100,st:'lobby',pg:myPing()});
+    netFlush();
+    return true;
+  };
+  L.btn=function(label,cx,y,w,h,a,on,fill){
+    var x0=cx-w/2;
+    ctx.fillStyle=P.ink;ctx.fillRect(x0-2,y-2,w+4,h+4);
+    ctx.fillStyle=on?P.sun:(fill||'#fff');ctx.fillRect(x0,y,w,h);
+    ctx.font='700 '+Math.round(Math.min(16,h*0.48))+'px '+FB;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=P.ink;ctx.fillText(label,cx,y+h/2+1);
+    L.rects.push({x:x0,y:y,w:w,h:h,a:a});
+  };
+  function fig(sx,sy,s,col,name,me){
+    ctx.fillStyle=P.ink;ctx.fillRect(sx-s/2-2,sy-s/2-2,s+4,s+4);
+    ctx.fillStyle=col;ctx.fillRect(sx-s/2,sy-s/2,s,s);
+    ctx.fillStyle='#fff';ctx.fillRect(sx-s*0.28,sy-s*0.2,s*0.18,s*0.24);ctx.fillRect(sx+s*0.1,sy-s*0.2,s*0.18,s*0.24);
+    if(me){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(sx-s/2-4,sy-s/2-4,s+8,s+8);}
+    if(name)txt(name,sx,sy-s/2-10,10,'#fff');
+  }
+  L.fig=fig;
+  function myCol(){return SKIN.col(P.blue);}
+  function rgbCss(a){return 'rgb('+a[0]+','+a[1]+','+a[2]+')';}
+  L.rgb=rgbCss;
+  function panel(top,h){var pw=Math.min(330,V.w-24);ctx.fillStyle='rgba(16,26,51,0.94)';ctx.fillRect(V.w/2-pw/2,top,pw,h);ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(V.w/2-pw/2,top,pw,h);return pw;}
+  L.panel=panel;
+  function drawLobby(){
+    var i,j,lcs=L.lcs,lox=L.lox,loy=L.loy;
+    txt(o.title.toUpperCase(),V.w/2,26,24,o.col||P.sun);
+    txt(NET.blocked?netStatus():(NET.room?(netOthers().length?(netOthers().length+1)+' players in the lobby':'Lobby'):(NET.fail?'Offline: you can still play 1 player with bots':'Connecting...')),V.w/2,50,11,'#9fb0d8');
+    for(j=0;j<LH;j++)for(i=0;i<LW;i++){ctx.fillStyle=((i+j)&1)?'#1c2a52':'#22305a';ctx.fillRect(lox+i*lcs,loy+j*lcs,lcs-1,lcs-1);}
+    ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(lox-2,loy-2,lcs*LW+3,lcs*LH+3);
+    var hs=L.st==='match'?LPADS.map(function(){return null;}):padHosts(),groups=[];
+    LPADS.forEach(function(p,i){
+      var sx=lox+(p[0]-1)*lcs,sy=loy+(p[1]-1)*lcs,h=hs[i];
+      ctx.fillStyle=P.ink;ctx.fillRect(sx-2,sy-2,lcs*2+4,lcs*2+4);
+      ctx.fillStyle=h?'#5ed88a':P.sun;ctx.fillRect(sx,sy,lcs*2,lcs*2);
+      if(!h){txt('PLAY',sx+lcs,sy+lcs,Math.min(16,lcs*0.6),P.ink);return;}
+      groups.push([i,groupOf(h)]);
+      ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(sx+3,sy+3,lcs*2-6,lcs*2-6);
+    });
+    netOthers().forEach(function(p){var q=p.presence;if(q.st!=='lobby')return;fig(lox+netNum(q.x,0,LW,5)*lcs,loy+netNum(q.z,0,LH,6)*lcs,lcs*0.7,rgbCss(netColor(p)),netName(p).slice(0,12),false);});
+    groups.forEach(function(gm){
+      var i=gm[0],m=gm[1],h=hs[i],p=LPADS[i];
+      m.forEach(function(e,n){var s2=padSpot(i,n);fig(lox+s2[0]*lcs,loy+s2[1]*lcs,lcs*0.5,e.me?myCol():(e.p?rgbCss(netColor(e.p)):'#fff'),'',!!e.me);});
+      var lab=m.length+'/'+h.np+' players · '+h.nb+' bot'+(h.nb===1?'':'s'),fs=Math.max(11,Math.min(14,lcs*0.4));
+      ctx.font='700 '+fs+'px '+FB;
+      var tw=ctx.measureText(lab).width+14,bx=clampN(lox+p[0]*lcs-tw/2,lox,lox+lcs*LW-tw),by=loy+(p[1]-1)*lcs-fs-14;
+      ctx.fillStyle=P.ink;ctx.fillRect(bx-2,by-2,tw+4,fs+12);
+      ctx.fillStyle=h.me||m.some(function(e){return e.me;})?P.sun:'#fff';ctx.fillRect(bx,by,tw,fs+8);
+      ctx.fillStyle=P.ink;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lab,bx+tw/2,by+fs/2+4.5);
+    });
+    if(L.st==='lobby'||L.st==='menu')fig(lox+L.lx*lcs,loy+L.ly*lcs,lcs*0.7,myCol(),'You',true);
+    var cx=V.w/2,below=loy+lcs*LH+20,wd=L.wide();
+    if(wd){cx=lox+lcs*LW+(V.w-lox-lcs*LW)/2;below=V.h/2-30;}
+    if(onPad()){
+      var h2=hs[L.padI],left=h2?h2.np-groupOf(h2).length:0;
+      txt(L.st==='go'||left<=0?'Starting!':'Waiting for '+left+' more player'+(left===1?'':'s')+'...',cx,below,wd?18:15,P.sun);
+      if(L.st==='pad'){
+        if(L.role==='host')txt(NET.room?'Players walk onto your green square to join':'Offline: nobody can join right now',cx,below+22,11,'#9fb0d8');
+        L.btn('Leave square',cx,below+(L.role==='host'?36:18),150,30,{a:'unpad'});
+      }
+    }else if(L.t<8&&L.st==='lobby'){
+      if(wd){txt('Walk onto a yellow pad to play,',cx,below,14,'#fff');txt('or a green one to join',cx,below+20,14,'#fff');}
+      else txt('Walk onto a yellow pad to play, or a green one to join',cx,below,13,'#fff');
+    }
+    if(L.msgT>0&&L.msg&&L.st==='lobby')txt(L.msg,cx,below+(L.t<8?(wd?44:22):0),12,P.brick);
+  }
+  function drawMenu(){
+    var top=Math.max(60,V.h*0.12),pw=panel(top,300),i,n=o.maxP;
+    txt('Start a match',V.w/2,top+26,22,P.sun);
+    txt('Players',V.w/2,top+56,14,'#fff');
+    var bw=Math.min(52,Math.floor((pw-40)/n)-6);
+    for(i=1;i<=n;i++)L.btn(String(i),V.w/2+(i-(n+1)/2)*(bw+6),top+70,bw,38,{a:'np',n:i},L.np===i);
+    txt('Bots',V.w/2,top+128,14,'#fff');
+    L.btn('−',V.w/2-70,top+142,44,38,{a:'nb',d:-1});
+    txt(String(L.nb),V.w/2,top+161,24,P.sun);
+    L.btn('+',V.w/2+70,top+142,44,38,{a:'nb',d:1});
+    txt(L.np===1?'You and '+L.nb+' bot'+(L.nb===1?'':'s')+', starts right away':'Wait on your green square for '+L.np+' players',V.w/2,top+194,11,'#9fb0d8');
+    if(o.note)txt(o.note(L.np,L.nb),V.w/2,top+208,11,'#9fb0d8');
+    L.btn(L.np===1?'Start':'Make game',V.w/2,top+222,pw-40,38,{a:'go'},true);
+    L.btn('Back to the lobby',V.w/2,top+266,pw-40,26,{a:'back'});
+    if(L.msgT>0&&L.msg)txt(L.msg,V.w/2,top+314,13,P.brick);
+  }
+  function drawWait(){
+    var pv=L.makeAlloc(),top=Math.max(80,V.h*0.2),pw=panel(top,184+pv.length*18),k=L.keyList().length,nm={};
+    L.groupOthers().forEach(function(p){nm[p.peer]=netName(p);});
+    txt('Waiting for players',V.w/2,top+28,20,P.sun);
+    txt(k+' / '+L.gsz+' here',V.w/2,top+62,26,'#fff');
+    txt(L.gbots+' bot'+(L.gbots===1?'':'s')+'  ·  best ping runs the most',V.w/2,top+92,11,'#9fb0d8');
+    pv.forEach(function(e,n){
+      var me=e[0]===L.myKey(),pt=e[2]>=999?'--':e[2]+' ms';
+      txt((me?'You':(nm[e[0]]||'Player').slice(0,12))+'  ·  '+pt+'  ·  '+e[1]+' bot'+(e[1]===1?'':'s'),V.w/2,top+116+n*18,12,me?P.sun:'#fff');
+    });
+    txt(netStatus(),V.w/2,top+122+pv.length*18,10,'#9fb0d8');
+    L.btn('Leave',V.w/2,top+136+pv.length*18,pw-40,36,{a:'leave'});
+  }
+  /* the lobby screens; in a match only the waiting panel (until the start time is set) */
+  L.draw=function(){
+    L.rects=[];
+    if(L.st==='match'){if(!L.mStart){drawLobby();drawWait();}return;}
+    drawLobby();
+    if(L.st==='menu')drawMenu();
+  };
+  L.stickDraw=function(){
+    var s=L.stick;if(!s)return;
+    ctx.globalAlpha=0.5;ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.beginPath();ctx.arc(s.ox,s.oy,40,0,6.283);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.ox+s.dx*40,s.oy+s.dy*40,16,0,6.283);ctx.fill();ctx.globalAlpha=1;
+  };
+  /* test bots: walk to the nearest pad and start a 1 player game */
+  L.tbLobby=function(tb,dt){
+    var m=tb.m;
+    if(L.st==='lobby'){var bp=null;LPADS.forEach(function(p){if(!bp||Math.hypot(p[0]-L.lx,p[1]-L.ly)<Math.hypot(bp[0]-L.lx,bp[1]-L.ly))bp=p;});tbWalk2(tb,bp[0]-L.lx,bp[1]-L.ly);return true;}
+    if(L.st==='menu'){tb.only([]);m.lc=(m.lc||0)+dt;if(m.lc>0.3){m.lc=0;if(L.np!==1)tb.k('Digit1');else tb.k('Enter');}return true;}
+    return L.st!=='match';
+  };
+  return L;
+}
+/* ===== Block Bumpers (2D, online): 2 to 6 players and bots slide around a round ice platform that shrinks for 45
+   seconds. Dash (Space, or the Dash button) to bump people off; the last one on wins the round, and the first to win 2
+   rounds wins the match. Uses the 2D online lobby kit (pads, host start time, bots split by ping). Every device moves
+   its own player and its own bots and sends them in presence; when two touch, both devices work out the same bump.
+   The host decides when a round is over and keeps the score, and everyone copies it. ===== */
+GAMES.bumpers=(function(){
+  var g={kind:'canvas',title:'Block Bumpers',lw:360};
+  var R0=6.5,RAD=0.5,ACC=15,MAXV=6.5,DASHV=9.5,DASHCD=1.4,RLEN=45000,GAP=3500,SHOW=6500,MAXB=5;
+  var PAL=['#3cc8f0','#ff6b5b','#5ed88a','#ffd23f','#b48cff','#ff9a3c'];
+  var L=lob2d({title:'Block Bumpers',room:'w2-bump',maxP:6,maxB:MAXB,maxT:6,defNb:3,col:'#9fe6ff',
+    note:function(np,nb){return (np+nb)+' on the ice · best of 3 rounds';},
+    onMatch:function(){mine=[];rem={};br=null;rnApplied=-1;saved=false;fx=[];},
+    onAct:function(a){if(a.a==='dash')dash(mine[0]);else if(a.a==='again'){L.again();}}});
+  var mine=[],rem={},br=null,rnApplied=-1,saved=false,fx=[],t=0,sc=20,cx=0,cy=0,lastHit=0,shake=0;
+  function now(){return Date.now();}
+  function me(){return L.myKey();}
+  function rad(){if(!br||!br.rs)return R0;var e=Math.max(0,now()-br.rs)/RLEN;return Math.max(0,R0*Math.pow(Math.max(0,1-e),0.7));}
+  function spawnAt(i,n){var a=-Math.PI/2+i/Math.max(2,n)*Math.PI*2;return [Math.cos(a)*R0*0.6,Math.sin(a)*R0*0.6];}
+  /* everyone in the match in a fixed order: players by id, then the bots */
+  function roster(){
+    var ks=L.keyList(),out=ks.slice(),n=0,a=L.alloc||[];
+    /* bots of someone who left are gone too */
+    a.forEach(function(e){for(var j=0;j<e[1];j++){if(ks.indexOf(e[0])>=0)out.push(e[0]+':b'+n);n++;}});
+    return out;
+  }
+  function colorOf(k){var r=roster().slice().sort(),i=r.indexOf(k);return PAL[(i<0?0:i)%PAL.length];}
+  function nameOf(k){
+    if(k===me())return 'You';
+    var b=k.lastIndexOf(':b');if(b>0)return 'Bot '+((+k.slice(b+2))+1);
+    var p=L.groupOthers().filter(function(x){return x.peer===k;})[0];return p?netName(p).slice(0,10):'Player';
+  }
+  /* a new round: put my player and bots on their starting spots */
+  function respawn(){
+    var r=roster(),n=r.length,mk=me();
+    mine=[{k:mk,bi:-1}].concat(L.myBots().map(function(i){return {k:mk+':b'+i,bi:i};}));
+    mine.forEach(function(e){var idx=Math.max(0,r.indexOf(e.k)),s=spawnAt(idx,n);e.x=s[0];e.y=s[1];e.vx=0;e.vy=0;e.cd=0.5;e.dt=0;e.out=0;e.think=0;e.tx=0;e.ty=0;});
+  }
+  function dash(e){
+    if(!e||e.out||!br||now()<br.rs||br.re||e.cd>0)return;
+    var d=e.k===me()?L.moveVec():[e.tx,e.ty,1],l=Math.hypot(d[0],d[1]);
+    if(l<0.1){l=Math.hypot(e.vx,e.vy);d=l>0.1?[e.vx,e.vy]:[0,-1];l=l>0.1?l:1;}
+    e.vx+=d[0]/l*DASHV;e.vy+=d[1]/l*DASHV;e.cd=DASHCD;e.dt=0.25;
+    for(var i=0;i<8;i++)fx.push({x:e.x,y:e.y,vx:-d[0]/l*3+(Math.random()-0.5)*3,vy:-d[1]/l*3+(Math.random()-0.5)*3,life:0.4,c:'#e9f8ff'});
+    if(e.k===me())beep(320,0.12,'sawtooth',0.04,2.2);
+  }
+  /* the others' players and bots, from their presence (moved on by their speed for the time since it came) */
+  function remotes(){
+    var out=[];
+    L.groupOthers().forEach(function(p){
+      var q=p.presence;if(!Array.isArray(q.e)||!br||q.rn!==br.rn)return;
+      var age=Math.min(0.25,Math.max(0,(now()-(p.updatedAt||now()))/1000));
+      q.e.slice(0,MAXB+1).forEach(function(v){
+        if(!Array.isArray(v))return;
+        var id=v[0]|0,k=id===0?p.peer:p.peer+':b'+(id-1);
+        var vx=netNum(v[3],-20,20,0),vy=netNum(v[4],-20,20,0),o2=v[5]|0;
+        out.push({k:k,x:netNum(v[1],-12,12,0)+(o2?0:vx*age),y:netNum(v[2],-12,12,0)+(o2?0:vy*age),vx:vx,vy:vy,out:o2,dt:v[6]?0.2:0});
+      });
+    });
+    return out;
+  }
+  function bounce(a,b,local){
+    var dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+    if(d>=RAD*2||d<0.0001)return;
+    var nx=dx/d,ny=dy/d,ov=RAD*2-d;
+    a.x+=nx*ov*0.5;a.y+=ny*ov*0.5;
+    var vr=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+    if(vr<0){
+      var j=-1.25*vr;a.vx+=nx*j;a.vy+=ny*j;
+      if(-vr>4&&now()-lastHit>120){lastHit=now();shake=Math.min(0.3,-vr*0.03);beep(140+Math.random()*40,0.1,'square',0.05,0.6);
+        for(var i=0;i<6;i++)fx.push({x:a.x-nx*RAD,y:a.y-ny*RAD,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:0.35,c:P.sun});}
+    }
+  }
+  function botThink(e,all,dt){
+    e.think-=dt;
+    var R=rad(),dc=Math.hypot(e.x,e.y),best=null,bd=1e9;
+    all.forEach(function(o){if(o.k===e.k||o.out)return;var d=Math.hypot(o.x-e.x,o.y-e.y);if(d<bd){bd=d;best=o;}});
+    var tx=0,ty=0;
+    if(dc>R-1.4){tx=-e.x;ty=-e.y;}
+    else if(best){tx=best.x-e.x;ty=best.y-e.y;
+      /* push from the centre side: aim a little past them, away from the middle */
+      var ox=best.x,oy=best.y,ol=Math.hypot(ox,oy)||1;tx+=ox/ol*0.6;ty+=oy/ol*0.6;}
+    var l=Math.hypot(tx,ty)||1;e.tx=tx/l;e.ty=ty/l;
+    if(best&&bd<2.6&&e.cd<=0&&e.think<=0&&Math.hypot(best.x,best.y)>dc-0.3){e.think=0.5+Math.random()*0.8;if(Math.random()<0.7)dash(e);}
+  }
+  function step(e,ax,ay,dt){
+    var a=ACC*(e.k===me()?cheatSpd():1);
+    e.vx+=ax*a*dt;e.vy+=ay*a*dt;
+    var f=Math.exp(-0.8*dt);e.vx*=f;e.vy*=f;
+    var sp=Math.hypot(e.vx,e.vy),cap=e.dt>0?MAXV+DASHV:MAXV;if(sp>cap){e.vx*=cap/sp;e.vy*=cap/sp;}
+    e.x+=e.vx*dt;e.y+=e.vy*dt;
+    if(e.cd>0)e.cd-=dt;if(e.dt>0)e.dt-=dt;
+  }
+  /* the host: is the round over (one or nobody left), and who won? */
+  function hostRound(all){
+    if(!br||br.re||now()<br.rs+800)return;
+    var r=roster(),live=[],fell={};
+    r.forEach(function(k){var e=all.filter(function(x){return x.k===k;})[0];if(!e||!e.out)live.push(k);else fell[k]=e.out;});
+    if(live.length>1&&now()<br.rs+RLEN+2500)return;
+    var w=live.length===1?live[0]:'';
+    if(live.length>1)w=live.slice().sort()[0];
+    if(!w){w=r.slice().sort(function(a,b){return (fell[b]||0)-(fell[a]||0)||(a<b?-1:1);})[0];}
+    var s=br.sc.slice(),hit=s.filter(function(e){return e[0]===w;})[0];
+    if(hit)hit[1]++;else s.push([w,1]);
+    var won=s.filter(function(e){return e[1]>=2;})[0];
+    br={rn:br.rn,rs:br.rs,re:now(),w:w||'',sc:s,done:won?won[0]:'',nrs:won?0:now()+GAP,ms:br.ms};
+  }
+  function copyBr(q){
+    if(!q||typeof q!=='object'||!(q.rn>=0))return null;
+    return {rn:q.rn|0,rs:+q.rs||0,re:+q.re||0,w:String(q.w||'').slice(0,60),done:String(q.done||'').slice(0,60),nrs:+q.nrs||0,
+      sc:Array.isArray(q.sc)?q.sc.slice(0,12).filter(Array.isArray).map(function(e){return [String(e[0]).slice(0,60),clampN(e[1]|0,0,3)];}):[]};
+  }
+  function scoreOf(k){if(!br)return 0;var e=br.sc.filter(function(s){return s[0]===k;})[0];return e?e[1]:0;}
+  g.start=function(){L.start();t=0;};
+  g.stop=function(){L.stop();};
+  g.pre=function(w,h){g.lw=Math.max(360,Math.ceil(clampN(h,400,480)*w/h));};
+  g.resize=function(){L.layout();};
+  g.down=function(px,py,id){L.down(px,py,id);};
+  g.move=function(px,py,id){L.move(px,py,id);};
+  g.up=function(px,py,id){L.up(px,py,id);};
+  g.key=function(c,d){L.key(c,d);if(d&&L.st==='match'&&(c==='Space'||c==='KeyJ'||c==='ShiftLeft'))dash(mine[0]);};
+  g.update=function(dt){
+    t+=dt;if(shake>0)shake-=dt;
+    fx.forEach(function(f){f.x+=f.vx*dt;f.y+=f.vy*dt;f.life-=dt;});fx=fx.filter(function(f){return f.life>0;});
+    if(L.update(dt))return;
+    if(!L.mStart)return;
+    /* round state: the host makes it; everyone else copies the host */
+    if(L.amHost()){
+      if(!br||br.ms!==L.mStart){br={rn:0,rs:L.mStart,re:0,w:'',sc:[],done:'',nrs:0,ms:L.mStart};}
+      if(br.re&&br.nrs&&now()>=br.nrs)br={rn:br.rn+1,rs:br.nrs,re:0,w:'',sc:br.sc,done:'',nrs:0,ms:L.mStart};
+    }else{
+      var hp=L.hostPeer(),nb=hp?copyBr(hp.presence.br):null;
+      if(nb){nb.ms=L.mStart;br=nb;}else if(!br)br={rn:0,rs:L.mStart,re:0,w:'',sc:[],done:'',nrs:0,ms:L.mStart};
+    }
+    br.ms=L.mStart;
+    if(rnApplied!==br.rn||!mine.length){rnApplied=br.rn;respawn();}
+    var n=now(),playing=n>=br.rs&&!br.re,R=rad(),i;
+    var rm=remotes(),all=mine.concat(rm);
+    if(playing){
+      var mv=L.moveVec(),snap=mine.map(function(e){return {k:e.k,x:e.x,y:e.y,vx:e.vx,vy:e.vy,out:e.out};});
+      mine.forEach(function(e,idx){
+        if(e.out)return;
+        var ax=0,ay=0;
+        if(e.bi<0){ax=mv[0];ay=mv[1];}else{botThink(e,all,dt);ax=e.tx;ay=e.ty;}
+        step(e,ax,ay,dt);
+        snap.forEach(function(o,j){if(j!==idx&&!o.out)bounce(e,o,true);});
+        rm.forEach(function(o){if(!o.out)bounce(e,o,false);});
+        if(Math.hypot(e.x,e.y)>R+RAD*0.2){
+          e.out=Math.max(1,n-br.rs);
+          for(var q=0;q<12;q++)fx.push({x:e.x,y:e.y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:0.6,c:'#7fd3ff'});
+          if(e.k===me()){L.msg='You fell off!';L.msgT=1.6;beep(180,0.4,'sawtooth',0.05,0.4);}else beep(400,0.1,'triangle',0.03,0.6);
+        }
+      });
+    }
+    if(L.amHost())hostRound(mine.concat(rm));
+    if(br.done&&n>=br.re+SHOW){L.toLobby();return;}
+    if(br.done&&!saved){saved=true;if(br.done===me()){lsSet('by.bumpers',lsGet('by.bumpers',0)+1);beep(880,0.5,'square',0.06,2);}}
+    var p0=mine[0]||{x:0,y:0};
+    L.send({x:Math.round(p0.x*100)/100,z:Math.round(p0.y*100)/100,rn:br.rn,br:L.amHost()?{rn:br.rn,rs:br.rs,re:br.re,w:br.w,sc:br.sc,done:br.done,nrs:br.nrs}:null,
+      e:mine.map(function(e){return [e.bi<0?0:e.bi+1,Math.round(e.x*100)/100,Math.round(e.y*100)/100,Math.round(e.vx*10)/10,Math.round(e.vy*10)/10,e.out|0,e.dt>0?1:0];})});
+  };
+  /* ---- drawing ---- */
+  function layout(){
+    var wd=L.wide(),hh=wd?V.h-28:V.h-150;
+    sc=Math.max(8,Math.min((wd?V.w*0.62:V.w-20),hh)/(R0*2+1));
+    cx=V.w/2;cy=wd?V.h/2:Math.max(70+sc*(R0+0.5),V.h/2+10);
+  }
+  function blk(sx,sy,s,col,me2,dashing,alpha){
+    ctx.globalAlpha=alpha;
+    if(dashing){ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(sx-s*0.7,sy-s*0.7,s*1.4,s*1.4);}
+    ctx.fillStyle=P.ink;ctx.fillRect(sx-s/2-2,sy-s/2-2,s+4,s+4);
+    ctx.fillStyle=col;ctx.fillRect(sx-s/2,sy-s/2,s,s);
+    ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(sx-s/2,sy-s/2,s,s*0.22);
+    ctx.fillStyle='#fff';ctx.fillRect(sx-s*0.28,sy-s*0.14,s*0.18,s*0.24);ctx.fillRect(sx+s*0.1,sy-s*0.14,s*0.18,s*0.24);
+    ctx.fillStyle=P.ink;ctx.fillRect(sx-s*0.24,sy-s*0.06,s*0.09,s*0.12);ctx.fillRect(sx+s*0.14,sy-s*0.06,s*0.09,s*0.12);
+    if(me2){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(sx-s/2-5,sy-s/2-5,s+10,s+10);}
+    ctx.globalAlpha=1;
+  }
+  function drawMatch(){
+    layout();
+    var n=now(),R=rad(),i,sx=cx,sy=cy;
+    if(shake>0){sx+=(Math.random()-0.5)*shake*30;sy+=(Math.random()-0.5)*shake*30;}
+    /* water with slow ripples */
+    for(i=0;i<5;i++){var rr=((t*0.35+i/5)%1)*Math.max(V.w,V.h)*0.7;ctx.strokeStyle='rgba(120,190,255,'+(0.12*(1-rr/(Math.max(V.w,V.h)*0.7)))+')';ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx,sy,rr,0,6.283);ctx.stroke();}
+    /* the ice: where it was (faded), and where it is now */
+    ctx.fillStyle='rgba(191,233,255,.10)';ctx.beginPath();ctx.arc(sx,sy,R0*sc,0,6.283);ctx.fill();
+    if(R>0.02){
+      ctx.fillStyle=P.ink;ctx.beginPath();ctx.arc(sx,sy,R*sc+4,0,6.283);ctx.fill();
+      var gr=ctx.createRadialGradient(sx-R*sc*0.3,sy-R*sc*0.3,R*sc*0.1,sx,sy,R*sc);gr.addColorStop(0,'#f2fbff');gr.addColorStop(1,'#9fd8f5');
+      ctx.fillStyle=gr;ctx.beginPath();ctx.arc(sx,sy,R*sc,0,6.283);ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=2;
+      for(i=1;i<4;i++){var r2=R*sc*i/4;if(r2>4){ctx.beginPath();ctx.arc(sx,sy,r2,0.3+i,1.4+i);ctx.stroke();}}
+      /* the edge blinks red when it is getting small */
+      if(br&&n>=br.rs&&!br.re&&R<R0*0.55){ctx.strokeStyle='rgba(255,77,77,'+(0.4+0.4*Math.sin(t*10))+')';ctx.lineWidth=4;ctx.beginPath();ctx.arc(sx,sy,R*sc,0,6.283);ctx.stroke();}
+    }
+    var ents=mine.map(function(e){return {k:e.k,x:e.x,y:e.y,out:e.out,dt:e.dt,cd:e.cd};}).concat(remotes());
+    ents.sort(function(a,b){return (b.out?1:0)-(a.out?1:0)||a.y-b.y;});
+    ents.forEach(function(e){
+      var s=Math.max(12,sc*RAD*2),px=sx+e.x*sc,py=sy+e.y*sc,al=1;
+      if(e.out){var since=(n-(br?br.rs:0)-e.out)/1000;if(since>1.2)return;s*=Math.max(0.2,1-since*0.7);al=Math.max(0,1-since);}
+      blk(px,py,s,colorOf(e.k),e.k===me(),e.dt>0,al);
+      if(!e.out)txt(nameOf(e.k),px,py-s/2-10,10,'#fff');
+    });
+    fx.forEach(function(f){ctx.globalAlpha=Math.min(1,f.life*3);ctx.fillStyle=f.c;ctx.fillRect(sx+f.x*sc-3,sy+f.y*sc-3,6,6);});ctx.globalAlpha=1;
+    drawHud(n);
+  }
+  function drawHud(n){
+    var wd=L.wide(),r=roster(),rn=br?br.rn+1:1,i;
+    var left=br&&!br.re&&n>=br.rs?Math.max(0,Math.ceil((br.rs+RLEN-n)/1000)):0;
+    var lx=wd?Math.max(70,(cx-(R0+0.5)*sc)/2):12,al=wd?'center':'left';
+    txt('Round '+rn,lx,wd?40:20,wd?24:18,P.sun,al);
+    txt(br&&n>=br.rs&&!br.re?left+'s':'',lx,wd?72:42,wd?22:14,'#fff',al);
+    txt('First to 2 wins',lx,wd?98:60,11,'#9fb0d8',al);
+    /* scores: a dot for each round won */
+    var rx=wd?V.w-Math.max(70,(cx-(R0+0.5)*sc)/2):V.w-12,ry=wd?40:16;
+    r.slice(0,6).forEach(function(k,j){
+      var yy=ry+j*(wd?26:17),s=scoreOf(k),c=colorOf(k);
+      if(wd){ctx.fillStyle=P.ink;ctx.fillRect(rx-80,yy-7,14,14);ctx.fillStyle=c;ctx.fillRect(rx-78,yy-5,10,10);txt(nameOf(k),rx-60,yy+1,13,k===me()?P.sun:'#fff','left');
+        for(i=0;i<2;i++){ctx.fillStyle=i<s?P.sun:'rgba(255,255,255,.2)';ctx.beginPath();ctx.arc(rx+48+i*14,yy,5,0,6.283);ctx.fill();}}
+      else{txt(nameOf(k)+' '+'●'.repeat(s)+'○'.repeat(Math.max(0,2-s)),rx,yy,11,k===me()?P.sun:'#fff','right');}
+    });
+    /* dash button (phones and mouse), and the key hint */
+    var me0=mine[0],bs=Math.max(56,Math.min(84,V.h*0.16)),bx=V.w-bs/2-16,by=V.h-bs/2-16,rdy=me0&&me0.cd<=0;
+    if(br&&!br.re&&me0&&!me0.out){
+      ctx.globalAlpha=0.85;ctx.fillStyle=P.ink;ctx.beginPath();ctx.arc(bx,by,bs/2+3,0,6.283);ctx.fill();
+      ctx.fillStyle=rdy?P.sun:'#5b6a90';ctx.beginPath();ctx.arc(bx,by,bs/2,0,6.283);ctx.fill();
+      if(!rdy&&me0){ctx.fillStyle='rgba(255,255,255,.35)';ctx.beginPath();ctx.moveTo(bx,by);ctx.arc(bx,by,bs/2,-1.571,-1.571+6.283*(1-me0.cd/DASHCD));ctx.fill();}
+      ctx.globalAlpha=1;txt('DASH',bx,by,Math.round(bs*0.26),rdy?P.ink:'#fff');
+      L.rects.push({x:bx-bs/2,y:by-bs/2,w:bs,h:bs,a:{a:'dash'}});
+      if(wd&&t<30)txt('Arrows or WASD to slide · Space to dash',V.w/2,V.h-12,11,'#9fb0d8');
+    }
+    if(br&&n<br.rs){
+      ctx.fillStyle='rgba(16,26,51,.6)';ctx.fillRect(0,V.h/2-46,V.w,92);
+      txt(String(Math.max(1,Math.ceil((br.rs-n)/1000))),V.w/2,V.h/2-10,42,P.sun);
+      txt(rn===1?'Bump everyone off the ice! Last one on wins':'Round '+rn,V.w/2,V.h/2+26,13,'#fff');
+    }
+    if(br&&br.re){
+      ctx.fillStyle='rgba(16,26,51,.82)';ctx.fillRect(0,V.h/2-62,V.w,br.done?150:110);
+      var w=br.done||br.w;
+      txt(br.done?(w===me()?'You win the match!':nameOf(w)+' wins the match!'):(w===me()?'You win the round!':nameOf(w)+' wins the round'),V.w/2,V.h/2-30,26,P.sun);
+      txt(br.done?'':'Next round in '+Math.max(0,Math.ceil((br.nrs-n)/1000))+'s',V.w/2,V.h/2+6,13,'#fff');
+      if(br.done){
+        if(L.cfg==='solo')L.btn('Play again',V.w/2-80,V.h/2+20,150,32,{a:'again'},true);
+        L.btn('Lobby',L.cfg==='solo'?V.w/2+80:V.w/2,V.h/2+20,150,32,{a:'leave'});
+        txt('Back to the lobby in '+Math.max(0,Math.ceil((br.re+SHOW-n)/1000))+'s',V.w/2,V.h/2+72,12,'#9fb0d8');
+      }
+    }
+    if(L.msgT>0&&L.msg)txt(L.msg,V.w/2,wd?V.h-34:cy+(R0+0.5)*sc+18,15,P.brick);
+  }
+  g.draw=function(){
+    ctx.fillStyle='#0d1630';ctx.fillRect(0,0,V.w,V.h);
+    L.draw();
+    if(L.st==='match'&&L.mStart)drawMatch();
+    L.stickDraw();
+  };
+  /* test bots: play for real, steer away from the edge and dash at whoever is close */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(L.tbLobby(tb,dt))return [m.top||0,'seconds on the ice'];
+    var e=mine[0];
+    if(!e||!br||!L.mStart||now()<br.rs||br.re||e.out){tb.only([]);return [m.top||0,'seconds on the ice'];}
+    var R=rad(),tx=-e.x,ty=-e.y,others=remotes().concat(mine.slice(1)).filter(function(o){return !o.out;}),best=null,bd=1e9;
+    others.forEach(function(o){var d=Math.hypot(o.x-e.x,o.y-e.y);if(d<bd){bd=d;best=o;}});
+    if(Math.hypot(e.x,e.y)<R-1.6&&best){tx=best.x-e.x;ty=best.y-e.y;}
+    tbWalk2(tb,tx,ty);
+    if(best&&bd<2.4&&e.cd<=0&&Math.random()<0.3)tb.k('Space');
+    m.on=(m.on||0)+dt;m.top=Math.max(m.top||0,Math.floor(m.on));
+    return [m.top,'seconds on the ice'];
+  };
+  return g;
+})();
+HUBBEST['best-bumpers']=function(){return 'Wins '+lsGet('by.bumpers',0);};
 /* ===== Paint Battle (2D, online): walk around the lobby and step on a yellow pad to pick how many players (1 to 5) and
    bots (0 to 10). For 2+ players the pad turns green with the player and bot count above it, and its maker stays on it
    until enough players walk onto the green square; then the group moves to its own match room. Matches last 60 seconds:
