@@ -646,6 +646,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#0d1428" width="88" height="88"/><rect x="4" y="56" width="12" height="12" fill="#ff5a4d" stroke="#14213d" stroke-width="2"/><path d="M16 62h44V22h16" fill="none" stroke="#ff5a4d" stroke-width="5" stroke-linecap="round"/><path d="M16 62h44V22h16" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M52 70l16-16M52 30l16-16" stroke="#d8e6ff" stroke-width="5" stroke-linecap="round"/><path d="M76 12l8 10-8 10-8-10z" fill="#7ff0ff" stroke="#14213d" stroke-width="2"/><rect x="22" y="14" width="18" height="18" fill="#8a5a44" stroke="#14213d" stroke-width="2"/></svg></span>
           <span class="tt">Beam Bender</span><span class="ts"><span id="best-beam">Best 0</span> · Bend the laser with mirrors</span>
         </button>
+        <button class="tile" type="button" data-game="sums" data-name="sum grid numbers maths math add logic puzzle brain 2d" style="--c:#ffd23f">
+          <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#16233f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="8" width="20" height="20" fill="#c7cede"/><rect x="30" y="8" width="20" height="20" fill="#f4f7ff"/><rect x="52" y="8" width="20" height="20" fill="#5ed88a"/><rect x="8" y="30" width="20" height="20" fill="#ffd23f"/><rect x="30" y="30" width="20" height="20" fill="#c7cede"/><rect x="52" y="30" width="20" height="20" fill="#2e4270"/><rect x="8" y="52" width="20" height="20" fill="#2e4270"/><rect x="30" y="52" width="20" height="20" fill="#2e4270"/></g><g font-family="Arial" font-weight="bold" font-size="13" text-anchor="middle"><text x="18" y="23" fill="#14213d">3</text><text x="40" y="23" fill="#14213d">4</text><text x="62" y="23" fill="#fff">7</text><text x="18" y="45" fill="#14213d">5</text><text x="40" y="45" fill="#14213d">1</text><text x="62" y="45" fill="#fff">6</text><text x="18" y="67" fill="#fff">8</text><text x="40" y="67" fill="#fff">5</text></g><text x="74" y="80" font-family="Arial" font-weight="bold" font-size="18" fill="#ffd23f" text-anchor="middle">+</text></svg></span>
+          <span class="tt">Sum Grid</span><span class="ts"><span id="best-sums">Best 0</span> · Make every line add up</span>
+        </button>
         <button class="tile" type="button" data-game="memo" data-name="memory match pairs cards puzzle 2d" style="--c:#ff6b5b">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#15233f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="10" width="30" height="34" fill="#ff6b5b"/><rect x="48" y="10" width="30" height="34" fill="#2e4270"/><rect x="8" y="48" width="30" height="34" fill="#2e4270"/><rect x="48" y="48" width="30" height="34" fill="#ff6b5b"/></g><text x="23" y="34" font-size="20" text-anchor="middle" fill="#14213d">★</text><text x="63" y="72" font-size="20" text-anchor="middle" fill="#14213d">★</text></svg></span>
           <span class="tt">Memory Match</span><span class="ts"><span id="best-memo">Best 0</span> · Find the pairs</span>
@@ -9980,6 +9984,175 @@ GAMES.beam=(function(){
     for(var i=0;i<W*H;i++)if((cell[i]===1||cell[i]===2)&&cell[i]!==m.sol[i]){tb.tap(ox+(i%W+0.5)*S,oy+(Math.floor(i/W)+0.5)*S);return [level-1,'boards'];}
     m.sol=null;
     return [level-1,'boards'];
+  };
+  return g;
+})();
+
+/* ===== Sum Grid: fill the squares so every row and every column adds up to its number.
+   A grid of numbers is made first and its row and column totals are shown; some squares stay filled in to help. Any
+   filling that hits every total wins. Ten grids: 3x3 with 1-4 up to 5x5 with 1-9, fewer squares filled in as you go,
+   and from grid 6 a row may not use the same number twice. Tap a square, then a number (or type it); arrows move,
+   Space counts up, Backspace clears. ===== */
+HUBBEST['best-sums']='by.sums';
+GAMES.sums=(function(){
+  var g={kind:'canvas',title:'Sum Grid',lw:400};
+  var N,M,give,uniq,sol,val,lock,rs,cs,sel,level,score,best,st,t,newBest,msg,msgT,clock,S,ox,oy,pad,wide,win,winT;
+  var LAST=10;
+  var LV=[[3,4,4],[3,5,3],[4,5,7],[4,6,6],[4,9,6],[4,6,5],[5,6,10],[5,7,9],[5,9,9],[5,9,7]];
+  function metrics(){
+    wide=vWide();
+    var top=wide?60:92,pw=wide?Math.min(230,V.w*0.3):0;
+    var room=wide?Math.min(V.w-pw-110,V.h-top-40):Math.min(V.w-70,V.h-top-230);
+    S=Math.max(30,Math.floor(room/(N+1)));
+    ox=wide?Math.round((V.w-pw-S*(N+1))/2):Math.round((V.w-S*(N+1))/2);oy=top;
+    /* number buttons: under the grid on tall screens, at the right on wide ones */
+    var cols=wide?3:Math.min(M+1,5),bw=wide?Math.floor((pw-16)/3):Math.min(64,Math.floor((V.w-24-(cols-1)*8)/cols)),bh=Math.min(56,bw);
+    var x0=wide?ox+S*(N+1)+40:Math.round((V.w-(cols*bw+(cols-1)*8))/2),y0=wide?oy:oy+S*(N+1)+20;
+    pad=[];for(var i=0;i<=M;i++){var k=i===M?0:i+1,c=i%cols,r=Math.floor(i/cols);pad.push({n:k,x:x0+c*(bw+8),y:y0+r*(bh+8),w:bw,h:bh});}
+  }
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function build(){
+    var L=LV[Math.min(level,LAST)-1];N=L[0];M=L[1];give=L[2];uniq=level>=6;
+    sol=[];
+    for(var j=0;j<N;j++){
+      var row=[],pool=[];for(var q=1;q<=M;q++)pool.push(q);
+      for(var i=0;i<N;i++){
+        if(uniq){var p=Math.floor(Math.random()*pool.length);row.push(pool.splice(p,1)[0]);}
+        else row.push(1+Math.floor(Math.random()*M));
+      }
+      sol.push(row);
+    }
+    rs=sol.map(function(r){return r.reduce(function(a,b){return a+b;},0);});
+    cs=[];for(var c=0;c<N;c++){var s=0;for(var r2=0;r2<N;r2++)s+=sol[r2][c];cs.push(s);}
+    val=[];lock=[];for(var a=0;a<N;a++){val.push(new Array(N).fill(0));lock.push(new Array(N).fill(false));}
+    var cells=[];for(var z=0;z<N*N;z++)cells.push(z);
+    for(var gv=0;gv<give;gv++){var k=cells.splice(Math.floor(Math.random()*cells.length),1)[0];var y=Math.floor(k/N),x=k%N;val[y][x]=sol[y][x];lock[y][x]=true;}
+    sel=null;for(var f=0;f<N*N&&!sel;f++)if(!lock[Math.floor(f/N)][f%N])sel=[f%N,Math.floor(f/N)];
+    clock=0;win=false;winT=0;metrics();
+  }
+  function reset(hard){if(hard){level=1;score=0;newBest=false;}st='run';t=0;msg='';msgT=0;build();}
+  g.start=function(){best=lsGet('by.sums',0);reset(true);};
+  g.resize=function(){metrics();};
+  g.stop=function(){};
+  function rowSum(j){return val[j].reduce(function(a,b){return a+b;},0);}
+  function colSum(i){var s=0;for(var j=0;j<N;j++)s+=val[j][i];return s;}
+  function rowFull(j){return val[j].every(function(v){return v>0;});}
+  function colFull(i){for(var j=0;j<N;j++)if(!val[j][i])return false;return true;}
+  function rowDup(j){var seen={};return val[j].some(function(v){if(!v)return false;if(seen[v])return true;seen[v]=1;return false;});}
+  function solved(){
+    for(var j=0;j<N;j++){if(!rowFull(j)||rowSum(j)!==rs[j]||(uniq&&rowDup(j)))return false;}
+    for(var i=0;i<N;i++)if(colSum(i)!==cs[i])return false;
+    return true;
+  }
+  function put(n){
+    if(st!=='run'||win||!sel)return;
+    var x=sel[0],y=sel[1];if(lock[y][x])return;
+    val[y][x]=n;beep(n?380+n*40:300,0.04,'square',0.03,1.2);
+    if(solved()){
+      win=true;winT=1;
+      var bonus=Math.max(15,40+level*15-Math.floor(clock/4));
+      score+=bonus;msg='Every sum is right! +'+bonus;msgT=1.6;beep(900,0.3,'square',0.05,1.9);
+      if(score>best){best=score;newBest=true;lsSet('by.sums',best);}
+    }
+  }
+  g.down=function(x,y){
+    if(st==='over'){if(t>0.7)reset(true);return;}
+    for(var b=0;b<pad.length;b++){var p=pad[b];if(x>=p.x&&x<=p.x+p.w&&y>=p.y&&y<=p.y+p.h){put(p.n);return;}}
+    var i=Math.floor((x-ox)/S),j=Math.floor((y-oy)/S);
+    if(i>=0&&j>=0&&i<N&&j<N&&!lock[j][i]){
+      if(sel&&sel[0]===i&&sel[1]===j)put(val[j][i]>=M?0:val[j][i]+1);
+      else{sel=[i,j];beep(600,0.02,'square',0.02,1);}
+    }
+  };
+  function moveSel(dx,dy){
+    if(!sel)sel=[0,0];
+    var x=sel[0],y=sel[1];
+    for(var n=0;n<N*N;n++){
+      x+=dx;y+=dy;
+      if(x<0){x=N-1;y=(y+N-1)%N;}if(x>=N){x=0;y=(y+1)%N;}
+      if(y<0)y=N-1;if(y>=N)y=0;
+      if(!lock[y][x]){sel=[x,y];return;}
+    }
+  }
+  g.key=function(c,d){
+    if(!d)return;
+    if(st==='over'){if(t>0.7&&(c==='Space'||c==='Enter'))reset(true);return;}
+    if(c==='ArrowLeft'||c==='KeyA')moveSel(-1,0);
+    else if(c==='ArrowRight'||c==='KeyD')moveSel(1,0);
+    else if(c==='ArrowUp'||c==='KeyW')moveSel(0,-1);
+    else if(c==='ArrowDown'||c==='KeyS')moveSel(0,1);
+    else if(c==='Space'||c==='Enter'){if(sel)put(val[sel[1]][sel[0]]>=M?0:val[sel[1]][sel[0]]+1);}
+    else if(c==='KeyF'){if(sel)put(val[sel[1]][sel[0]]<=0?M:val[sel[1]][sel[0]]-1);}
+    else if(c==='Backspace'||c==='Delete'||c==='Digit0'||c==='Numpad0')put(0);
+    else if(/^(Digit|Numpad)[1-9]$/.test(c)){var n=+c.slice(-1);if(n<=M)put(n);}
+  };
+  g.update=function(dt){
+    t+=dt;if(msgT>0)msgT-=dt;
+    if(st==='run'&&!win)clock+=dt;
+    if(win){winT-=dt;if(winT<=0){level++;if(level>LAST){st='over';t=0;}else build();}}
+  };
+  g.draw=function(){
+    ctx.fillStyle='#16233f';ctx.fillRect(0,0,V.w,V.h);
+    txt('Score '+score,10,22,16,'#fff','left');
+    txt('Grid '+Math.min(level,LAST)+'/'+LAST,V.w/2,22,16,P.sun);
+    txt('Best '+best,V.w-10,22,15,P.sun,'right');
+    txt('Numbers 1-'+M+(uniq?' · no repeats in a row':''),ox+S*N/2,oy-16,Math.max(13,10*V.css),'#9fb0d8');
+    for(var j=0;j<N;j++)for(var i=0;i<N;i++){
+      var px=ox+i*S,py=oy+j*S,v=val[j][i],isSel=sel&&sel[0]===i&&sel[1]===j;
+      box(px+2,py+2,S-4,S-4,lock[j][i]?'#c7cede':(isSel?P.sun:'#f4f7ff'));
+      if(v)txt(String(v),px+S/2,py+S/2,Math.min(30,S*0.5),lock[j][i]?'#4a5470':P.ink);
+    }
+    /* the totals: green when that line is full and right, red when it is already too big */
+    function tot(s,goal,full,x,y,dup){
+      var col=(full&&s===goal&&!dup)?P.grass:(s>goal||dup?P.brick:'#2e4270');
+      box(x+4,y+4,S-8,S-8,col);txt(String(goal),x+S/2,y+S/2,Math.min(24,S*0.4),'#fff');
+    }
+    for(var r=0;r<N;r++)tot(rowSum(r),rs[r],rowFull(r),ox+N*S,oy+r*S,uniq&&rowDup(r));
+    for(var c=0;c<N;c++)tot(colSum(c),cs[c],colFull(c),ox+c*S,oy+N*S,false);
+    for(var b=0;b<pad.length;b++){var p=pad[b];box(p.x,p.y,p.w,p.h,p.n?'#e9eefb':'#ff9a8f');txt(p.n?String(p.n):'⌫',p.x+p.w/2,p.y+p.h/2,Math.min(24,p.h*0.45),P.ink);}
+    if(msgT>0)txt(msg,ox+S*N/2,oy+S*N/2,20,P.grass);
+    if(st==='over'){
+      ctx.fillStyle='rgba(22,35,63,.88)';ctx.fillRect(0,0,V.w,V.h);
+      txt('ALL GRIDS DONE!',V.w/2,V.h*0.4,30,P.grass);
+      txt('Score '+score,V.w/2,V.h*0.4+42,22,'#fff');
+      if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
+      if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
+    }
+  };
+  /* a real solver: fill the open squares one by one, giving up on a number as soon as a row or column cannot work */
+  function solve(){
+    var b=val.map(function(r,j){return r.map(function(v,i){return lock[j][i]?v:0;});});
+    var open=[];for(var j=0;j<N;j++)for(var i=0;i<N;i++)if(!lock[j][i])open.push([i,j]);
+    function ok(i,j){
+      var rsum=0,rleft=0,csum=0,cleft=0,seen={};
+      for(var x=0;x<N;x++){var v=b[j][x];if(v){rsum+=v;if(uniq){if(seen[v])return false;seen[v]=1;}}else rleft++;}
+      for(var y=0;y<N;y++){var w=b[y][i];if(w)csum+=w;else cleft++;}
+      if(rsum+rleft>rs[j]||rsum+rleft*M<rs[j])return false;
+      if(csum+cleft>cs[i]||csum+cleft*M<cs[i])return false;
+      return true;
+    }
+    var steps=0;
+    function go(k){
+      if(++steps>400000)return false;
+      if(k===open.length)return true;
+      var i=open[k][0],j=open[k][1];
+      for(var v=1;v<=M;v++){b[j][i]=v;if(ok(i,j)&&go(k+1))return true;}
+      b[j][i]=0;return false;
+    }
+    return go(0)?b:null;
+  }
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [LAST,'grids'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.18||win)return [level-1,'grids'];m.c=0;
+    if(m.lv!==level||!m.sol){m.lv=level;m.sol=solve()||sol;}
+    for(var j=0;j<N;j++)for(var i=0;i<N;i++){
+      if(lock[j][i]||val[j][i]===m.sol[j][i])continue;
+      if(!sel||sel[0]!==i||sel[1]!==j){tb.tap(ox+(i+0.5)*S,oy+(j+0.5)*S);return [level-1,'grids'];}
+      var want=m.sol[j][i];for(var b=0;b<pad.length;b++)if(pad[b].n===want){tb.tap(pad[b].x+pad[b].w/2,pad[b].y+pad[b].h/2);break;}
+      return [level-1,'grids'];
+    }
+    return [level-1,'grids'];
   };
   return g;
 })();
