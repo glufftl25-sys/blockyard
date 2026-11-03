@@ -778,6 +778,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><span class="b3d">3D</span><span class="bon">1V1</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#2a2a4d" width="88" height="88"/><rect fill="#5ed88a" y="60" width="88" height="28"/><rect x="10" y="30" width="18" height="30" fill="#3f8cff" stroke="#14213d" stroke-width="3"/><rect x="14" y="36" width="4" height="5" fill="#14213d"/><rect x="26" y="40" width="16" height="6" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="60" y="30" width="18" height="30" fill="#ff5a4d" stroke="#14213d" stroke-width="3"/><rect x="70" y="36" width="4" height="5" fill="#14213d"/><rect x="46" y="40" width="16" height="6" fill="#b48cff" stroke="#14213d" stroke-width="2"/><circle cx="44" cy="43" r="3" fill="#fff8c8"/></svg></span>
           <span class="tt">Blaster Duel</span><span class="ts"><span id="best-duel">Wins 0</span> · 1v1 to 5v5</span>
         </button>
+        <button class="tile" type="button" data-game="fall" data-name="floor drop falling tiles last one standing online multiplayer 3d party" style="--c:#7a8cff">
+          <span class="thumb"><span class="b3d">3D</span><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#b9c2ff" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><polygon points="8,40 26,32 44,40 26,48" fill="#78c8ff"/><polygon points="44,40 62,32 80,40 62,48" fill="#64bef5"/><polygon points="26,48 44,40 62,48 44,56" fill="#78c8ff"/><polygon points="44,24 62,16 80,24 62,32" fill="#ff5a4d"/><polygon points="20,76 38,68 56,76 38,84" fill="#ffaa78"/><polygon points="8,62 20,58 30,62 18,66" fill="#64bef5" opacity=".7"/></g><rect x="38" y="20" width="10" height="14" fill="#3f8cff" stroke="#14213d" stroke-width="2"/><rect x="39" y="12" width="8" height="8" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><g fill="#fff"><rect x="66" y="40" width="3" height="3"/><rect x="72" y="48" width="3" height="3"/><rect x="60" y="52" width="3" height="3"/></g></svg></span>
+          <span class="tt">Floor Drop</span><span class="ts"><span id="best-fall">Wins 0</span> · Last one standing</span>
+        </button>
         <button class="tile" type="button" data-game="obbymp" data-name="obby race online multiplayer 3d" style="--c:#5ed88a">
           <span class="thumb"><span class="b3d">3D</span><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true">
             <rect fill="#cdeeff" width="88" height="88"/>
@@ -9333,6 +9337,243 @@ GAMES.ball=(function(){
     tbWalk(tb,d[0],d[1]);
     return [side?b.bl:b.a,'goals'];
   };
+  return g;
+})();
+
+/* ===== Floor Drop (3D online): two floors of tiles over the clouds. A tile you stand on cracks and drops away a moment
+   later, so keep moving. Fall through both floors and you are out; the last one standing wins the round. The lowest peer
+   runs the round and the floor; everyone else reports the tiles they step on. Bots play when you are alone. ===== */
+GAMES.fall=(function(){
+  var g={kind:'canvas',title:'Floor Drop',lw:400,is3d:true};
+  var N=9,T=2.2,HALFF=N*T/2,LAY=[0,-6],SPD=7.4,JV=10.5,GR=30,CRACK=750,COUNT=3,PLAY=120,ENDT=5,OUTY=-16;
+  var BOTC=[[94,216,138],[180,140,255],[255,154,60]],BOTN=['Bot Mint','Bot Grape','Bot Mango'];
+  var CAMP={x:0,z:-14},t=0,P={x:0,y:0,z:0,vx:0,vy:0,vz:0,g:null},face=0,step=0,buf=0,alive=false,myR=-1,steps=[],flash=0,msg='',msgT=0,
+      H=null,lastSeen=null,bots=[],bits=[],prevF='',wonSeen=-1,surv=0,shake=0;
+  /* the floor: one character per tile, '0' solid, '1' cracking, '2' gone. Tile i = layer*81 + row*9 + column. */
+  function fresh(){var s='';for(var i=0;i<N*N*LAY.length;i++)s+='0';return s;}
+  function tileAt(px,pz,L){var c=Math.floor((px+HALFF)/T),r=Math.floor((pz+HALFF)/T);if(c<0||r<0||c>=N||r>=N)return -1;return L*N*N+r*N+c;}
+  function tileXZ(i){var k=i%(N*N);return [-HALFF+(k%N+0.5)*T,-HALFF+(Math.floor(k/N)+0.5)*T];}
+  function me(){return NET.me||'me';}
+  function botsOn(){return !netOthers().length;}
+  function hostPeer(){var ids=[me()];netOthers().forEach(function(p){ids.push(p.peer);});ids.sort();return ids[0];}
+  function amHost(){return hostPeer()===me();}
+  function cleanH(h){
+    if(!h||typeof h!=='object'||typeof h.f!=='string')return null;
+    var f=h.f.slice(0,N*N*LAY.length).replace(/[^012]/g,'0');while(f.length<N*N*LAY.length)f+='0';
+    return {r:netNum(h.r,0,1e9,0)|0,ph:['count','play','end'].indexOf(h.ph)>=0?h.ph:'count',left:netNum(h.left,0,PLAY,0),f:f,
+      w:typeof h.w==='string'?h.w.slice(0,40):'',wn:typeof h.wn==='string'?h.wn.slice(0,20):'',n:netNum(h.n,0,99,0)|0};
+  }
+  function curH(){
+    if(amHost())return H;
+    var hp=hostPeer(),out=null;
+    netOthers().forEach(function(p){if(p.peer===hp&&p.presence.hs)out=cleanH(p.presence.hs);});
+    if(out)lastSeen=out;
+    return out||lastSeen;
+  }
+  /* start spots: a ring on the top floor, in id order so nobody shares one */
+  function spawnOf(k,list){
+    var i=Math.max(0,list.indexOf(k)),n=Math.max(2,list.length),a=i/n*6.2832+0.4;
+    return [Math.cos(a)*5.2,Math.sin(a)*5.2];
+  }
+  function roster(){var ids=[me()];netOthers().forEach(function(p){ids.push(p.peer);});if(botsOn())bots.forEach(function(b){ids.push(b.k);});return ids.sort();}
+  /* the ground under a body: the highest floor that still has a tile there */
+  function ground(px,py,pz,f){
+    for(var L=0;L<LAY.length;L++){var i=tileAt(px,pz,L);if(i>=0&&f.charAt(i)!=='2'&&py>=LAY[L]-0.35)return {y:LAY[L],i:i};}
+    return null;
+  }
+  function body(o,ix,iz,jump,hold,sp,dt,f){
+    var acc=o.g?60:28;
+    o.vx+=clampN(ix*sp-o.vx,-acc*dt,acc*dt);o.vz+=clampN(iz*sp-o.vz,-acc*dt,acc*dt);
+    var lim=HALFF-0.3;o.x=clampN(o.x+o.vx*dt,-lim,lim);o.z=clampN(o.z+o.vz*dt,-lim,lim);
+    if(jump&&o.g){o.vy=JV;o.g=null;}
+    if(!hold&&o.vy>4.5)o.vy=4.5;
+    o.vy=Math.max(-30,o.vy-GR*dt);o.y+=o.vy*dt;
+    var gd=ground(o.x,o.y-o.vy*dt,o.z,f);
+    if(gd&&o.y<=gd.y&&o.vy<=0){o.y=gd.y;o.vy=0;o.g=gd;}else o.g=null;
+    return o.g;
+  }
+  function newRound(r){
+    var s={r:r,ph:'count',left:COUNT,f:fresh(),w:'',wn:'',n:0,ct:{}};
+    bits=[];
+    return s;
+  }
+  function placeMe(){
+    var sp=spawnOf(me(),roster());P.x=sp[0];P.z=sp[1];P.y=0;P.vx=P.vz=P.vy=0;P.g=null;face=Math.atan2(-P.x,-P.z);alive=true;surv=0;steps=[];CAM3.snap=true;
+  }
+  function placeBots(){var ids=roster();bots.forEach(function(b){var sp=spawnOf(b.k,ids);b.x=sp[0];b.z=sp[1];b.y=0;b.vx=b.vz=b.vy=0;b.al=true;b.g=null;b.tx=b.x;b.tz=b.z;b.think=0;});}
+  function makeBots(){bots=[];for(var i=0;i<3;i++)bots.push({k:'bot'+i,n:BOTN[i],c:BOTC[i],x:0,y:0,z:0,vx:0,vz:0,vy:0,face:0,step:0,al:true,g:null,tx:0,tz:0,think:0,sk:0.55+i*0.15});}
+  /* host: crack the tiles people stand on, drop cracked tiles, end the round */
+  function hostTick(dt){
+    if(!H){H=lastSeen?JSON.parse(JSON.stringify(lastSeen)):newRound(1);if(!H.ct)H.ct={};}
+    var now=Date.now(),f=H.f.split('');
+    H.left-=dt;
+    if(H.ph==='count'){if(H.left<=0){H.ph='play';H.left=PLAY;H.n=aliveList().length;}}
+    else if(H.ph==='play'){
+      var stand=steps.slice();
+      netOthers().forEach(function(p){var q=p.presence;if(Array.isArray(q.st)&&q.r===H.r)q.st.slice(0,8).forEach(function(i){stand.push(i|0);});});
+      if(botsOn())bots.forEach(function(b){if(b.al&&b.g)stand.push(b.g.i);});
+      stand.forEach(function(i){if(i>=0&&i<f.length&&f[i]==='0'){f[i]='1';H.ct[i]=now;}});
+      Object.keys(H.ct).forEach(function(i){if(now-H.ct[i]>=CRACK){f[i]='2';delete H.ct[i];}});
+      var al=aliveList();
+      if((H.n>=2&&al.length<=1)||al.length===0||H.left<=0){
+        H.ph='end';H.left=ENDT;H.w=al.length===1?al[0].k:'';H.wn=al.length===1?al[0].n:'';
+      }
+      H.f=f.join('');
+    }else if(H.left<=0){H=newRound(H.r+1);}
+  }
+  /* who is still standing this round: me, players in this round, bots */
+  function aliveList(){
+    var S=H||curH(),r=S?S.r:-1,l=[];
+    if(alive&&myR===r)l.push({k:me(),n:'You'});
+    netOthers().forEach(function(p){var q=p.presence;if(q.r===r&&q.al)l.push({k:p.peer,n:netName(p)});});
+    if(botsOn())bots.forEach(function(b){if(b.al)l.push({k:b.k,n:b.n});});
+    return l;
+  }
+  function botStep(dt,S){
+    bots.forEach(function(b){
+      if(!b.al)return;
+      b.think-=dt;
+      /* my tile is cracking: pick a new one soon (slower bots notice later) */
+      if(b.g&&S.f.charAt(b.g.i)==='1'&&b.cr!==b.g.i){b.cr=b.g.i;b.think=Math.min(b.think,b.sk*0.35);}
+      if(b.think<=0&&S.ph==='play'){
+        /* hop to a nearby solid tile on the same floor, or anywhere solid if the floor is running out */
+        var L=b.g?Math.floor(b.g.i/(N*N)):0,best=null,bd=1e9;
+        for(var k=0;k<N*N;k++){
+          var i=L*N*N+k;if(S.f.charAt(i)!=='0')continue;
+          var c=tileXZ(i),d=Math.hypot(c[0]-b.x,c[1]-b.z);if(d<0.8||d>6)continue;
+          /* tiles with holes around them are risky */
+          var cl=k%N,rw=Math.floor(k/N),risk=0;
+          [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(o){var c2=cl+o[0],r2=rw+o[1];if(c2<0||r2<0||c2>=N||r2>=N||S.f.charAt(L*N*N+r2*N+c2)!=='0')risk++;});
+          d+=risk*1.5+Math.random()*3;if(d<bd){bd=d;best=c;}
+        }
+        if(best){b.tx=best[0];b.tz=best[1];}
+        b.think=b.sk+Math.random()*0.5;
+      }
+      var dx=b.tx-b.x,dz=b.tz-b.z,d=Math.hypot(dx,dz),ix=d>0.3?dx/d:0,iz=d>0.3?dz/d:0;
+      if(S.ph!=='play'){ix=iz=0;}
+      body(b,ix,iz,false,true,5.6,dt,S.f);
+      var s=Math.hypot(b.vx,b.vz);if(s>0.6){b.face=Math.atan2(b.vx,b.vz);b.step+=dt*s*1.5;}
+      if(b.y<OUTY)b.al=false;
+    });
+  }
+  g.start=function(){
+    PAD.reset();t=0;H=null;lastSeen=null;myR=-1;alive=false;bits=[];prevF='';wonSeen=-1;msg='';msgT=0;flash=0;
+    P={x:0,y:0,z:-4,vx:0,vy:0,vz:0,g:null};makeBots();CAMP.x=0;CAMP.z=-14;CAM3.snap=true;
+    netJoin('w3-fall');STAT.add('plays3d',1);
+  };
+  g.stop=function(){PAD.reset();netLeave();};
+  g.down=function(px,py,id){if(CAM3.hit(px,py)){CAM3.cycle(face);return;}PAD.down(px,py,id);};
+  g.move=function(px,py,id){PAD.move(px,py,id);};
+  g.up=function(px,py,id){PAD.up(px,py,id);};
+  g.key=function(c,d){if(d&&c==='KeyV'){CAM3.cycle(face);return;}PAD.key(c,d);};
+  g.update=function(dt){
+    t+=dt;if(flash>0)flash-=dt;if(msgT>0)msgT-=dt;if(shake>0)shake-=dt;
+    CAM3.tick(dt);
+    if(amHost())hostTick(dt);else H=null;
+    var S=curH();
+    if(!S){netSend({x:Math.round(P.x*100)/100,y:Math.round(P.y*100)/100,z:Math.round(P.z*100)/100,f:0,out:1,al:0,r:-1});netFlush();return;}
+    /* a new round: everyone back on the top floor */
+    if(S.r!==myR&&S.ph==='count'){myR=S.r;placeMe();if(botsOn())placeBots();bits=[];prevF=S.f;}
+    else if(S.r!==myR&&myR<0){myR=-2;alive=false;msg='Round in progress, you play the next one';msgT=3;}
+    if(botsOn()&&amHost())botStep(dt,S);
+    /* tiles that just dropped: a puff of bits and a thud */
+    if(prevF&&prevF.length===S.f.length){
+      var drops=0;
+      for(var i=0;i<S.f.length;i++)if(S.f.charAt(i)==='2'&&prevF.charAt(i)!=='2'){var c=tileXZ(i),ly=LAY[Math.floor(i/(N*N))];drops++;for(var k=0;k<4;k++)bits.push({x:c[0]+(Math.random()-0.5)*T,y:ly-0.3,z:c[1]+(Math.random()-0.5)*T,vy:-Math.random()*2,vx:(Math.random()-0.5)*2,vz:(Math.random()-0.5)*2,t:0});}
+      if(drops)beep(140,0.12,'triangle',0.035,0.5);
+    }
+    prevF=S.f;
+    bits.forEach(function(b){b.t+=dt;b.vy-=18*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;});bits=bits.filter(function(b){return b.t<1.4;});
+    if(bits.length>160)bits.splice(0,bits.length-160);
+    var moving=PAD.axes(),jp=PAD.take(),mv=CAM3.dir(PAD.ax,PAD.ay);
+    if(jp)buf=0.12;else buf-=dt;
+    if(alive&&myR===S.r){
+      if(S.ph==='count'){mv=[0,0];}
+      var onG=!!P.g,gd=body(P,mv[0],mv[1],buf>0,PAD.holding(),SPD*cheatSpd(),dt,S.f);
+      if(onG&&buf>0&&P.vy>0){buf=0;beep(520,0.08,'square',0.035,1.8);}
+      if(gd&&S.ph==='play'){if(steps.indexOf(gd.i)<0){steps.push(gd.i);if(steps.length>6)steps.shift();}if(S.f.charAt(gd.i)==='0'&&flash<=0)beep(420,0.03,'square',0.02,1.2);}
+      if(S.ph==='play')surv+=dt;
+      if(P.y<OUTY){
+        alive=false;flash=0.5;shake=0.4;buzz(180,0.5);beep(200,0.5,'sawtooth',0.05,0.4);msg='You fell! Watch the others';msgT=2.5;
+        if(surv>lsGet('by.fallt',0))lsSet('by.fallt',Math.floor(surv));
+      }
+      var sp=Math.hypot(P.vx,P.vz);if(sp>0.7){face=Math.atan2(P.vx,P.vz);step+=dt*sp*1.5;}
+    }
+    if(S.ph!=='play')steps=[];
+    /* round over: did I win? */
+    if(S.ph==='end'&&wonSeen!==S.r){
+      wonSeen=S.r;
+      if(S.w===me()){lsSet('by.fall',lsGet('by.fall',0)+1);flash=0.5;beep(880,0.5,'square',0.06,2);}
+    }
+    var out=!(alive&&myR===S.r);
+    netSend({x:Math.round(P.x*100)/100,y:Math.round(P.y*100)/100,z:Math.round(P.z*100)/100,f:Math.round(face*100)/100,r:myR,al:out?0:1,out:out?1:0,st:steps.slice(),hs:amHost()&&H?{r:H.r,ph:H.ph,left:Math.round(H.left*10)/10,f:H.f,w:H.w,wn:H.wn,n:H.n}:null});
+    netFlush();
+  };
+  g.draw=function(){
+    var S=curH(),f=S?S.f:fresh(),i;
+    R3.sky('#7a8cff','#ffd1f0',V.h);
+    R3.fog([255,209,240],30,80);
+    var watch=!(alive&&S&&myR===S.r),cx=watch?0:P.x,cy=watch?0:Math.max(P.y,-6),cz=watch?0:P.z;
+    var fr=CAM3.mode===1,ez=fr?cz+10:cz-10,sh=shake>0?(Math.random()-0.5)*shake:0;
+    if(CAM3.snap){CAMP.x=cx*0.6;CAMP.z=ez;CAM3.snap=false;}else{CAMP.x+=(cx*0.6-CAMP.x)*0.1;CAMP.z+=(ez-CAMP.z)*0.1;}
+    if(CAM3.mode===2&&!watch)R3.camera(P.x,P.y+1.45,P.z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
+    else R3.look(CAMP.x+sh,13+cy*0.6,CAMP.z,CAMP.x*0.9,cy*0.6-1,CAMP.z+(fr?-10:10),V.w*0.98,V.w/2,V.h*0.5);
+    var now=Date.now();
+    for(var L=LAY.length-1;L>=0;L--){
+      for(var k=0;k<N*N;k++){
+        i=L*N*N+k;var ch=f.charAt(i);if(ch==='2')continue;
+        var c=tileXZ(i),col=L===0?(((k%N+Math.floor(k/N))&1)?[120,210,255]:[100,190,245]):(((k%N+Math.floor(k/N))&1)?[255,170,120]:[245,150,100]);
+        var wob=0;
+        if(ch==='1'){var fl=(Math.sin(t*40+k)>0);col=fl?[255,90,77]:[255,210,63];wob=Math.sin(t*50+k)*0.05;}
+        R3.box(c[0]+wob,LAY[L]-0.45,c[1],T-0.12,0.45,T-0.12,col,0,true);
+      }
+    }
+    bits.forEach(function(b){R3.box(b.x,b.y,b.z,0.3,0.3,0.3,[200,200,220],b.t*5);});
+    var tags=netDraw(1/60);
+    if(botsOn())bots.forEach(function(b){if(b.y<OUTY)return;blockPerson(b.x,b.y,b.z,b.face,b.c,b.step,false,null);var gd=ground(b.x,b.y,b.z,f);if(gd)R3.shadow(b.x,gd.y+0.02,b.z,0.42);tags.push({x:b.x,y:b.y+2,z:b.z,n:b.n});});
+    if(!watch&&CAM3.mode!==2){blockPerson(P.x,P.y,P.z,face,hex2rgb(avPart('body',avOf(W&&W.av).body).c),step,false,myAv3());var gm=ground(P.x,P.y,P.z,f);if(gm)R3.shadow(P.x,gm.y+0.02,P.z,0.45);}
+    R3.flush();
+    netTags(tags);
+    hud(S);
+    if(flash>0){ctx.fillStyle=alive?'rgba(255,236,140,'+(flash*0.5)+')':'rgba(255,90,77,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
+  };
+  function hud(S){
+    var ck=netCompact(),al=S?aliveStanding(S):0;
+    if(!S)txt('Connecting...',V.w/2,netMidY(0.3),18,'#fff');
+    else if(S.ph==='count')txt('Get ready! '+Math.max(1,Math.ceil(S.left)),V.w/2,netMidY(0.28),ck?20:26,P.sun);
+    else if(S.ph==='play'){
+      var sl=Math.ceil(S.left);txt(Math.floor(sl/60)+':'+(sl%60<10?'0':'')+(sl%60),12,24,17,'#fff','left');
+      txt(al+' standing',V.w-12,24,14,'#fff','right');
+      if(t<8||msgT<=0&&alive&&surv<4)txt('Keep moving! Tiles drop after you step on them',V.w/2,ck?V.h-14:V.h-40,ck?11:13,'#fff');
+    }
+    if(S&&S.ph==='end'){
+      var oy=ck?80:V.h*0.24,win=S.w===me();
+      ctx.fillStyle='rgba(20,33,61,0.6)';ctx.fillRect(0,oy-24,V.w,ck?V.h-oy+24:120);
+      var wn=win?'YOU WIN!':(S.w?(S.wn||nameOfPeer(S.w))+' wins!':'Nobody is left!');
+      txt(wn,V.w/2,oy+4,ck?24:32,win?P.sun:'#fff');
+      txt('Next round in '+Math.max(1,Math.ceil(S.left)),V.w/2,oy+(ck?32:48),ck?13:16,'#dfe6ff');
+    }
+    txt(botsOn()&&!NET.blocked?(NET.room?'Playing with bots until friends join':'Playing with bots'):netStatus(),12,S&&S.ph==='play'?44:24,11,P.sun,'left');
+    if(msgT>0&&msg)txt(msg,V.w/2,netMidY(0.3)+(ck?20:30),ck?13:16,P.sun);
+    if(alive)PAD.draw();
+    CAM3.draw(false);
+  }
+  function aliveStanding(S){var n=(alive&&myR===S.r)?1:0;netOthers().forEach(function(p){if(p.presence.r===S.r&&p.presence.al)n++;});if(botsOn())bots.forEach(function(b){if(b.al)n++;});return n;}
+  function nameOfPeer(k){var o=null;netOthers().forEach(function(p){if(p.peer===k)o=netName(p);});return o||'Someone';}
+  /* test bots: play for real (head for the nearest solid tile that nobody is standing on) */
+  g.tbp=function(tb,dt){
+    var S=curH(),m=tb.m;
+    if(!S||!alive||S.ph!=='play'){tb.only([]);return [Math.floor(surv),'seconds standing'];}
+    m.th=(m.th||0)-dt;
+    if(m.th<=0||!m.tg||S.f.charAt(m.tg.i)!=='0'){
+      var L=P.g?Math.floor(P.g.i/(N*N)):(P.y>LAY[1]+1?0:1),best=null,bd=1e9;
+      for(var k=0;k<N*N;k++){var i=L*N*N+k;if(S.f.charAt(i)!=='0')continue;var c=tileXZ(i),d=Math.hypot(c[0]-P.x,c[1]-P.z);if(d<1.2)continue;if(d<bd){bd=d;best={i:i,x:c[0],z:c[1]};}}
+      m.tg=best;m.th=0.5;
+    }
+    if(m.tg)tbWalk(tb,m.tg.x-P.x,m.tg.z-P.z);else tb.only([]);
+    return [Math.floor(surv),'seconds standing'];
+  };
+  HUBBEST['best-fall']=function(){return 'Wins '+lsGet('by.fall',0);};
   return g;
 })();
 
