@@ -3323,6 +3323,27 @@ function netStatus(){
    height on a big screen, just under the camera button on a short one). */
 function netCompact(){return V.h<260;}
 function netMidY(f){return netCompact()?88:V.h*f;}
+/* little effects the online 3D games share: bursts of bits (nfxBurst), floating "+1" text (nfxPop) and confetti.
+   A game calls nfxClear() when it starts, nfxStep(dt) every update, nfxDraw() before R3.flush() and nfxText() after it. */
+var NFX={p:[],t:[]};
+function nfxClear(){NFX.p=[];NFX.t=[];}
+function nfxBurst(x,y,z,col,n,spd){
+  spd=spd||3;
+  for(var i=0;i<n;i++)NFX.p.push({x:x,y:y,z:z,vx:(Math.random()-0.5)*spd*2,vy:Math.random()*spd+1,vz:(Math.random()-0.5)*spd*2,t:0,life:0.6+Math.random()*0.5,c:col,s:0.14+Math.random()*0.1});
+  if(NFX.p.length>160)NFX.p.splice(0,NFX.p.length-160);
+}
+function nfxConfetti(x,y,z){var cs=[[255,90,77],[255,210,63],[94,216,138],[63,140,255],[180,140,255]];for(var i=0;i<5;i++)nfxBurst(x,y,z,cs[i],6,5);}
+function nfxPop(x,y,z,s,col){NFX.t.push({x:x,y:y,z:z,s:String(s),c:col||'#fff',t:0});if(NFX.t.length>12)NFX.t.shift();}
+function nfxStep(dt){
+  NFX.p.forEach(function(p){p.t+=dt;p.vy-=12*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;});
+  NFX.p=NFX.p.filter(function(p){return p.t<p.life;});
+  NFX.t.forEach(function(q){q.t+=dt;q.y+=dt*1.4;});
+  NFX.t=NFX.t.filter(function(q){return q.t<1.1;});
+}
+function nfxDraw(){NFX.p.forEach(function(p){R3.box(p.x,p.y,p.z,p.s,p.s,p.s,p.c,p.t*7);});}
+function nfxText(){
+  NFX.t.forEach(function(q){var pr=R3.project(q.x,q.y,q.z);if(!pr||pr[2]>50)return;ctx.save();ctx.globalAlpha=Math.max(0,1-q.t/1.1);txt(q.s,pr[0],pr[1],Math.max(13,Math.min(22,300/pr[2])),q.c);ctx.restore();});
+}
 
 /* ===== Gem Rush (3D solo): grab gems before the clock runs out. Patrol robots knock 5 seconds off. ===== */
 GAMES.gems=(function(){
@@ -3509,6 +3530,8 @@ GAMES.hill=(function(){
   var HALF=12,TILE=2.4,SPD=7.6,JV=11,GR=30,HH=0.9,HS=2.6,ROUND=120000,GOAL=30,BR=0.45;
   var BOTC=[[94,216,138],[180,140,255],[255,154,60]],BOTN=['Bot Mint','Bot Grape','Bot Mango'];
   var CAMP={x:0,z:-14};
+  /* polish: crowdT = how long I have been on the hill with someone else; lastSec = the last countdown beep; winFx = the round whose win confetti has played */
+  var crowdT=0,lastSec=-1,winFx=-1;
   var t=0,x=0,z=-8,y=0,vx=0,vz=0,vy=0,face=0,step=0,buf=0,pts=0,rnd=0,bots=[],flash=0,msg='',msgT=0,saved=-1,lastWin='';
   function roundId(){return Math.floor(Date.now()/ROUND);}
   function roundLeft(){return Math.max(0,(ROUND-(Date.now()%ROUND))/1000);}
@@ -3569,7 +3592,7 @@ GAMES.hill=(function(){
   }
   g.start=function(){
     PAD.reset();t=0;S.x=(Math.random()*2-1)*6;S.z=-9;S.y=0;S.vx=S.vz=S.vy=0;face=0;step=0;
-    rnd=roundId();pts=0;makeBots();msg='';msgT=0;CAMP.x=0;CAMP.z=-14;CAM3.snap=true;
+    rnd=roundId();pts=0;makeBots();msg='';msgT=0;CAMP.x=0;CAMP.z=-14;CAM3.snap=true;nfxClear();crowdT=0;lastSec=-1;winFx=-1;
     netJoin('w3-hill');STAT.add('plays3d',1);
   };
   g.stop=function(){PAD.reset();netLeave();};
@@ -3609,10 +3632,17 @@ GAMES.hill=(function(){
       var meOn=onHill(S.x,S.z,S.y),crowd=0;
       others().forEach(function(p){var q=p.presence;if(onHill(netNum(q.x,-50,50,0),netNum(q.z,-50,50,0),netNum(q.y,-5,20,0)))crowd++;});
       if(useBots)bots.forEach(function(b){if(onHill(b.x,b.z,b.y))crowd++;});
+      var p0=Math.floor(pts);
       if(meOn&&crowd===0)pts=Math.min(GOAL,pts+dt);
+      if(Math.floor(pts)>p0){nfxPop(S.x,S.y+2.5,S.z,'+1',P.sun);nfxBurst(S.x,S.y+0.6,S.z,[255,210,63],5,2.5);beep(480+Math.floor(pts)*14,0.05,'square',0.03,1.3);}
+      crowdT=(meOn&&crowd>0)?crowdT+dt:0;
       if(useBots)bots.forEach(function(b){if(!onHill(b.x,b.z,b.y))return;var c2=(meOn?1:0);bots.forEach(function(o){if(o!==b&&onHill(o.x,o.z,o.y))c2++;});if(c2===0)b.pts=Math.min(GOAL,b.pts+dt);});
     }
+    /* the last 10 seconds of a round tick */
+    var sl=Math.ceil(roundLeft());if(sl<=10&&sl!==lastSec&&!roundOver()){lastSec=sl;beep(sl<=3?880:660,0.05,'square',0.03,1);}
     var w=winner();
+    if(w&&winFx!==rnd){winFx=rnd;nfxConfetti(0,HH+1.5,0);}
+    nfxStep(dt);
     if(w&&w.me&&saved!==rnd){saved=rnd;lsSet('by.hill',lsGet('by.hill',0)+1);flash=0.4;beep(880,0.5,'square',0.06,2);}
     netSend({x:Math.round(S.x*100)/100,y:Math.round(S.y*100)/100,z:Math.round(S.z*100)/100,f:Math.round(face*100)/100,r:rnd,pts:Math.round(pts*10)/10});
     netFlush();
@@ -3633,22 +3663,37 @@ GAMES.hill=(function(){
       R3.box(-HALF-0.3,0,c,0.6,1.1,L,[139,151,177],0,true);R3.box(HALF+0.3,0,c,0.6,1.1,L,[139,151,177],0,true);
     }
     R3.box(0,0,0,HS*2,HH-0.12,HS*2,[214,166,60]);
-    R3.box(0,HH-0.12,0,HS*2+0.1,0.12,HS*2+0.1,[255,210,63]);
+    /* the hill top glows while I score, and flashes red while it is crowded */
+    var meOnD=onHill(x,z,y),hc=[255,210,63];
+    if(meOnD&&crowdT>0)hc=(Math.sin(t*14)>0)?[255,120,90]:[255,210,63];
+    else if(meOnD&&!roundOver()){var gl=0.5+0.5*Math.sin(t*8);hc=[255,Math.round(210+40*gl),Math.round(63+120*gl)];}
+    R3.box(0,HH-0.12,0,HS*2+0.1,0.12,HS*2+0.1,hc);
     R3.box(0,HH,0,0.14,3.2,0.14,[60,60,80],0);
     R3.box(0.55,HH+2.7,0,1.0,0.6,0.08,[255,90,77],Math.sin(t*3)*0.25);
     var tags=netDraw(1/60);
     if(botsOn())bots.forEach(function(b){blockPerson(b.x,b.y,b.z,b.face,b.c,b.step,false,null);R3.shadow(b.x,(b.y>=HH-0.05&&inFoot(b.x,b.z,0)?HH:0)+0.02,b.z,0.42);tags.push({x:b.x,y:b.y+2.0,z:b.z,n:b.n});});
     var col=hex2rgb(SKIN.col(P.blue));
     if(CAM3.mode!==2)blockPerson(x,y,z,face,col,step,false,myAv3());
+    /* a gold crown floats over whoever leads the round */
+    var lp=leaderPos();if(lp){R3.box(lp[0],lp[1]+2.35,lp[2],0.6,0.18,0.6,[255,210,63],t*2);R3.box(lp[0],lp[1]+2.53,lp[2],0.18,0.2,0.18,[255,236,140],t*2);}
+    nfxDraw();
     R3.shadow(x,(inFoot(x,z,0)&&y>=HH-0.05?HH:0)+0.02,z,0.45);
     R3.flush();
     netTags(tags);
+    nfxText();
     hud();
     if(flash>0){ctx.fillStyle='rgba(255,210,63,'+(flash*0.6)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
+  /* where the round leader stands (me, a bot or another player), or null while nobody has points */
+  function leaderPos(){
+    var best=pts>0?{p:pts,x:x,y:y,z:z}:null;
+    if(botsOn())bots.forEach(function(b){if(b.pts>0&&(!best||b.pts>best.p))best={p:b.pts,x:b.x,y:b.y,z:b.z};});
+    others().forEach(function(p){var v=netNum(p.presence.pts,0,999,0),sm=NET.sm[p.peer];if(v>0&&sm&&(!best||v>best.p))best={p:v,x:sm.x,y:sm.y,z:sm.z};});
+    return best?[best.x,best.y,best.z]:null;
+  }
   function hud(){
     var left=roundLeft(),m=Math.floor(left/60),s=Math.floor(left%60);
-    txt('Round '+m+':'+(s<10?'0':'')+s,12,22,16,'#fff','left');
+    txt('Round '+m+':'+(s<10?'0':'')+s,12,22,16,left<=10&&!roundOver()?'#ff8a7a':'#fff','left');
     txt(botsOn()?(NET.room?'Playing with bots until friends join':(NET.blocked?netStatus():'Playing with bots')):netStatus(),12,42,11,P.sun,'left');
     var b=board().slice(0,4);
     b.forEach(function(r,i){txt((i===0&&r.p>0?'♛ ':'')+r.n.slice(0,12)+' '+Math.floor(r.p),V.w-10,22+i*18,13,r.me?P.sun:'#fff','right');});
@@ -3658,7 +3703,8 @@ GAMES.hill=(function(){
     txt('Your points '+Math.floor(pts)+' / '+GOAL,V.w/2,by-12,12,'#fff');
     var w=winner();
     if(w)txt(w.me?'You are the Hill King!':w.n+' is the Hill King!',V.w/2,my,ck?18:24,P.sun);
-    else if(onHill(S.x,S.z,S.y))txt('On the hill!',V.w/2,my,20,P.sun);
+    else if(onHill(S.x,S.z,S.y)&&crowdT>0)txt('Crowded! Push them off to score',V.w/2,my,ck?15:18,'#ff8a7a');
+    else if(onHill(S.x,S.z,S.y))txt('On the hill! Scoring...',V.w/2,my,ck?16:20,P.sun);
     else if(t<6)txt('Stand on the gold hill alone to score',V.w/2,my,15,'#fff');
     if(msgT>0&&msg)txt(msg,V.w/2,my+(ck?18:30),ck?13:16,'#fff');
     PAD.draw();
