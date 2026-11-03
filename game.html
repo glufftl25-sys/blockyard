@@ -10196,9 +10196,15 @@ GAMES.pong=(function(){
     if(st==='over'){tb.up();if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h*0.7);}return [s1,'points'];}
     m.o=0;
     if(!bot){tb.up();tb.tap(V.w-50,30);return [s1,'points'];}
-    var y1=V.h-54,tx=V.w/2;
-    if(vy>0){var tt=(y1-R-by)/(vy*60),w=V.w-2*R,xx=bx+vx*60*tt-R;xx=((xx%(2*w))+2*w)%(2*w);if(xx>w)xx=2*w-xx;tx=xx+R;}
-    var off=(px2+PW/2>V.w/2?-1:1)*PW*0.42,aim=clampN(tx-off,PW/2,V.w-PW/2);
+    var y1=V.h-54,tx=V.w/2,dir=px2+PW/2>V.w/2?-1:1;
+    if(vy>0){
+      var tt=(y1-R-by)/(vy*60),w=V.w-2*R,raw=bx+vx*60*tt-R,xx=((raw%(2*w))+2*w)%(2*w);
+      /* which way the ball will be moving when it reaches the paddle (each wall bounce flips it) */
+      dir=(xx>w?-1:1)*(vx>=0?1:-1);
+      if(xx>w)xx=2*w-xx;tx=xx+R;
+    }
+    /* hit it on the side it is already moving toward, so it gets faster sideways every hit until the bot cannot keep up */
+    var off=dir*PW*0.45,aim=clampN(tx-off,PW/2,V.w-PW/2);
     if(!tb.pressing())tb.down(aim,V.h-40);else tb.mv(aim,V.h-40);
     return [s1,'points'];
   };
