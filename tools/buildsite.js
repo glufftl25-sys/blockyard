@@ -39,9 +39,11 @@ const um = game.match(/var UPDATES=(\[[\s\S]*?\]);\n/);
 if (um) { try { updates = JSON.parse(um[1]).slice(0, 4); } catch (e) { updates = []; } }
 
 const n = games.length, nOnline = games.filter(g => g.online).length, n3d = games.filter(g => g.is3d).length;
+/* a real picture of the game (made by tools/gameshots.js) when there is one; the tile art otherwise */
+const shot = id => fs.existsSync(path.join(root, 'site/shots/games', id + '.jpg')) ? 'site/shots/games/' + id + '.jpg' : '';
 const card = g => `
       <a class="game" href="game.html#play=${esc(g.id)}" style="--c:${g.color}" data-k="${g.is3d ? '3d' : '2d'}${g.online ? ' online' : ''}" data-w="${esc(g.words)}">
-        <span class="thumb">${g.art.replace('class="art"', 'class="art" focusable="false"')}${g.is3d ? '<b class="tag3d">3D</b>' : ''}${g.online ? '<b class="tagon">ONLINE</b>' : ''}</span>
+        <span class="thumb">${g.art.replace('class="art"', 'class="art" focusable="false"')}${shot(g.id) ? `<img class="real" src="${shot(g.id)}" alt="" loading="lazy" decoding="async">` : ''}${g.is3d ? '<b class="tag3d">3D</b>' : ''}${g.online ? '<b class="tagon">ONLINE</b>' : ''}</span>
         <span class="gt">${esc(g.title)}</span>${g.tag ? `<span class="gs">${esc(g.tag)}</span>` : ''}
       </a>`;
 const upd = u => `
@@ -144,6 +146,11 @@ section{scroll-margin-top:72px}
 .game:hover{transform:translateY(-4px);box-shadow:0 9px 0 var(--ink)}
 .game .thumb{position:relative;display:block;aspect-ratio:1;border-bottom:3px solid var(--ink);background:var(--c)}
 .game .art{width:100%;height:100%}
+/* the real picture covers the tile art on hover or focus. Touch screens keep the tile art, which reads better that
+   small, and never download the pictures (a lazy image that is not shown is not fetched) */
+.game .real{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .18s}
+.game:hover .real,.game:focus-visible .real{opacity:1}
+@media (hover:none){.game .real{display:none}}
 .game .thumb b{position:absolute;top:8px;font:800 11px/1 var(--body);padding:4px 7px;border-radius:7px;border:2px solid var(--ink);letter-spacing:.5px}
 .tag3d{left:8px;background:var(--cyan)}
 .tagon{right:8px;background:var(--grass)}
