@@ -634,6 +634,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#123a6b" width="88" height="88"/><circle cx="44" cy="48" r="34" fill="#14213d"/><circle cx="44" cy="48" r="31" fill="#bfe9ff"/><path d="M24 40a22 22 0 0 1 18-14" fill="none" stroke="#fff" stroke-width="3"/><rect x="22" y="44" width="18" height="18" fill="#ff6b5b" stroke="#14213d" stroke-width="3"/><rect x="26" y="49" width="3" height="5" fill="#14213d"/><rect x="33" y="49" width="3" height="5" fill="#14213d"/><rect x="50" y="30" width="18" height="18" fill="#3cc8f0" stroke="#14213d" stroke-width="3"/><rect x="54" y="35" width="3" height="5" fill="#14213d"/><rect x="61" y="35" width="3" height="5" fill="#14213d"/><path d="M42 50l8-6M44 56l8-4" stroke="#ffd23f" stroke-width="3" stroke-linecap="round"/></svg></span>
           <span class="tt">Block Bumpers</span><span class="ts"><span id="best-bumpers">Wins 0</span> · Online · Bump them off the ice</span>
         </button>
+        <button class="tile" type="button" data-game="ftag" data-name="freeze tag online multiplayer 2d tag chase run thaw team bots" style="--c:#9fe6ff">
+          <span class="thumb"><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#bfe0f2" width="88" height="88"/><g fill="#5b6fae" stroke="#14213d" stroke-width="2"><rect x="6" y="8" width="16" height="16"/><rect x="66" y="64" width="16" height="16"/><rect x="40" y="56" width="10" height="24"/></g><circle cx="26" cy="54" r="15" fill="rgba(255,77,77,.3)"/><rect x="18" y="46" width="16" height="16" fill="#ff4d4d" stroke="#14213d" stroke-width="3"/><rect x="22" y="51" width="3" height="4" fill="#14213d"/><rect x="28" y="51" width="3" height="4" fill="#14213d"/><rect x="52" y="20" width="16" height="16" fill="#5ed88a" stroke="#14213d" stroke-width="3"/><rect x="48" y="16" width="24" height="24" fill="rgba(200,245,255,.7)" stroke="#fff" stroke-width="2"/><rect x="51" y="19" width="4" height="4" fill="#fff"/><text x="26" y="40" font-size="10" font-weight="700" text-anchor="middle" fill="#ff4d4d" stroke="#14213d" stroke-width="0.6">IT</text></svg></span>
+          <span class="tt">Freeze Tag</span><span class="ts"><span id="best-ftag">Wins 0</span> · Online · Freeze or thaw</span>
+        </button>
         <button class="tile" type="button" data-game="hoops" data-name="hoops basketball shoot 2d" style="--c:#ff9a3c">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#2d3a6b" width="88" height="88"/><rect x="34" y="16" width="36" height="6" fill="#ff5a4d"/><path d="M36 22l8 16h18l6-16" fill="none" stroke="#fff" stroke-width="2"/><rect x="66" y="10" width="6" height="20" fill="#9aa4bb"/><circle cx="26" cy="58" r="13" fill="#ff9a3c" stroke="#14213d" stroke-width="3"/><path d="M13 58h26M26 45v26" stroke="#14213d" stroke-width="2"/></svg></span>
           <span class="tt">Hoops</span><span class="ts"><span id="best-hoops">Best 0</span> · Flick and score</span>
@@ -4483,6 +4487,286 @@ GAMES.bumpers=(function(){
   return g;
 })();
 HUBBEST['best-bumpers']=function(){return 'Wins '+lsGet('by.bumpers',0);};
+/* ===== Freeze Tag (2D, online): a top-down arena with block walls. One tagger (two with 5 or more on the field)
+   freezes runners by touching them; a free runner touches a frozen one to thaw them. Taggers win if every runner is
+   frozen at once; runners win if anyone is still free after 60 seconds. Uses the 2D online lobby kit. Who is a tagger
+   comes from the start time the host set, so every screen agrees. Every device moves its own player and bots, and
+   sends the freezes and thaws they made; the newest freeze or thaw for each runner is what counts everywhere. The host
+   says when the round is over. ===== */
+GAMES.ftag=(function(){
+  var g={kind:'canvas',title:'Freeze Tag',lw:360};
+  var MW=20,MH=14,RAD=0.36,RSPD=4.4,TSPD=4.9,ROUND=60000,SHOW=6500,SAFE=1500,MAXB=7;
+  var MAP=[
+    '....................',
+    '.##......##......##.',
+    '.#................#.',
+    '.....###....###.....',
+    '..#..............#..',
+    '..#....#....#....#..',
+    '.......#....#.......',
+    '.......#....#.......',
+    '..#....#....#....#..',
+    '..#..............#..',
+    '.....###....###.....',
+    '.#................#.',
+    '.##......##......##.',
+    '....................'];
+  var PAL=['#3cc8f0','#5ed88a','#ffd23f','#b48cff','#ff9a3c','#ff8ad4','#2fd4c4','#e2e86b'];
+  var L=lob2d({title:'Freeze Tag',room:'w2-ftag',maxP:6,maxB:MAXB,maxT:8,defNb:4,col:'#9fe6ff',
+    note:function(np,nb){var n=np+nb;return n+' players · '+(n>=5?2:1)+' tagger'+(n>=5?'s':'')+' · 60 seconds';},
+    onMatch:function(){mine=[];evs=[];myEv=[];nEv=0;res=null;saved=false;fx=[];roles=null;},
+    onAct:function(a){if(a.a==='again')L.again();}});
+  var nEv=0,mine=[],evs=[],myEv=[],res=null,saved=false,fx=[],roles=null,t=0,cs=20,ox=0,oy=0,rosterC=null;
+  function now(){return Date.now();}
+  function me(){return L.myKey();}
+  function wall(cx,cy){return cx<0||cy<0||cx>=MW||cy>=MH||MAP[cy].charAt(cx)==='#';}
+  function roster(){
+    var ks=L.keyList(),out=ks.slice(),n=0;
+    (L.alloc||[]).forEach(function(e){for(var j=0;j<e[1];j++){if(ks.indexOf(e[0])>=0)out.push(e[0]+':b'+n);n++;}});
+    return out;
+  }
+  function rng(seed){var a=seed>>>0;return function(){a=(a+0x6D2B79F5)>>>0;var q=a;q=Math.imul(q^(q>>>15),q|1);q^=q+Math.imul(q^(q>>>7),q|61);return ((q^(q>>>14))>>>0)/4294967296;};}
+  /* the taggers: picked from everyone (players and bots, in a fixed order) by the start time */
+  function makeRoles(){
+    var all=L.keyList().slice(),n=0;
+    (L.alloc||[]).forEach(function(e){for(var j=0;j<e[1];j++){all.push(e[0]+':b'+n);n++;}});
+    var r=rng(L.mStart%2147483647),pool=all.slice(),it={},cnt=all.length>=5?2:1;
+    for(var i=0;i<cnt&&pool.length;i++){var j=Math.floor(r()*pool.length);it[pool[j]]=1;pool.splice(j,1);}
+    roles={it:it,all:all};
+  }
+  function isIt(k){return !!(roles&&roles.it[k]);}
+  function colorOf(k){if(isIt(k))return '#ff4d4d';var r=(roles?roles.all:roster()).filter(function(x){return !isIt(x);}),i=r.indexOf(k);return PAL[(i<0?0:i)%PAL.length];}
+  function nameOf(k){
+    if(k===me())return 'You';
+    var b=k.lastIndexOf(':b');if(b>0)return 'Bot '+((+k.slice(b+2))+1);
+    var p=L.groupOthers().filter(function(x){return x.peer===k;})[0];return p?netName(p).slice(0,10):'Player';
+  }
+  /* starting spots: taggers in the middle, runners round the edges */
+  var RSP=[[0,0],[19,13],[19,0],[0,13],[9,0],[10,13],[0,7],[19,6]];
+  function spawnOf(k,list){
+    if(isIt(k)){var ti=Object.keys(roles.it).sort().indexOf(k);return [ti?10.5:9.5,7.5];}
+    var rs=list.filter(function(x){return !isIt(x);}),i=Math.max(0,rs.indexOf(k)),s=RSP[i%RSP.length];return [s[0]+0.5,s[1]+0.5];
+  }
+  function setup(){
+    makeRoles();
+    var mk=me(),list=roles.all;
+    mine=[{k:mk,bi:-1}].concat(L.myBots().map(function(i){return {k:mk+':b'+i,bi:i};}));
+    mine.forEach(function(e){var s=spawnOf(e.k,list);e.x=s[0];e.y=s[1];e.path=0;e.tx=s[0];e.ty=s[1];e.think=0;});
+  }
+  /* freezes and thaws from everyone: [target, time since start, 1 = freeze / 0 = thaw]; the newest one for a runner wins */
+  function allEvents(){
+    var out=myEv.slice();
+    L.groupOthers().forEach(function(p){var a=p.presence.fv;if(!Array.isArray(a))return;a.slice(-20).forEach(function(v){if(Array.isArray(v)&&typeof v[0]==='string')out.push([v[0].slice(0,60),+v[1]||0,v[2]?1:0]);});});
+    return out;
+  }
+  var frozenMap={},frozenAt={};
+  function computeFrozen(){
+    var ev=allEvents(),best={};
+    ev.forEach(function(v){var b=best[v[0]];if(!b||v[1]>b[1]||(v[1]===b[1]&&v[2]>b[2]))best[v[0]]=v;});
+    frozenMap={};frozenAt={};
+    Object.keys(best).forEach(function(k){if(best[k][2]){frozenMap[k]=1;}frozenAt[k]=best[k][1];});
+  }
+  function frozen(k){return !!frozenMap[k];}
+  function safe(k,el){return !frozenMap[k]&&frozenAt[k]!==undefined&&el-frozenAt[k]<SAFE;}
+  function addEv(k,type){
+    var el=now()-L.mStart;
+    /* only my newest one for each runner matters, so the list stays small */
+    myEv=myEv.filter(function(v){return v[0]!==k;});myEv.push([k,el,type]);nEv++;
+    computeFrozen();
+    var who=ents().filter(function(e){return e.k===k;})[0];
+    if(who)for(var i=0;i<10;i++)fx.push({x:who.x,y:who.y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:0.5,c:type?'#bfefff':'#fff'});
+    if(k===me())beep(type?300:900,0.2,type?'sawtooth':'square',0.05,type?0.5:1.6);
+    else beep(type?500:760,0.08,'triangle',0.03,1.2);
+  }
+  /* the others' players and bots */
+  function remotes(){
+    var out=[];
+    L.groupOthers().forEach(function(p){
+      var q=p.presence;if(!Array.isArray(q.e))return;
+      var age=Math.min(0.2,Math.max(0,(now()-(p.updatedAt||now()))/1000));
+      q.e.slice(0,MAXB+1).forEach(function(v){
+        if(!Array.isArray(v))return;
+        var id=v[0]|0,k=id===0?p.peer:p.peer+':b'+(id-1),vx=netNum(v[3],-8,8,0),vy=netNum(v[4],-8,8,0);
+        out.push({k:k,x:netNum(v[1],0,MW,1)+vx*age,y:netNum(v[2],0,MH,1)+vy*age});
+      });
+    });
+    return out;
+  }
+  function ents(){return mine.concat(remotes());}
+  /* move with walls: try x then y, a circle against the block tiles */
+  function hits(x,y){
+    for(var cy=Math.floor(y-RAD);cy<=Math.floor(y+RAD);cy++)for(var cx=Math.floor(x-RAD);cx<=Math.floor(x+RAD);cx++){
+      if(!wall(cx,cy))continue;
+      var nx=clampN(x,cx,cx+1),ny=clampN(y,cy,cy+1);if((x-nx)*(x-nx)+(y-ny)*(y-ny)<RAD*RAD)return true;
+    }
+    return false;
+  }
+  function move(e,dx,dy,sp,dt){
+    var l=Math.hypot(dx,dy);if(l<0.05){e.vx=0;e.vy=0;return;}
+    if(l>1){dx/=l;dy/=l;}
+    var mx=dx*sp*dt,my=dy*sp*dt,ox2=e.x,oy2=e.y,stuck=hits(e.x,e.y);
+    if(stuck||!hits(e.x+mx,e.y))e.x+=mx;
+    if(stuck||!hits(e.x,e.y+my))e.y+=my;
+    e.x=clampN(e.x,RAD,MW-RAD);e.y=clampN(e.y,RAD,MH-RAD);
+    e.vx=(e.x-ox2)/dt;e.vy=(e.y-oy2)/dt;
+  }
+  /* bots find their way round walls with a distance map over the tiles */
+  function distFrom(cx,cy){
+    var d=new Int16Array(MW*MH).fill(-1),q=[cy*MW+cx],h=0;d[q[0]]=0;
+    while(h<q.length){var c=q[h++],x=c%MW,y=(c-x)/MW;[[1,0],[-1,0],[0,1],[0,-1]].forEach(function(s){var nx=x+s[0],ny=y+s[1];if(nx<0||ny<0||nx>=MW||ny>=MH||wall(nx,ny))return;var ni=ny*MW+nx;if(d[ni]<0){d[ni]=d[c]+1;q.push(ni);}});}
+    return d;
+  }
+  function stepToward(e,d,far){
+    var cx=Math.floor(e.x),cy=Math.floor(e.y),best=null,bv=far?-1:1e9;
+    [[0,0],[1,0],[-1,0],[0,1],[0,-1]].forEach(function(s){var nx=cx+s[0],ny=cy+s[1];if(nx<0||ny<0||nx>=MW||ny>=MH||wall(nx,ny))return;var v=d[ny*MW+nx];if(v<0)return;if(far?v>bv:v<bv){bv=v;best=[nx+0.5,ny+0.5];}});
+    return best;
+  }
+  function botThink(e,all,dt){
+    e.think-=dt;
+    if(e.think>0&&Math.hypot(e.tx-e.x,e.ty-e.y)>0.15)return;
+    e.think=0.25;
+    var it=isIt(e.k),best=null,bd=1e9;
+    if(it){
+      all.forEach(function(o){if(isIt(o.k)||frozen(o.k))return;var d=Math.hypot(o.x-e.x,o.y-e.y);if(d<bd){bd=d;best=o;}});
+      if(best){var nx=stepToward(e,distFrom(Math.floor(best.x),Math.floor(best.y)),false);if(nx){e.tx=nx[0];e.ty=nx[1];}if(bd<1.6){e.tx=best.x;e.ty=best.y;}}
+      return;
+    }
+    var tg=null,td=1e9;all.forEach(function(o){if(!isIt(o.k))return;var d=Math.hypot(o.x-e.x,o.y-e.y);if(d<td){td=d;tg=o;}});
+    var fr=null,fd=1e9;all.forEach(function(o){if(o.k===e.k||isIt(o.k)||!frozen(o.k))return;var d=Math.hypot(o.x-e.x,o.y-e.y);if(d<fd){fd=d;fr=o;}});
+    if(fr&&(td>4.5||fd<td-1)){var n2=stepToward(e,distFrom(Math.floor(fr.x),Math.floor(fr.y)),false);if(n2){e.tx=n2[0];e.ty=n2[1];}if(fd<1.2){e.tx=fr.x;e.ty=fr.y;}return;}
+    if(tg&&td<7){var n3=stepToward(e,distFrom(Math.floor(tg.x),Math.floor(tg.y)),true);if(n3){e.tx=n3[0];e.ty=n3[1];}return;}
+    if(Math.random()<0.3){var rx=Math.floor(Math.random()*MW),ry=Math.floor(Math.random()*MH);if(!wall(rx,ry)){var n4=stepToward(e,distFrom(rx,ry),false);if(n4){e.tx=n4[0];e.ty=n4[1];}}}
+  }
+  function hostEnd(all,el){
+    if(res)return;
+    var runners=roster().filter(function(k){return !isIt(k);});
+    if(!runners.length)return;
+    var free=runners.filter(function(k){return !frozen(k);});
+    if(!free.length)res={w:'it',at:now()};
+    else if(el>=ROUND)res={w:'run',at:now()};
+  }
+  g.start=function(){L.start();t=0;};
+  g.stop=function(){L.stop();};
+  g.pre=function(w,h){g.lw=Math.max(360,Math.ceil(clampN(h,400,480)*w/h));};
+  g.resize=function(){L.layout();};
+  g.down=function(px,py,id){L.down(px,py,id);};
+  g.move=function(px,py,id){L.move(px,py,id);};
+  g.up=function(px,py,id){L.up(px,py,id);};
+  g.key=function(c,d){L.key(c,d);};
+  g.update=function(dt){
+    t+=dt;
+    fx.forEach(function(f){f.x+=f.vx*dt;f.y+=f.vy*dt;f.life-=dt;});fx=fx.filter(function(f){return f.life>0;});
+    if(L.update(dt))return;
+    if(!L.mStart)return;
+    if(!roles||!mine.length)setup();
+    computeFrozen();
+    var n=now(),el=n-L.mStart,playing=el>=0&&!res,all=ents(),i,j;
+    if(!L.amHost()){var hp=L.hostPeer(),hr=hp&&hp.presence.res;if(hr&&(hr.w==='it'||hr.w==='run')&&!res)res={w:hr.w,at:+hr.at||n};}
+    if(playing){
+      var mv=L.moveVec();
+      mine.forEach(function(e){
+        if(frozen(e.k))return;
+        var it=isIt(e.k),sp=(it?TSPD:RSPD)*(e.k===me()?cheatSpd():1);
+        if(e.bi<0)move(e,mv[0],mv[1],sp,dt);
+        else{botThink(e,all,dt);move(e,e.tx-e.x,e.ty-e.y,sp*0.92,dt);}
+      });
+      all=ents();
+      /* my taggers freeze runners they touch; my free runners thaw frozen ones they touch */
+      mine.forEach(function(e){
+        if(frozen(e.k))return;
+        var it=isIt(e.k);
+        all.forEach(function(o){
+          if(o.k===e.k||isIt(o.k)||Math.hypot(o.x-e.x,o.y-e.y)>RAD*2.2)return;
+          if(it&&!frozen(o.k)&&!safe(o.k,el))addEv(o.k,1);
+          else if(!it&&frozen(o.k))addEv(o.k,0);
+        });
+      });
+    }
+    if(L.amHost())hostEnd(all,el);
+    if(res&&!saved){
+      saved=true;var mySide=isIt(me())?'it':'run';
+      if(res.w===mySide){lsSet('by.ftag',lsGet('by.ftag',0)+1);beep(880,0.5,'square',0.06,2);}else beep(220,0.5,'sawtooth',0.05,0.6);
+    }
+    if(res&&n>=res.at+SHOW){L.toLobby();return;}
+    var p0=mine[0]||{x:1,y:1};
+    L.send({x:Math.round(p0.x*100)/100,z:Math.round(p0.y*100)/100,fv:myEv,res:L.amHost()?res:null,
+      e:mine.map(function(e){return [e.bi<0?0:e.bi+1,Math.round(e.x*100)/100,Math.round(e.y*100)/100,Math.round((e.vx||0)*10)/10,Math.round((e.vy||0)*10)/10];})});
+  };
+  /* ---- drawing ---- */
+  function layout(){
+    var wd=L.wide();
+    if(wd){cs=Math.floor(Math.min((V.w*0.7)/MW,(V.h-24)/MH));ox=Math.floor((V.w-cs*MW)/2);oy=Math.floor((V.h-cs*MH)/2);}
+    else{cs=Math.floor(Math.min((V.w-12)/MW,(V.h-130)/MH));ox=Math.floor((V.w-cs*MW)/2);oy=Math.max(64,Math.floor((V.h-cs*MH)/2)+10);}
+  }
+  function drawMatch(){
+    layout();
+    var n=now(),el=n-L.mStart,i,j;
+    for(j=0;j<MH;j++)for(i=0;i<MW;i++){
+      var x0=ox+i*cs,y0=oy+j*cs;
+      if(wall(i,j)){ctx.fillStyle=P.ink;ctx.fillRect(x0,y0,cs,cs);ctx.fillStyle='#5b6fae';ctx.fillRect(x0+1,y0+1,cs-2,cs-2);ctx.fillStyle='#7d93d6';ctx.fillRect(x0+1,y0+1,cs-2,Math.max(2,cs*0.28));}
+      else{ctx.fillStyle=((i+j)&1)?'#cfe9f7':'#bfe0f2';ctx.fillRect(x0,y0,cs,cs);}
+    }
+    ctx.strokeStyle=P.ink;ctx.lineWidth=3;ctx.strokeRect(ox-2,oy-2,cs*MW+3,cs*MH+3);
+    var list=ents();
+    list.sort(function(a,b){return a.y-b.y;});
+    list.forEach(function(e){
+      var s=Math.max(12,cs*RAD*2.3),px=ox+e.x*cs,py=oy+e.y*cs,it=isIt(e.k),fz=frozen(e.k);
+      if(it){ctx.fillStyle='rgba(255,77,77,'+(0.25+0.15*Math.sin(t*8))+')';ctx.beginPath();ctx.arc(px,py,s*0.95,0,6.283);ctx.fill();}
+      L.fig(px,py,s,colorOf(e.k),'',e.k===me());
+      if(fz){ctx.fillStyle='rgba(190,240,255,.65)';ctx.fillRect(px-s/2-4,py-s/2-4,s+8,s+8);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(px-s/2-4,py-s/2-4,s+8,s+8);
+        ctx.fillStyle='#fff';ctx.fillRect(px-s*0.35,py-s*0.38,s*0.16,s*0.16);}
+      if(safe(e.k,el)&&Math.floor(t*10)%2){ctx.strokeStyle=P.sun;ctx.lineWidth=2;ctx.strokeRect(px-s/2-4,py-s/2-4,s+8,s+8);}
+      txt(it?'IT':nameOf(e.k),px,py-s/2-9,it?12:10,it?'#ff8080':'#fff');
+    });
+    fx.forEach(function(f){ctx.globalAlpha=Math.min(1,f.life*3);ctx.fillStyle=f.c;ctx.fillRect(ox+f.x*cs-3,oy+f.y*cs-3,6,6);});ctx.globalAlpha=1;
+    var runners=roster().filter(function(k){return !isIt(k);}),fr=runners.filter(function(k){return frozen(k);}).length;
+    var left=Math.max(0,Math.ceil((ROUND-Math.max(0,el))/1000)),wd=L.wide(),meIt=isIt(me());
+    if(wd){
+      var lc=ox/2;
+      txt(el<0?'Get ready':left+'s',lc,oy+34,el<0?22:34,P.sun);
+      txt(meIt?'You are IT':'You are a runner',lc,oy+70,14,meIt?'#ff8080':'#9fe6ff');
+      txt('Frozen '+fr+' / '+runners.length,ox+cs*MW+ox/2,oy+34,18,'#fff');
+      txt(meIt?'Freeze them all!':'Thaw your friends',ox+cs*MW+ox/2,oy+60,12,'#9fb0d8');
+    }else{
+      txt(el<0?'Get ready':left+'s',12,20,18,P.sun,'left');
+      txt(meIt?'You are IT':'Runner',12,40,12,meIt?'#ff8080':'#9fe6ff','left');
+      txt('Frozen '+fr+'/'+runners.length,V.w-12,20,14,'#fff','right');
+    }
+    if(el<0){
+      ctx.fillStyle='rgba(16,26,51,.65)';ctx.fillRect(0,V.h/2-50,V.w,100);
+      txt(String(Math.max(1,Math.ceil(-el/1000))),V.w/2,V.h/2-12,42,P.sun);
+      txt(meIt?'You are IT! Touch runners to freeze them':'Run! Touch frozen friends to thaw them',V.w/2,V.h/2+24,14,meIt?'#ff8080':'#fff');
+    }
+    if(res){
+      var mySide=meIt?'it':'run',win=res.w===mySide;
+      ctx.fillStyle='rgba(16,26,51,.85)';ctx.fillRect(0,V.h/2-64,V.w,150);
+      txt(res.w==='it'?'Everyone frozen! Taggers win':'Time up! Runners win',V.w/2,V.h/2-36,24,P.sun);
+      txt(win?'Your side won!':'Your side lost',V.w/2,V.h/2-4,16,win?'#5ed88a':'#ff8080');
+      if(L.cfg==='solo')L.btn('Play again',V.w/2-80,V.h/2+18,150,32,{a:'again'},true);
+      L.btn('Lobby',L.cfg==='solo'?V.w/2+80:V.w/2,V.h/2+18,150,32,{a:'leave'});
+      txt('Back to the lobby in '+Math.max(0,Math.ceil((res.at+SHOW-n)/1000))+'s',V.w/2,V.h/2+70,12,'#9fb0d8');
+    }
+  }
+  g.draw=function(){
+    ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
+    L.draw();
+    if(L.st==='match'&&L.mStart)drawMatch();
+    L.stickDraw();
+  };
+  /* test bots: as a tagger chase the nearest free runner, as a runner thaw friends and keep away from taggers */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(L.tbLobby(tb,dt))return [m.top||0,'tags and thaws'];
+    var e=mine[0];
+    if(!e||!L.mStart||now()<L.mStart||res||frozen(e.k)){tb.only([]);return [m.top||0,'tags and thaws'];}
+    var ghost={k:e.k,x:e.x,y:e.y,tx:e.tx,ty:e.ty,think:0};botThink(ghost,ents(),dt);
+    tbWalk2(tb,ghost.tx-e.x,ghost.ty-e.y);
+    m.top=Math.max(m.top||0,nEv);
+    return [m.top,'tags and thaws'];
+  };
+  return g;
+})();
+HUBBEST['best-ftag']=function(){return 'Wins '+lsGet('by.ftag',0);};
 /* ===== Paint Battle (2D, online): walk around the lobby and step on a yellow pad to pick how many players (1 to 5) and
    bots (0 to 10). For 2+ players the pad turns green with the player and bot count above it, and its maker stays on it
    until enough players walk onto the green square; then the group moves to its own match room. Matches last 60 seconds:
