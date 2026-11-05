@@ -893,6 +893,17 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
         </svg></span>
           <span class="tt">Box Hopper</span><span class="ts"><span id="best-runner">Best 0</span> · Runner</span>
         </button>
+        <button class="tile" type="button" data-game="barrage" data-act="1" data-name="brick barrage shooter space ship boss shmup action" style="--c:#8a5cff">
+          <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true">
+          <rect class="n" width="88" height="88"/>
+          <rect class="w" x="10" y="12" width="3" height="3"/><rect class="w" x="70" y="30" width="3" height="3"/><rect class="w" x="24" y="44" width="3" height="3"/>
+          <rect class="b o" x="22" y="10" width="44" height="20"/><rect class="k" x="32" y="16" width="6" height="6"/><rect class="k" x="50" y="16" width="6" height="6"/>
+          <rect class="w" x="42" y="36" width="4" height="10"/><rect class="w" x="42" y="50" width="4" height="8"/>
+          <rect class="s o" x="38" y="56" width="12" height="12"/><rect class="s o" x="28" y="66" width="32" height="12"/>
+          <rect class="u o" x="22" y="72" width="8" height="10"/><rect class="u o" x="58" y="72" width="8" height="10"/>
+        </svg></span>
+          <span class="tt">Brick Barrage</span><span class="ts"><span id="best-barrage">Best 0</span> · Shooter</span>
+        </button>
         <button class="tile" type="button" data-game="td" data-name="balloon battle tower defense" style="--c:#b48cff">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true">
           <rect fill="#b5e9c4" width="88" height="88"/>
@@ -12874,6 +12885,246 @@ GAMES.flap=(function(){
   };
   return g;
 })();
+
+/* ===== Brick Barrage (2D, original): a vertical block-ship shooter with waves and big boss forts ===== */
+GAMES.barrage=(function(){
+  var g={kind:'canvas',title:'Brick Barrage',lw:400};
+  var st,t,score,best,newBest,ship,shots,foes,bul,parts,drops,stars,keys,shake,wave,waveT,boss,lives,inv,pow,shield,bombs,flash,fireT,drag,banner,bannerT;
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function reset(){
+    st='ready';t=0;score=0;newBest=false;shots=[];foes=[];bul=[];parts=[];drops=[];keys={};shake=0;
+    wave=0;waveT=1.2;boss=null;lives=3;inv=0;pow=1;shield=0;bombs=1;flash=0;fireT=0;drag=null;banner='';bannerT=0;
+    ship={x:V.w/2,y:V.h-70};
+    stars=[];for(var i=0;i<50;i++)stars.push({x:Math.random()*V.w,y:Math.random()*V.h,s:0.3+Math.random()});
+  }
+  g.start=function(){best=lsGet('by.barrage',0);reset();};
+  g.stop=function(){keys={};};
+  function burst(x,y,col,n,sp){for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,v=(0.3+Math.random())*sp;parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:0.3+Math.random()*0.4,c:col,s:2+Math.random()*4});}}
+  function go(){if(st==='ready'){st='run';t=0;beep(440,0.12,'square',0.05,2);}}
+  function bomb(){
+    if(st!=='run'||bombs<=0)return;
+    bombs--;flash=0.35;shake=12;beep(90,0.5,'sawtooth',0.08,0.3);
+    bul.forEach(function(b){burst(b.x,b.y,'#ffd84a',3,80);});bul=[];
+    foes.forEach(function(f){f.hp-=6;});
+    if(boss)hitBoss(25);
+  }
+  g.down=function(x,y,id){
+    if(st==='over'){if(t>0.8)reset();return;}
+    go();drag={id:id,x:x,y:y};
+  };
+  g.move=function(x,y,id){
+    if(!drag||drag.id!==id)return;
+    ship.x=clampN(ship.x+(x-drag.x)*1.3,14,V.w-14);ship.y=clampN(ship.y+(y-drag.y)*1.3,V.h*0.35,V.h-20);
+    drag.x=x;drag.y=y;
+  };
+  g.up=function(x,y,id){if(drag&&drag.id===id)drag=null;};
+  g.key=function(c,d){
+    keys[c]=d;
+    if(!d)return;
+    if(st==='over'){if(t>0.8&&(c==='Space'||c==='Enter'))reset();return;}
+    if(st==='ready'){go();return;}
+    if(c==='Space'||c==='KeyX'||c==='Enter')bomb();
+  };
+  /* ---- enemies ---- */
+  var KINDS={
+    drift:{hp:1,w:26,col:'#ff6b6b',pts:10},
+    gun:{hp:2,w:30,col:'#b98cff',pts:25},
+    tank:{hp:6,w:40,col:'#ff9f43',pts:60},
+    dart:{hp:1,w:20,col:'#4ad7ff',pts:15}
+  };
+  function addFoe(k,x,y,o){var K=KINDS[k],f={k:k,x:x,y:y,hp:K.hp+Math.floor(wave/6),w:K.w,t:0,fire:1+Math.random()*1.5,hit:0,ox:x};for(var p in o)f[p]=o[p];foes.push(f);}
+  function spawnWave(){
+    wave++;
+    if(wave%6===0){spawnBoss();return;}
+    var n=4+Math.min(8,wave),i,pat=wave%4;
+    for(i=0;i<n;i++){
+      if(pat===1)addFoe('drift',V.w*(0.15+0.7*i/(n-1)),-30-i*30,{vy:70});
+      else if(pat===2)addFoe(i%3===0?'gun':'drift',40+Math.random()*(V.w-80),-30-i*45,{vy:60});
+      else if(pat===3)addFoe('dart',i%2?-20:V.w+20,60+i*18,{vx:i%2?150:-150,vy:30});
+      else addFoe(i%4===0?'tank':'gun',V.w*(0.2+0.6*Math.random()),-30-i*55,{vy:45});
+    }
+    banner='WAVE '+wave;bannerT=1.2;
+  }
+  function spawnBoss(){
+    var lv=wave/6;
+    boss={x:V.w/2,y:-90,w:Math.min(220,V.w*0.5),h:70,hp:80+lv*50,max:80+lv*50,t:0,ph:0,fire:1.5,hit:0,lv:lv};
+    banner='BOSS FORT!';bannerT=1.8;beep(110,0.6,'sawtooth',0.07,0.6);
+  }
+  function hitBoss(n){
+    boss.hp-=n;boss.hit=0.08;
+    if(boss.hp<=0){
+      score+=500*boss.lv;shake=20;flash=0.4;
+      for(var i=0;i<6;i++)burst(boss.x+(Math.random()-0.5)*boss.w,boss.y+(Math.random()-0.5)*boss.h,i%2?'#ffd84a':'#ff6b6b',20,260);
+      drops.push({x:boss.x-30,y:boss.y,k:'P'},{x:boss.x+30,y:boss.y,k:'B'},{x:boss.x,y:boss.y,k:'H'});
+      beep(80,0.8,'sawtooth',0.09,0.2);boss=null;waveT=2;
+    }
+  }
+  function aim(x,y,sp,off){var a=Math.atan2(ship.y-y,ship.x-x)+(off||0);bul.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:5});}
+  function killFoe(f){
+    var K=KINDS[f.k];score+=K.pts;burst(f.x,f.y,K.col,14,200);shake=Math.max(shake,f.k==='tank'?8:3);
+    beep(f.k==='tank'?120:220,0.12,'square',0.05,0.4);
+    if(Math.random()<(f.k==='tank'?0.6:0.08))drops.push({x:f.x,y:f.y,k:['P','S','B'][Math.random()*3|0]});
+  }
+  function hurt(){
+    if(inv>0||cheatOn('god'))return;
+    if(shield>0){shield=0;inv=1;beep(300,0.2,'triangle',0.06,0.5);burst(ship.x,ship.y,'#4ad7ff',20,180);return;}
+    lives--;inv=1.8;shake=14;pow=Math.max(1,pow-1);burst(ship.x,ship.y,'#ffd84a',30,240);beep(150,0.4,'sawtooth',0.08,0.4);
+    bul=[];
+    if(lives<=0){
+      st='over';t=0;
+      if(score>best){best=score;newBest=true;lsSet('by.barrage',best);}
+    }
+  }
+  g.update=function(dt){
+    t+=dt;shake=Math.max(0,shake-dt*40);flash=Math.max(0,flash-dt);bannerT-=dt;
+    stars.forEach(function(s){s.y+=(30+s.s*90)*dt;if(s.y>V.h){s.y=0;s.x=Math.random()*V.w;}});
+    parts.forEach(function(p){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=0.94;p.vy*=0.94;p.t-=dt;});
+    parts=parts.filter(function(p){return p.t>0;});
+    if(st!=='run')return;
+    inv=Math.max(0,inv-dt);
+    /* move */
+    var mx=(keys.ArrowRight||keys.KeyD?1:0)-(keys.ArrowLeft||keys.KeyA?1:0),my=(keys.ArrowDown||keys.KeyS?1:0)-(keys.ArrowUp||keys.KeyW?1:0);
+    ship.x=clampN(ship.x+mx*300*dt,14,V.w-14);ship.y=clampN(ship.y+my*260*dt,V.h*0.35,V.h-20);
+    /* auto fire */
+    fireT-=dt;
+    if(fireT<=0){
+      fireT=0.11;
+      shots.push({x:ship.x,y:ship.y-16,vx:0});
+      if(pow>=2){shots.push({x:ship.x-10,y:ship.y-8,vx:-60},{x:ship.x+10,y:ship.y-8,vx:60});}
+      if(pow>=3){shots.push({x:ship.x-16,y:ship.y,vx:-170},{x:ship.x+16,y:ship.y,vx:170});}
+      if(Math.random()<0.3)beep(900,0.025,'square',0.015,0.7);
+    }
+    shots.forEach(function(s){s.y-=620*dt;s.x+=s.vx*dt;});
+    shots=shots.filter(function(s){return s.y>-20&&s.x>-20&&s.x<V.w+20&&!s.dead;});
+    /* waves */
+    if(!boss){waveT-=dt;if(foes.length<=1&&waveT>1.2)waveT=1.2;if(waveT<=0){spawnWave();waveT=boss?99:7;}}
+    /* foes */
+    foes.forEach(function(f){
+      f.t+=dt;f.hit-=dt;
+      if(f.k==='drift'){f.y+=f.vy*dt;f.x=f.ox+Math.sin(f.t*2.5)*40;}
+      else if(f.k==='dart'){f.x+=f.vx*dt;f.y+=f.vy*dt;}
+      else {if(f.y<V.h*0.3)f.y+=f.vy*dt*2.2;else f.y+=f.vy*dt*(f.t>4.5?2:0.15);}
+      f.fire-=dt;
+      if(f.fire<=0&&f.y>0){
+        f.fire=(f.k==='tank'?1.6:2.4)-Math.min(1,wave*0.05)+Math.random();
+        if(f.k==='gun')aim(f.x,f.y,170+wave*4);
+        else if(f.k==='tank'){aim(f.x,f.y,150,-0.25);aim(f.x,f.y,150,0);aim(f.x,f.y,150,0.25);}
+        else if(Math.random()<0.3)aim(f.x,f.y,140);
+      }
+      shots.forEach(function(s){if(!s.dead&&Math.abs(s.x-f.x)<f.w/2+3&&Math.abs(s.y-f.y)<f.w/2+6){s.dead=true;f.hp--;f.hit=0.06;}});
+      if(f.hp<=0&&!f.gone){f.gone=true;killFoe(f);}
+      if(!f.gone&&Math.abs(ship.x-f.x)<f.w/2+8&&Math.abs(ship.y-f.y)<f.w/2+8){f.hp=0;f.gone=true;killFoe(f);hurt();}
+      if(f.y>V.h+40||f.x<-60||f.x>V.w+60)f.gone=true;
+    });
+    foes=foes.filter(function(f){return !f.gone;});
+    /* boss */
+    if(boss){
+      var b=boss;b.t+=dt;b.hit-=dt;
+      if(b.y<V.h*0.2)b.y+=60*dt;
+      else{
+        b.x=V.w/2+Math.sin(b.t*0.7)*(V.w/2-b.w/2-10);
+        b.fire-=dt;
+        var rage=b.hp<b.max/2;
+        if(b.fire<=0){
+          b.ph=(b.ph+1)%3;
+          if(b.ph===0){for(var i=0;i<10+b.lv*2;i++){var a=i/(10+b.lv*2)*Math.PI*2+b.t;bul.push({x:b.x,y:b.y,vx:Math.cos(a)*130,vy:Math.sin(a)*130,r:6});}b.fire=rage?0.9:1.4;}
+          else if(b.ph===1){for(var j=-2;j<=2;j++)aim(b.x+j*30,b.y+b.h/2,190,j*0.12);b.fire=rage?0.7:1.1;}
+          else{aim(b.x-b.w/2+12,b.y+20,220);aim(b.x+b.w/2-12,b.y+20,220);b.fire=rage?0.5:0.8;}
+          beep(180,0.1,'sawtooth',0.03,0.6);
+        }
+      }
+      shots.forEach(function(s){if(!s.dead&&boss&&Math.abs(s.x-b.x)<b.w/2&&Math.abs(s.y-b.y)<b.h/2){s.dead=true;if(Math.random()<0.3)burst(s.x,s.y,'#fff',2,90);hitBoss(1);}});
+      if(boss&&Math.abs(ship.x-b.x)<b.w/2+8&&Math.abs(ship.y-b.y)<b.h/2+8)hurt();
+    }
+    /* enemy bullets */
+    bul.forEach(function(q){q.x+=q.vx*dt;q.y+=q.vy*dt;if(Math.hypot(q.x-ship.x,q.y-ship.y)<q.r+5){q.dead=true;hurt();}});
+    bul=bul.filter(function(q){return !q.dead&&q.y<V.h+20&&q.y>-40&&q.x>-20&&q.x<V.w+20;});
+    /* drops */
+    drops.forEach(function(d){
+      d.y+=80*dt;
+      if(Math.abs(d.x-ship.x)<22&&Math.abs(d.y-ship.y)<22){
+        d.dead=true;score+=50;beep(880,0.12,'triangle',0.06,1.8);burst(d.x,d.y,'#7dff9a',12,140);
+        if(d.k==='P')pow=Math.min(3,pow+1);else if(d.k==='S')shield=1;else if(d.k==='B')bombs=Math.min(3,bombs+1);else lives=Math.min(5,lives+1);
+      }
+    });
+    drops=drops.filter(function(d){return !d.dead&&d.y<V.h+20;});
+  };
+  function drawShip(x,y){
+    box(x-6,y-18,12,14,'#ffd84a');box(x-16,y-6,32,14,SKIN.col(P.sun));box(x-20,y+2,8,10,'#4ad7ff');box(x+12,y+2,8,10,'#4ad7ff');
+    ctx.fillStyle=Math.sin(t*40)>0?'#ff9f43':'#ffd84a';ctx.fillRect(x-5,y+8,10,6+Math.random()*6);
+  }
+  g.draw=function(){
+    ctx.save();
+    if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+    ctx.fillStyle='#0d1530';ctx.fillRect(-20,-20,V.w+40,V.h+40);
+    stars.forEach(function(s){ctx.fillStyle='rgba(255,255,255,'+(0.3+s.s*0.5)+')';ctx.fillRect(s.x,s.y,s.s*3,s.s*3);});
+    drops.forEach(function(d){if(d.y>V.h-12)return;box(d.x-11,d.y-11,22,22,d.k==='P'?'#ff6b6b':d.k==='S'?'#4ad7ff':d.k==='B'?'#ffd84a':'#7dff9a');txt(d.k==='H'?'+':d.k,d.x,d.y+1,14,'#fff');});
+    foes.forEach(function(f){
+      var K=KINDS[f.k],w=f.w;
+      box(f.x-w/2,f.y-w/2,w,w,f.hit>0?'#fff':K.col);
+      ctx.fillStyle=P.ink;ctx.fillRect(f.x-w/4-2,f.y-3,5,5);ctx.fillRect(f.x+w/4-3,f.y-3,5,5);
+      if(f.k==='tank')ctx.fillRect(f.x-4,f.y+w/2-4,8,10);
+    });
+    if(boss){
+      var b=boss,c=b.hit>0?'#fff':'#8a5cff';
+      box(b.x-b.w/2,b.y-b.h/2,b.w,b.h,c);
+      box(b.x-b.w/2-14,b.y-10,20,40,'#ff6b6b');box(b.x+b.w/2-6,b.y-10,20,40,'#ff6b6b');
+      for(var i=0;i<5;i++)box(b.x-b.w/2+i*b.w/5+4,b.y-b.h/2-12,b.w/5-8,14,'#5a3fbf');
+      ctx.fillStyle=b.hp<b.max/2&&Math.sin(t*20)>0?'#ff3030':'#ffd84a';ctx.fillRect(b.x-26,b.y-6,14,12);ctx.fillRect(b.x+12,b.y-6,14,12);
+      ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(V.w*0.2,12,V.w*0.6,10);ctx.fillStyle='#ff6b6b';ctx.fillRect(V.w*0.2,12,V.w*0.6*Math.max(0,b.hp/b.max),10);
+    }
+    shots.forEach(function(s){ctx.fillStyle='#fff6a0';ctx.fillRect(s.x-2,s.y-7,4,12);});
+    bul.forEach(function(q){ctx.fillStyle=P.ink;ctx.fillRect(q.x-q.r-1,q.y-q.r-1,q.r*2+2,q.r*2+2);ctx.fillStyle=(t*8|0)%2?'#ff4f8b':'#ff9fc4';ctx.fillRect(q.x-q.r+1,q.y-q.r+1,q.r*2-2,q.r*2-2);});
+    if(st!=='over'&&(inv<=0||(t*14|0)%2)){drawShip(ship.x,ship.y);if(shield>0){ctx.strokeStyle='rgba(74,215,255,.8)';ctx.lineWidth=3;ctx.strokeRect(ship.x-24,ship.y-24,48,48);}}
+    parts.forEach(function(p){ctx.fillStyle=p.c;ctx.globalAlpha=Math.min(1,p.t*3);ctx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);});
+    ctx.globalAlpha=1;
+    ctx.restore();
+    if(flash>0){ctx.fillStyle='rgba(255,255,255,'+flash+')';ctx.fillRect(0,0,V.w,V.h);}
+    txt(String(score),V.w/2,boss?40:30,26,'#fff');
+    for(var h=0;h<lives;h++)heart(10+h*22,10,2.4,'#ff4f6b');
+    txt('Bombs '+bombs,V.w-10,20,14,'#ffd84a','right');
+    if(bannerT>0&&st==='run')txt(banner,V.w/2,V.h*0.42,30,'#ffd84a');
+    if(st==='ready'){
+      ctx.fillStyle='rgba(13,21,48,.6)';ctx.fillRect(0,0,V.w,V.h);
+      txt('BRICK BARRAGE',V.w/2,V.h*0.3,34,'#ffd84a');
+      txt('Drag or arrows to fly. You fire by yourself.',V.w/2,V.h*0.3+46,15,'#fff');
+      txt('Space: bomb clears all bullets',V.w/2,V.h*0.3+70,15,'#fff');
+      txt('Best '+best,V.w/2,V.h*0.3+104,16,P.sun);
+      txt('Tap to start',V.w/2,V.h*0.72,22,'#7dff9a');
+    }
+    if(st==='over'){
+      ctx.fillStyle='rgba(13,21,48,.8)';ctx.fillRect(0,0,V.w,V.h);
+      txt('SHIP DOWN!',V.w/2,V.h*0.36,34,P.brick);
+      txt('Score '+score+'  ·  Wave '+wave,V.w/2,V.h*0.36+44,20,'#fff');
+      txt(newBest?'NEW BEST!':'Best '+best,V.w/2,V.h*0.36+76,18,P.sun);
+      if(t>0.8)txt('Tap to fly again',V.w/2,V.h*0.36+110,16,'#fff');
+    }
+  };
+  /* test bots: fly for real, dodge bullets and chase targets */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>1&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    if(st==='ready'){tb.k('Space');return [0,'points'];}
+    var tx=V.w/2,ty=V.h-60,best1=1e9;
+    foes.forEach(function(f){if(f.y>0&&f.y<ship.y-40){var d=Math.abs(f.x-ship.x);if(d<best1){best1=d;tx=f.x;}}});
+    if(boss)tx=boss.x;
+    var dx=0,dy=0;
+    bul.forEach(function(q){
+      var fx=q.x+q.vx*0.25,fy=q.y+q.vy*0.25,ex=ship.x-fx,ey=ship.y-fy,d=Math.hypot(ex,ey);
+      if(d<70){dx+=ex/(d+1)*(70-d);dy+=ey/(d+1)*(70-d);}
+    });
+    foes.forEach(function(f){var ex=ship.x-f.x,ey=ship.y-f.y,d=Math.hypot(ex,ey);if(d<f.w+40){dx+=ex/(d+1)*60;dy+=ey/(d+1)*60;}});
+    var on=[];
+    if(Math.abs(dx)+Math.abs(dy)>8){if(dx>4)on.push('ArrowRight');else if(dx<-4)on.push('ArrowLeft');if(dy>4)on.push('ArrowDown');else if(dy<-4)on.push('ArrowUp');}
+    else{if(tx>ship.x+8)on.push('ArrowRight');else if(tx<ship.x-8)on.push('ArrowLeft');if(ship.y<ty-10)on.push('ArrowDown');}
+    tb.only(on);
+    if(bul.length>14&&bombs>0)tb.k('Space');
+    return [score,'points'];
+  };
+  return g;
+})();
+HUBBEST['best-barrage']='by.barrage';
 
 /* ===== Block Drop: the falling-shapes classic ===== */
 GAMES.drop=(function(){
