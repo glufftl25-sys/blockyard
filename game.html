@@ -2681,12 +2681,13 @@ GAMES.obby=(function(){
     L=obCourse();
     S={x:0,y:0,z:0,vx:0,vy:0,vz:0,g:null,buf:0,coy:0,cp:0,sec:0,face:0};
     spawnAt(L[0]);
-    st='ready';t=0;clock=0;deaths=0;msg='';msgT=0;flash=0;overT=0;newBest=false;
+    st='ready';t=0;clock=0;deaths=0;msg='';msgT=0;flash=0;overT=0;newBest=false;nfxClear();
     cam.x=S.x;cam.y=S.y+6.4;cam.z=S.z-9;
     var rd=obRng(99),last=L[L.length-1];clouds=[];
     for(var i=0;i<46;i++)clouds.push({x:rd()*110-55,y:-14-rd()*14,z:rd()*(last.z+80)-30,w:4+rd()*6,d:3+rd()*4});
   }
   function die(){
+    nfxBurst(S.x,Math.max(S.y,-10),S.z,[230,240,255],10,3);
     deaths++;flash=0.35;obResetPlats(L);spawnAt(L[S.cp]);S.face=0;
     if(CAM3.mode===2){CAM3.yaw=0;CAM3.pitch=0.3;}
     msg='Try again!';msgT=1.0;beep(180,0.3,'sawtooth',0.06,0.45);
@@ -2717,6 +2718,7 @@ GAMES.obby=(function(){
   g.update=function(dt){
     t+=dt;if(flash>0)flash-=dt;if(msgT>0)msgT-=dt;
     CAM3.tick(dt);
+    nfxStep(dt);
     if(st==='win'){overT+=dt;camUpdate(dt);return;}
     var moving=PAD.axes(),mv=CAM3.dir(PAD.ax,PAD.ay);
     var jp=PAD.take();
@@ -2730,8 +2732,14 @@ GAMES.obby=(function(){
       var h=Math.min(dt,1/30),n=Math.max(1,Math.ceil(dt/h)),k;
       for(k=0;k<n;k++){
         var ev=obStep(S,dt/n,mv[0]*cs,mv[1]*cs,k===0&&jp,PAD.holding(),L);
-        if(ev==='jump')beep(520,0.1,'square',0.04,1.8);
-        else if(ev==='cp'){msg='CHECKPOINT!';msgT=1.4;beep(780,0.2,'square',0.05,1.6);}
+        if(ev==='jump'){beep(520,0.1,'square',0.04,1.8);nfxBurst(S.x,S.y+0.1,S.z,[235,240,250],3,1.2);}
+        else if(ev==='land'&&S.vy===0)nfxBurst(S.x,S.y+0.1,S.z,[235,240,250],2,1);
+        else if(ev==='cp'){
+          /* a checkpoint: green burst, a two-note chime and the name of the next stage */
+          msg=S.sec<6?'Checkpoint! Next: '+SEC[Math.min(6,S.sec+1)]:'Checkpoint!';msgT=1.8;
+          beep(780,0.15,'square',0.05,1.6);setTimeout(function(){beep(1040,0.2,'square',0.05,1.6);},140);
+          nfxBurst(S.x,S.y+0.5,S.z,[63,213,138],14,4);nfxPop(S.x,S.y+2.6,S.z,'Saved!',P.sun);
+        }
         else if(ev==='win'){win();break;}
         else if(ev==='die'){die();break;}
       }
@@ -2747,6 +2755,8 @@ GAMES.obby=(function(){
   function win(){
     if(g.mp&&!finT)finT=clock;
     st='win';overT=0;
+    nfxConfetti(S.x,S.y+2,S.z);nfxConfetti(S.x,S.y+3,S.z+2);
+    setTimeout(function(){beep(990,0.25,'square',0.05,1.5);},180);setTimeout(function(){beep(1320,0.35,'square',0.05,1.6);},380);
     STAT.add('obbyDone',1);
     if(!best||clock<best){best=clock;newBest=true;lsSet('by.obby',best);}
     beep(660,0.5,'square',0.06,2);
@@ -2781,8 +2791,10 @@ GAMES.obby=(function(){
     if(CAM3.mode!==2)blockPerson(S.x,S.y,S.z,S.face,body,step,flash>0,myAv3());
     if(gnd)R3.shadow(S.x,gt+0.02,S.z,0.45);
     var tags=g.mp?netDraw(1/60):null;
+    nfxDraw();
     R3.flush();
     if(tags)netTags(tags);
+    nfxText();
     hud();
     if(g.mp)raceBoard();
     if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash/0.35*0.6)+')';ctx.fillRect(0,0,V.w,V.h);}
@@ -2801,6 +2813,12 @@ GAMES.obby=(function(){
     txt(SEC[Math.max(1,S.sec)],12,46,13,P.sun,'left');
     txt(fmt(clock),V.w-12,24,19,'#fff','right');
     if(deaths)txt('Falls '+deaths,V.w-12,46,13,'#fff','right');
+    if(st==='run'&&L){
+      /* how far along the course I am */
+      var pr=clampN((S.z-L[0].z)/Math.max(1,L[L.length-1].z-L[0].z),0,1),bw=Math.min(180,V.w-220),bx=(V.w-bw)/2,by=V.h-12;
+      ctx.fillStyle='rgba(20,33,61,0.55)';ctx.fillRect(bx-2,by-2,bw+4,8);
+      ctx.fillStyle=P.sun;ctx.fillRect(bx,by,bw*pr,4);
+    }
     var ck=netCompact();
     if(msgT>0&&st==='run')txt(msg,V.w/2,netMidY(0.28)+(ck?6:0),ck?20:26,P.sun);
     if(st==='ready'&&ck){
@@ -3359,8 +3377,12 @@ function netTags(tags){
   tags.forEach(function(t){
     var p=R3.project(t.x,t.y,t.z);
     if(!p||p[2]>45)return;
-    var sz=Math.max(10,Math.min(15,220/p[2]));
-    txt('@'+t.n,p[0],p[1],sz,'#fff');
+    var sz=Math.max(10,Math.min(15,220/p[2])),s='@'+t.n,hw=s.length*sz*0.29+4;
+    /* keep the whole tag on screen; fade it out when its player is well off the edge */
+    var px=clampN(p[0],hw,V.w-hw),py=clampN(p[1],sz,V.h-sz*0.6),off=Math.max(Math.abs(p[0]-px),Math.abs(p[1]-py));
+    if(off>60)return;
+    ctx.globalAlpha=off>0?Math.max(0.25,1-off/60):1;
+    txt(s,px,py,sz,'#fff');
   });
   ctx.restore();
 }
@@ -3377,6 +3399,27 @@ function netStatus(){
    height on a big screen, just under the camera button on a short one). */
 function netCompact(){return V.h<260;}
 function netMidY(f){return netCompact()?88:V.h*f;}
+/* little effects the online 3D games share: bursts of bits (nfxBurst), floating "+1" text (nfxPop) and confetti.
+   A game calls nfxClear() when it starts, nfxStep(dt) every update, nfxDraw() before R3.flush() and nfxText() after it. */
+var NFX={p:[],t:[]};
+function nfxClear(){NFX.p=[];NFX.t=[];}
+function nfxBurst(x,y,z,col,n,spd){
+  spd=spd||3;
+  for(var i=0;i<n;i++)NFX.p.push({x:x,y:y,z:z,vx:(Math.random()-0.5)*spd*2,vy:Math.random()*spd+1,vz:(Math.random()-0.5)*spd*2,t:0,life:0.6+Math.random()*0.5,c:col,s:0.14+Math.random()*0.1});
+  if(NFX.p.length>160)NFX.p.splice(0,NFX.p.length-160);
+}
+function nfxConfetti(x,y,z){var cs=[[255,90,77],[255,210,63],[94,216,138],[63,140,255],[180,140,255]];for(var i=0;i<5;i++)nfxBurst(x,y,z,cs[i],6,5);}
+function nfxPop(x,y,z,s,col){NFX.t.push({x:x,y:y,z:z,s:String(s),c:col||'#fff',t:0});if(NFX.t.length>12)NFX.t.shift();}
+function nfxStep(dt){
+  NFX.p.forEach(function(p){p.t+=dt;p.vy-=12*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;});
+  NFX.p=NFX.p.filter(function(p){return p.t<p.life;});
+  NFX.t.forEach(function(q){q.t+=dt;q.y+=dt*1.4;});
+  NFX.t=NFX.t.filter(function(q){return q.t<1.1;});
+}
+function nfxDraw(){NFX.p.forEach(function(p){R3.box(p.x,p.y,p.z,p.s,p.s,p.s,p.c,p.t*7);});}
+function nfxText(){
+  NFX.t.forEach(function(q){var pr=R3.project(q.x,q.y,q.z);if(!pr||pr[2]>50)return;ctx.save();ctx.globalAlpha=Math.max(0,1-q.t/1.1);txt(q.s,pr[0],pr[1],Math.max(13,Math.min(22,300/pr[2])),q.c);ctx.restore();});
+}
 
 /* ===== Gem Rush (3D solo): grab gems before the clock runs out. Patrol robots knock 5 seconds off. ===== */
 GAMES.gems=(function(){
@@ -3564,6 +3607,8 @@ GAMES.hill=(function(){
   var HALF=12,TILE=2.4,SPD=7.6,JV=11,GR=30,HH=0.9,HS=2.6,ROUND=120000,GOAL=30,BR=0.45;
   var BOTC=[[94,216,138],[180,140,255],[255,154,60]],BOTN=['Bot Mint','Bot Grape','Bot Mango'];
   var CAMP={x:0,z:-14};
+  /* polish: crowdT = how long I have been on the hill with someone else; lastSec = the last countdown beep; winFx = the round whose win confetti has played */
+  var crowdT=0,lastSec=-1,winFx=-1;
   var t=0,x=0,z=-8,y=0,vx=0,vz=0,vy=0,face=0,step=0,buf=0,pts=0,rnd=0,bots=[],flash=0,msg='',msgT=0,saved=-1,lastWin='';
   function roundId(){return Math.floor(Date.now()/ROUND);}
   function roundLeft(){return Math.max(0,(ROUND-(Date.now()%ROUND))/1000);}
@@ -3624,7 +3669,7 @@ GAMES.hill=(function(){
   }
   g.start=function(){
     PAD.reset();t=0;S.x=(Math.random()*2-1)*6;S.z=-9;S.y=0;S.vx=S.vz=S.vy=0;face=0;step=0;
-    rnd=roundId();pts=0;makeBots();msg='';msgT=0;CAMP.x=0;CAMP.z=-14;CAM3.snap=true;
+    rnd=roundId();pts=0;makeBots();msg='';msgT=0;CAMP.x=0;CAMP.z=-14;CAM3.snap=true;nfxClear();crowdT=0;lastSec=-1;winFx=-1;
     netJoin('w3-hill');STAT.add('plays3d',1);
   };
   g.stop=function(){PAD.reset();netLeave();};
@@ -3664,10 +3709,17 @@ GAMES.hill=(function(){
       var meOn=onHill(S.x,S.z,S.y),crowd=0;
       others().forEach(function(p){var q=p.presence;if(onHill(netNum(q.x,-50,50,0),netNum(q.z,-50,50,0),netNum(q.y,-5,20,0)))crowd++;});
       if(useBots)bots.forEach(function(b){if(onHill(b.x,b.z,b.y))crowd++;});
+      var p0=Math.floor(pts);
       if(meOn&&crowd===0)pts=Math.min(GOAL,pts+dt);
+      if(Math.floor(pts)>p0){nfxPop(S.x,S.y+2.5,S.z,'+1',P.sun);nfxBurst(S.x,S.y+0.6,S.z,[255,210,63],5,2.5);beep(480+Math.floor(pts)*14,0.05,'square',0.03,1.3);}
+      crowdT=(meOn&&crowd>0)?crowdT+dt:0;
       if(useBots)bots.forEach(function(b){if(!onHill(b.x,b.z,b.y))return;var c2=(meOn?1:0);bots.forEach(function(o){if(o!==b&&onHill(o.x,o.z,o.y))c2++;});if(c2===0)b.pts=Math.min(GOAL,b.pts+dt);});
     }
+    /* the last 10 seconds of a round tick */
+    var sl=Math.ceil(roundLeft());if(sl<=10&&sl!==lastSec&&!roundOver()){lastSec=sl;beep(sl<=3?880:660,0.05,'square',0.03,1);}
     var w=winner();
+    if(w&&winFx!==rnd){winFx=rnd;nfxConfetti(0,HH+1.5,0);}
+    nfxStep(dt);
     if(w&&w.me&&saved!==rnd){saved=rnd;lsSet('by.hill',lsGet('by.hill',0)+1);flash=0.4;beep(880,0.5,'square',0.06,2);}
     netSend({x:Math.round(S.x*100)/100,y:Math.round(S.y*100)/100,z:Math.round(S.z*100)/100,f:Math.round(face*100)/100,r:rnd,pts:Math.round(pts*10)/10});
     netFlush();
@@ -3688,22 +3740,37 @@ GAMES.hill=(function(){
       R3.box(-HALF-0.3,0,c,0.6,1.1,L,[139,151,177],0,true);R3.box(HALF+0.3,0,c,0.6,1.1,L,[139,151,177],0,true);
     }
     R3.box(0,0,0,HS*2,HH-0.12,HS*2,[214,166,60]);
-    R3.box(0,HH-0.12,0,HS*2+0.1,0.12,HS*2+0.1,[255,210,63]);
+    /* the hill top glows while I score, and flashes red while it is crowded */
+    var meOnD=onHill(x,z,y),hc=[255,210,63];
+    if(meOnD&&crowdT>0)hc=(Math.sin(t*14)>0)?[255,120,90]:[255,210,63];
+    else if(meOnD&&!roundOver()){var gl=0.5+0.5*Math.sin(t*8);hc=[255,Math.round(210+40*gl),Math.round(63+120*gl)];}
+    R3.box(0,HH-0.12,0,HS*2+0.1,0.12,HS*2+0.1,hc);
     R3.box(0,HH,0,0.14,3.2,0.14,[60,60,80],0);
     R3.box(0.55,HH+2.7,0,1.0,0.6,0.08,[255,90,77],Math.sin(t*3)*0.25);
     var tags=netDraw(1/60);
     if(botsOn())bots.forEach(function(b){blockPerson(b.x,b.y,b.z,b.face,b.c,b.step,false,null);R3.shadow(b.x,(b.y>=HH-0.05&&inFoot(b.x,b.z,0)?HH:0)+0.02,b.z,0.42);tags.push({x:b.x,y:b.y+2.0,z:b.z,n:b.n});});
     var col=hex2rgb(SKIN.col(P.blue));
     if(CAM3.mode!==2)blockPerson(x,y,z,face,col,step,false,myAv3());
+    /* a gold crown floats over whoever leads the round */
+    var lp=leaderPos();if(lp){R3.box(lp[0],lp[1]+2.35,lp[2],0.6,0.18,0.6,[255,210,63],t*2);R3.box(lp[0],lp[1]+2.53,lp[2],0.18,0.2,0.18,[255,236,140],t*2);}
+    nfxDraw();
     R3.shadow(x,(inFoot(x,z,0)&&y>=HH-0.05?HH:0)+0.02,z,0.45);
     R3.flush();
     netTags(tags);
+    nfxText();
     hud();
     if(flash>0){ctx.fillStyle='rgba(255,210,63,'+(flash*0.6)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
+  /* where the round leader stands (me, a bot or another player), or null while nobody has points */
+  function leaderPos(){
+    var best=pts>0?{p:pts,x:x,y:y,z:z}:null;
+    if(botsOn())bots.forEach(function(b){if(b.pts>0&&(!best||b.pts>best.p))best={p:b.pts,x:b.x,y:b.y,z:b.z};});
+    others().forEach(function(p){var v=netNum(p.presence.pts,0,999,0),sm=NET.sm[p.peer];if(v>0&&sm&&(!best||v>best.p))best={p:v,x:sm.x,y:sm.y,z:sm.z};});
+    return best?[best.x,best.y,best.z]:null;
+  }
   function hud(){
     var left=roundLeft(),m=Math.floor(left/60),s=Math.floor(left%60);
-    txt('Round '+m+':'+(s<10?'0':'')+s,12,22,16,'#fff','left');
+    txt('Round '+m+':'+(s<10?'0':'')+s,12,22,16,left<=10&&!roundOver()?'#ff8a7a':'#fff','left');
     txt(botsOn()?(NET.room?'Playing with bots until friends join':(NET.blocked?netStatus():'Playing with bots')):netStatus(),12,42,11,P.sun,'left');
     var b=board().slice(0,4);
     b.forEach(function(r,i){txt((i===0&&r.p>0?'♛ ':'')+r.n.slice(0,12)+' '+Math.floor(r.p),V.w-10,22+i*18,13,r.me?P.sun:'#fff','right');});
@@ -3713,7 +3780,8 @@ GAMES.hill=(function(){
     txt('Your points '+Math.floor(pts)+' / '+GOAL,V.w/2,by-12,12,'#fff');
     var w=winner();
     if(w)txt(w.me?'You are the Hill King!':w.n+' is the Hill King!',V.w/2,my,ck?18:24,P.sun);
-    else if(onHill(S.x,S.z,S.y))txt('On the hill!',V.w/2,my,20,P.sun);
+    else if(onHill(S.x,S.z,S.y)&&crowdT>0)txt('Crowded! Push them off to score',V.w/2,my,ck?15:18,'#ff8a7a');
+    else if(onHill(S.x,S.z,S.y))txt('On the hill! Scoring...',V.w/2,my,ck?16:20,P.sun);
     else if(t<6)txt('Stand on the gold hill alone to score',V.w/2,my,15,'#fff');
     if(msgT>0&&msg)txt(msg,V.w/2,my+(ck?18:30),ck?13:16,'#fff');
     PAD.draw();
@@ -5346,6 +5414,8 @@ GAMES.party=(function(){
   var CAMP={x:0,z:-13.5};
   var t=0,x=0,z=0,y=0,vx=0,vz=0,vy=0,face=0,step=0,buf=0,flash=0,claims=[],gone={},myRound=-1,wonShown=-1;
   var H=null,lastSeen=null;
+  /* polish: prevSS = the stars seen last frame (to puff the ones someone grabs), myPts = my score last frame, lastSec = the last countdown tick, fxR = the round whose confetti played */
+  var prevSS=[],myPts=0,lastSec=-1,fxR=-1;
   /* fair star claims (host only): pendC[star id] = {at: when the first claim arrived, c: {peer: touch time}} */
   var pendC={},pendR=-1,CWAIT=300;
   function starOff(){return (typeof FBN!=='undefined'&&SOLO&&FBN.ok)?(FBN.off||0):0;}
@@ -5383,7 +5453,7 @@ GAMES.party=(function(){
     return o;
   }
   function amHost(){return hostPeer()===me();}
-  g.start=function(){PAD.reset();t=0;x=(Math.random()*2-1)*4;z=-6;y=0;vx=vz=vy=0;face=0;claims=[];gone={};H=null;pendC={};pendR=-1;myRound=-1;wonShown=-1;bots=[];CAMP.x=0;CAMP.z=-13.5;netJoin('w3-party');STAT.add('plays3d',1);};
+  g.start=function(){PAD.reset();t=0;x=(Math.random()*2-1)*4;z=-6;y=0;vx=vz=vy=0;face=0;claims=[];gone={};H=null;pendC={};pendR=-1;myRound=-1;wonShown=-1;bots=[];CAMP.x=0;CAMP.z=-13.5;nfxClear();prevSS=[];myPts=0;lastSec=-1;fxR=-1;netJoin('w3-party');STAT.add('plays3d',1);};
   function botStep(dt,S){
     if(!bots.length)for(var i=0;i<3;i++){var a=i*2.1+0.6;bots.push({k:'bot'+i,x:Math.cos(a)*8,z:Math.sin(a)*8,y:0,vx:0,vz:0,face:0,step:0,c:BOTC[i],n:BOTN[i],sp:5.4+i*0.45,think:0,tx:0,tz:0});}
     bots.forEach(function(b){
@@ -5474,9 +5544,19 @@ GAMES.party=(function(){
       if(gone[s[0]])return;
       if(Math.hypot(x-s[1],z-s[2])<1.2&&y<1.6){
         gone[s[0]]=1;claims.push([S.r,s[0],Date.now()+starOff()]);if(claims.length>8)claims.shift();
-        STAT.add('stars',1);beep(900,0.12,'square',0.05,1.5);flash=0.15;
+        STAT.add('stars',1);beep(900,0.12,'square',0.05,1.5);flash=0.15;nfxBurst(s[1],0.9,s[2],[255,210,63],10,3.5);
       }
     });
+    /* stars someone else grabbed puff away; my score going up pops a +1 */
+    if(S&&S.ph==='play'){
+      var ids={};S.ss.forEach(function(q){ids[q[0]]=1;});
+      prevSS.forEach(function(q){if(!ids[q[0]]&&!gone[q[0]])nfxBurst(q[1],0.9,q[2],[255,236,140],6,2.5);});
+      prevSS=S.ss.map(function(q){return q.slice();});
+      var mp=S.sc[me()]||0;if(mp>myPts){nfxPop(x,y+2.5,z,'+'+(mp-myPts),P.sun);}myPts=mp;
+      var sl=Math.ceil(S.left);if(sl<=5&&sl>0&&sl!==lastSec){lastSec=sl;beep(sl<=2?880:660,0.05,'square',0.03,1);}
+    }else{prevSS=[];if(S&&S.ph==='end')myPts=0;}
+    if(S&&S.ph==='end'&&fxR!==S.r){fxR=S.r;var tw=board(S)[0];if(tw&&tw.pts>0)nfxConfetti(x,y+3,z+3);}
+    nfxStep(dt);
     if(S&&S.ph==='end'&&wonShown!==S.r){
       wonShown=S.r;
       var top=board(S)[0];
@@ -5515,21 +5595,34 @@ GAMES.party=(function(){
       if(gone[s[0]])return;
       R3.box(s[1],0.9+Math.sin(t*4+s[0])*0.15,s[2],0.7,0.7,0.7,[255,210,63],t*3);
       R3.box(s[1],0.9+Math.sin(t*4+s[0])*0.15,s[2],0.7,0.7,0.7,[255,236,140],t*3+0.785);
+      R3.shadow(s[1],0.02,s[2],0.32+Math.sin(t*4+s[0])*0.05);
     });
     var tags=netDraw(dt);
     if(botsOn())bots.forEach(function(b){blockPerson(b.x,b.y,b.z,b.face,b.c,b.step,false,null);R3.shadow(b.x,0.02,b.z,0.42);tags.push({x:b.x,y:b.y+2.0,z:b.z,n:b.n});});
     var col=hex2rgb(avPart('body',avOf(W&&W.av).body).c);
     if(CAM3.mode!==2)blockPerson(x,y,z,face,col,step,false,myAv3());
     R3.shadow(x,0.02,z,0.45);
+    /* a gold crown over the round leader */
+    var lp=S&&S.ph==='play'?leaderPos(S):null;if(lp){R3.box(lp[0],lp[1]+2.35,lp[2],0.6,0.18,0.6,[255,210,63],t*2);R3.box(lp[0],lp[1]+2.53,lp[2],0.18,0.2,0.18,[255,236,140],t*2);}
+    nfxDraw();
     R3.flush();
     netTags(tags);
+    nfxText();
     hud(S);
     if(flash>0){ctx.fillStyle='rgba(255,236,140,'+(flash/0.15*0.25)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
+  function leaderPos(S){
+    var best=null;
+    board(S).forEach(function(r){if(r.pts>0&&(!best||r.pts>best.pts))best=r;});
+    if(!best)return null;
+    if(best.me)return [x,y,z];
+    if(best.bot){var bb=null;bots.forEach(function(b){if(b.k===best.peer)bb=b;});return bb?[bb.x,bb.y,bb.z]:null;}
+    var sm=NET.sm[best.peer];return sm?[sm.x,sm.y,sm.z]:null;
+  }
   function hud(S){
     var b=board(S);
     var sl=Math.max(0,Math.ceil(S?S.left:0));
-    txt(S?(S.ph==='play'?Math.floor(sl/60)+':'+(sl%60<10?'0':'')+(sl%60):'Next round '+sl):'Starting...',12,24,18,'#fff','left');
+    txt(S?(S.ph==='play'?Math.floor(sl/60)+':'+(sl%60<10?'0':'')+(sl%60):'Next round '+sl):'Starting...',12,24,18,S&&S.ph==='play'&&sl<=10?'#ff8a7a':'#fff','left');
     txt(botsOn()&&!NET.blocked?(NET.room?'Playing with bots until friends join':'Playing with bots'):netStatus(),12,46,12,P.sun,'left');
     b.slice(0,5).forEach(function(r,i){txt((i+1)+'. '+r.n+'  '+r.pts,V.w-12,24+i*20,14,r.me?P.sun:'#fff','right');});
     if(S&&S.ph==='end'){
@@ -10496,6 +10589,8 @@ GAMES.tag=(function(){
   var CAMP={x:0,z:-13.5},t,x,y,z,vx,vz,vy,face,step,buf,flash,secs,claim,IT,lastSeen,applied,msg,msgT;
   /* nobody else here (offline, or alone online): three bots play tag with you, until a real player joins.
      LIT is who is It in that game; the It bot chases the nearest one, the others run away from It. */
+  /* polish: lastIt = who was It last frame (a change means a tag: burst there), beatT = time to the next heartbeat when It is near */
+  var lastIt='',beatT=0;
   var BOTC=[[94,216,138],[180,140,255],[255,154,60]],BOTN=['Bot Mint','Bot Grape','Bot Mango'];var bots=[],LIT=null;
   function blocked(px,pz,r){for(var i=0;i<PIL.length;i++)if(Math.abs(px-PIL[i][0])<PS+r&&Math.abs(pz-PIL[i][1])<PS+r)return true;return false;}
   function push(o,r){
@@ -10576,7 +10671,7 @@ GAMES.tag=(function(){
   }
   g.start=function(){
     t=0;x=(Math.random()*2-1)*6;z=(Math.random()*2-1)*6;y=0;vx=vz=vy=0;face=0;step=0;buf=0;flash=0;secs=0;
-    claim=null;IT=null;lastSeen=null;applied={};msg='';msgT=0;bots=[];LIT=null;
+    claim=null;IT=null;lastSeen=null;applied={};msg='';msgT=0;bots=[];LIT=null;nfxClear();lastIt='';beatT=0;
     PAD.reset();netJoin('w3-tag');STAT.add('plays3d',1);
   };
   g.stop=function(){PAD.reset();netLeave();};
@@ -10650,6 +10745,15 @@ GAMES.tag=(function(){
     if(!it&&claim&&Date.now()-claim.at>2500)claim=null;
     /* just became It */
     if(it&&safe<0.35&&msgT<=0){flash=0.5;beep(260,0.35,'sawtooth',0.06,0.6);msg='You are It!';msgT=1.2;}
+    /* a tag happened (It changed hands): red burst on the new It; a heartbeat while It is close to me */
+    var nowIt=info?info.p:'';
+    if(nowIt&&nowIt!==lastIt){
+      var ip=itPos(nowIt);
+      if(ip&&lastIt){nfxBurst(ip[0],1.2,ip[1],[255,90,77],12,4);nfxPop(ip[0],2.8,ip[1],nowIt===me()?'You are It!':'Tagged!',nowIt===me()?'#ff8a7a':P.sun);}
+    }
+    lastIt=nowIt;
+    if(!it&&nowIt){var ip2=itPos(nowIt),dI=ip2?Math.hypot(ip2[0]-x,ip2[1]-z):99;beatT-=dt;if(dI<6&&beatT<=0){beatT=0.25+dI*0.12;beep(90,0.08,'sine',0.05,0.8);}}
+    nfxStep(dt);
     var pres={x:Math.round(x*100)/100,y:Math.round(y*100)/100,z:Math.round(z*100)/100,f:Math.round(face*100)/100,it:it,secs:Math.round(secs),claim:claim||null,im:cheatOn('god')?1:0};
     pres.hs=amHost()&&IT?IT:null;
     netSend(pres);netFlush();
@@ -10683,19 +10787,32 @@ GAMES.tag=(function(){
       blockPerson(x,y,z,face,hex2rgb(avPart('body',avOf(W&&W.av).body).c),step,flash>0,myAv3());
       if(it)R3.box(x,y+2.3,z,0.5,0.5,0.5,[255,90,77],t*3);
     }
+    /* a red ring on the floor under whoever is It */
+    var ipd=info?itPos(info.p):null;
+    if(ipd){for(var ri=0;ri<10;ri++){var ra=ri/10*6.2832+t*2;R3.box(ipd[0]+Math.cos(ra)*0.9,0.02,ipd[1]+Math.sin(ra)*0.9,0.22,0.05,0.22,[255,90,77],0,true);}
+    }
     R3.shadow(x,0.02,z,0.45);
+    nfxDraw();
     R3.flush();
     netTags(tags);
+    nfxText();
     var ck=netCompact();
     txt(it?'YOU ARE IT!':'Run away!',V.w/2,ck?V.h-18:100,ck?20:24,it?P.brick:'#fff');
     txt(botsOn()&&!NET.blocked?(NET.room?'Playing with bots until friends join':'Playing with bots'):netStatus(),12,24,11,P.sun,'left');
     txt('It for '+Math.floor(secs)+'s',V.w-12,24,11,'#fff','right');
+    if(!it&&info){var ip3=itPos(info.p),d3=ip3?Math.hypot(ip3[0]-x,ip3[1]-z):99;if(d3<6&&msgT<=0)txt('It is close! Run!',V.w/2,netMidY(0.16),ck?14:16,'#ff8a7a');}
     if(msgT>0)txt(msg,V.w/2,netMidY(0.16),ck?18:22,P.sun);
     else if(it&&safe<=SAFE)txt('No tag-backs for '+Math.ceil(SAFE-safe)+'s',V.w/2,netMidY(0.14),ck?12:14,'#fff');
     else if(it)txt('Touch someone to pass it on',V.w/2,netMidY(0.14),ck?12:13,'#fff');
     PAD.draw();CAM3.draw(false);
     if(flash>0){ctx.fillStyle='rgba(255,90,77,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
+  /* where whoever is It stands: [x, z] (me, a bot or another player) */
+  function itPos(k){
+    if(k===me())return [x,z];
+    for(var i=0;i<bots.length;i++)if(bots[i].k===k)return [bots[i].x,bots[i].z];
+    var s=NET.sm[k];return s?[s.x,s.z]:null;
+  }
   /* test bots: play for real */
   g.tbp=function(tb,dt){
     var m=tb.m,info=botsOn()?LIT:hostIT(),it=!!(info&&info.p===me()),d=[0,0];
