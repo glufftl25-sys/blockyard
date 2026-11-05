@@ -10617,7 +10617,7 @@ GAMES.climb=(function(){
     txt('Best '+Math.max(best,score()),V.w-12,24,15,'#fff','right');
     if(msgT>0&&msg&&st==='run')txt(msg,V.w/2,92,18,P.sun);
     if(st==='ready')card3([['BLOCK CLIMB',32,P.sun],['Jump up the blocks. The lava is rising!',14],
-      [keys3()?'Move: arrows or W A S D. Jump: Space (hold to jump higher)':'Blue blocks slide, brown ones fall, green ones bounce',14]]);
+      [keys3()?'Arrows move, Space jumps (hold it to go higher)':'Blue blocks slide, brown fall, green bounce',14]]);
     if(st==='over')card3([['MELTED!',34,P.brick],['Height '+score(),24],[newBest?'NEW BEST!':'Best '+best,17,newBest?P.sun:'#fff'],
       [overT>0.7?(keys3()?'Press any key to climb again':'Tap to climb again'):'',17]],0.5);
     if(flash>0){ctx.fillStyle='rgba(255,110,40,'+(flash*0.6)+')';ctx.fillRect(0,0,V.w,V.h);}
