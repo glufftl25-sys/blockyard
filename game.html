@@ -22340,7 +22340,7 @@ if(gpPads().length)gpStart();
    for that game. Messages ride along in your room presence for 45 seconds, so people who join late still see the
    last few. Bad words are blurred the same way as in friend chats. Press / to chat, Esc to close. ===== */
 var GCH={log:[],out:[],seen:{},open:false,unread:0,own:false,last:0,ids:1,peek:[],beatT:0,peekT:0,game:'',hist:[],hi:-1};
-var GCH_ONLINE={obby:1,hill:1,paint:1,party:1,yard:1,duel:1,tag:1,ball:1,fall:1,bumpers:1,bridge:1,ftag:1};
+var GCH_ONLINE={obby:1,hill:1,paint:1,party:1,yard:1,duel:1,tag:1,ball:1,fall:1,bumpers:1,bridge:1,ftag:1,racers:1};
 var GCH_NONE={td:1,maker:1};
 function gchOn(){return !SOLO&&!!(cur&&cur.kind==='canvas'&&CURID&&!GCH_NONE[CURID]);}
 function gchMuted(){return !!lsGet('gch.mute',false);}
