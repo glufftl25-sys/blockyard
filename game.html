@@ -666,6 +666,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#141c33" width="88" height="88"/><path d="M20 24h14v12h10M20 52h14V40h10M60 38h10" fill="none" stroke="#ffd23f" stroke-width="3"/><rect x="6" y="17" width="14" height="14" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="6" y="45" width="14" height="14" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="40" y="29" width="22" height="18" fill="#fff3c2" stroke="#14213d" stroke-width="2"/><text x="51" y="42" font-family="Arial" font-weight="bold" font-size="8" text-anchor="middle" fill="#14213d">AND</text><circle cx="76" cy="38" r="8" fill="#ffe066" stroke="#14213d" stroke-width="2"/><circle cx="76" cy="38" r="13" fill="none" stroke="#ffe066" stroke-width="2" opacity=".5"/><path d="M20 72h48" stroke="#5a6488" stroke-width="3"/><rect x="6" y="65" width="14" height="14" fill="#3a4466" stroke="#14213d" stroke-width="2"/></svg></span>
           <span class="tt">Logic Lamp</span><span class="ts"><span id="best-gates">Best 0</span> · Switch on the right lamps</span>
         </button>
+        <button class="tile" type="button" data-game="shape" data-name="shape fit pieces blocks outline fill puzzle brain 2d" style="--c:#b48cff">
+          <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#17243f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="14" y="14" width="16" height="16" fill="#ff6b5b"/><rect x="30" y="14" width="16" height="16" fill="#ff6b5b"/><rect x="14" y="30" width="16" height="16" fill="#ff6b5b"/><rect x="46" y="14" width="16" height="16" fill="#e9eefb"/><rect x="30" y="30" width="16" height="16" fill="#e9eefb"/><rect x="46" y="30" width="16" height="16" fill="#e9eefb"/><rect x="14" y="46" width="16" height="16" fill="#e9eefb"/><rect x="30" y="46" width="16" height="16" fill="#e9eefb"/></g><g stroke="#14213d" stroke-width="2" transform="rotate(-12 64 64)"><rect x="52" y="56" width="12" height="12" fill="#b48cff"/><rect x="64" y="56" width="12" height="12" fill="#b48cff"/><rect x="64" y="68" width="12" height="12" fill="#b48cff"/></g></svg></span>
+          <span class="tt">Shape Fit</span><span class="ts"><span id="best-shape">Best 0</span> · Fill the outline with pieces</span>
+        </button>
         <button class="tile" type="button" data-game="memo" data-name="memory match pairs cards puzzle 2d" style="--c:#ff6b5b">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#15233f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="10" width="30" height="34" fill="#ff6b5b"/><rect x="48" y="10" width="30" height="34" fill="#2e4270"/><rect x="8" y="48" width="30" height="34" fill="#2e4270"/><rect x="48" y="48" width="30" height="34" fill="#ff6b5b"/></g><text x="23" y="34" font-size="20" text-anchor="middle" fill="#14213d">★</text><text x="63" y="72" font-size="20" text-anchor="middle" fill="#14213d">★</text></svg></span>
           <span class="tt">Memory Match</span><span class="ts"><span id="best-memo">Best 0</span> · Find the pairs</span>
@@ -12535,6 +12539,218 @@ GAMES.gates=(function(){
     var nr=nearest(sw);if(!nr)return [level-1,'boards'];
     for(var i=0;i<nIn;i++)if(nr.v[i]!==sw[i]){var b=swb[i];tb.tap(b.x+b.w/2,b.y+b.h/2);break;}
     return [level-1,'boards'];
+  };
+  return g;
+})();
+
+/* ===== Shape Fit: fit every block piece into the outline so it is filled exactly.
+   Each outline is grown at random and then cut into pieces, so the pieces always fit (turning them is allowed; any way
+   that fills it counts). Ten outlines, from 2 small pieces up to 7 bigger ones. Tap a piece, turn it with the turn button,
+   then tap the outline where its top-left square should go (the ghost shows where it lands). Tap a placed piece to take it
+   back. Keys: Q/E pick a piece, arrows move, F or R turns, Space places or picks up. ===== */
+HUBBEST['best-shape']='by.shape';
+GAMES.shape=(function(){
+  var g={kind:'canvas',title:'Shape Fit',lw:400};
+  var GW,GH,inR,pieces,owner,sel,cur,moves,level,score,best,st,t,newBest,msg,msgT,win,winT,S,ox,oy,tray,rot,wide,showCur,hover;
+  var LAST=10;
+  var LV=[[5,8,[3,5]],[5,10,[3,5]],[6,12,[3,5]],[6,15,[3,5]],[6,18,[3,5]],[7,20,[3,5]],[7,23,[3,6]],[7,26,[4,6]],[8,29,[4,6]],[8,32,[4,6]]];
+  var PC=['#ff6b5b','#ffd23f','#5ed88a','#3cc8f0','#b48cff','#ff9a3c','#ff8fc7','#9be15d'];
+  function norm(cells){
+    var mx=Math.min.apply(null,cells.map(function(c){return c[0];})),my=Math.min.apply(null,cells.map(function(c){return c[1];}));
+    return cells.map(function(c){return [c[0]-mx,c[1]-my];}).sort(function(a,b){return a[1]-b[1]||a[0]-b[0];});
+  }
+  function turn(cells){return norm(cells.map(function(c){return [-c[1],c[0]];}));}
+  function rotN(cells,n){var c=cells;for(var i=0;i<n;i++)c=turn(c);return c;}
+  function metrics(){
+    wide=vWide();
+    var top=wide?60:92,trayH=wide?0:Math.max(110,Math.min(190,V.h*0.26)),trayW=wide?Math.min(260,V.w*0.34):0;
+    var room=wide?Math.min(V.w-trayW-60,V.h-top-30):Math.min(V.w-24,V.h-top-trayH-30);
+    S=Math.max(14,Math.floor(room/Math.max(GW,GH)));
+    ox=wide?Math.round((V.w-trayW-S*GW)/2):Math.round((V.w-S*GW)/2);oy=top;
+    /* the tray of pieces, then the turn button */
+    var n=pieces.length,tx=wide?ox+S*GW+30:12,ty=wide?oy:oy+S*GH+16,tw=wide?V.w-tx-14:V.w-24,th=wide?S*GH-60:trayH-56;
+    var colsN=wide?2:Math.min(n,4),rowsN=Math.ceil(n/colsN),cw=tw/colsN,ch=Math.max(40,th/rowsN);
+    tray=pieces.map(function(p,i){return {x:tx+(i%colsN)*cw,y:ty+Math.floor(i/colsN)*ch,w:cw,h:ch};});
+    var rb=wide?{x:tx,y:oy+S*GH-48,w:Math.min(160,tw),h:46}:{x:V.w/2-80,y:Math.min(V.h-54,ty+rowsN*ch+6),w:160,h:46};
+    rot=rb;
+  }
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function build(){
+    var L=LV[Math.min(level,LAST)-1];GW=GH=L[0];var n=L[1],sz=L[2],tries=0;
+    for(;;){
+      tries++;
+      inR=new Array(GW*GH).fill(false);
+      var cx=Math.floor(GW/2),cy=Math.floor(GH/2),list=[cy*GW+cx];inR[list[0]]=true;
+      while(list.length<n){
+        var c=list[Math.floor(Math.random()*list.length)],x=c%GW,y=(c/GW)|0,d=[[1,0],[-1,0],[0,1],[0,-1]][Math.floor(Math.random()*4)];
+        var nx=x+d[0],ny=y+d[1];if(nx<0||ny<0||nx>=GW||ny>=GH)continue;var ni=ny*GW+nx;if(inR[ni])continue;inR[ni]=true;list.push(ni);
+      }
+      /* cut the outline into pieces by growing each one from the first square nobody owns yet */
+      var own=new Array(GW*GH).fill(-1),parts=[],ok=true;
+      for(var i=0;i<GW*GH;i++){
+        if(!inR[i]||own[i]>=0)continue;
+        var want=sz[0]+Math.floor(Math.random()*(sz[1]-sz[0]+1)),cells=[i];own[i]=parts.length;
+        while(cells.length<want){
+          var opts=[];cells.forEach(function(q){var qx=q%GW,qy=(q/GW)|0;[[1,0],[-1,0],[0,1],[0,-1]].forEach(function(e){var px=qx+e[0],py=qy+e[1];if(px<0||py<0||px>=GW||py>=GH)return;var pi=py*GW+px;if(inR[pi]&&own[pi]<0&&opts.indexOf(pi)<0)opts.push(pi);});});
+          if(!opts.length)break;var pk=opts[Math.floor(Math.random()*opts.length)];own[pk]=parts.length;cells.push(pk);
+        }
+        parts.push(cells);
+      }
+      /* pieces that came out too small join a neighbour */
+      parts.forEach(function(p,k){
+        if(p.length>=2||!ok)return;
+        var q=p[0],qx=q%GW,qy=(q/GW)|0,nb=-1;
+        [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(e){var px=qx+e[0],py=qy+e[1];if(px<0||py<0||px>=GW||py>=GH)return;var o=own[py*GW+px];if(o>=0&&o!==k&&nb<0)nb=o;});
+        if(nb<0){ok=false;return;}parts[nb].push(q);own[q]=nb;parts[k]=[];
+      });
+      parts=parts.filter(function(p){return p.length;});
+      if(!ok||parts.some(function(p){return p.length>6;})){if(tries<100)continue;}
+      pieces=parts.map(function(p,k){
+        var shape=norm(p.map(function(q){return [q%GW,(q/GW)|0];}));
+        return {shape:shape,r:Math.floor(Math.random()*4),at:null,col:PC[k%PC.length]};
+      });
+      /* shuffle the tray */
+      for(var s=pieces.length-1;s>0;s--){var j=Math.floor(Math.random()*(s+1)),tmp=pieces[s];pieces[s]=pieces[j];pieces[j]=tmp;}
+      break;
+    }
+    owner=new Array(GW*GH).fill(-1);sel=0;cur=[0,0];moves=0;win=false;winT=0;hover=null;
+    for(var f=0;f<GW*GH;f++)if(inR[f]){cur=[f%GW,(f/GW)|0];break;}
+    metrics();
+  }
+  function cellsOf(p,ax,ay){var c=rotN(p.shape,p.r),a=c[0];return c.map(function(q){return [ax+q[0]-a[0],ay+q[1]-a[1]];});}
+  function fits(k,ax,ay){
+    return cellsOf(pieces[k],ax,ay).every(function(c){if(c[0]<0||c[1]<0||c[0]>=GW||c[1]>=GH)return false;var i=c[1]*GW+c[0];return inR[i]&&(owner[i]<0||owner[i]===k);});
+  }
+  function lift(k){var p=pieces[k];if(!p.at)return;owner=owner.map(function(o){return o===k?-1:o;});p.at=null;}
+  function place(k,ax,ay){
+    if(st!=='run'||win||k<0||!fits(k,ax,ay)){beep(200,0.05,'square',0.03,1);return false;}
+    lift(k);
+    cellsOf(pieces[k],ax,ay).forEach(function(c){owner[c[1]*GW+c[0]]=k;});
+    pieces[k].at=[ax,ay];moves++;beep(620,0.05,'square',0.035,1.4);
+    var next=-1;for(var i=0;i<pieces.length;i++)if(!pieces[(sel+i)%pieces.length].at){next=(sel+i)%pieces.length;break;}
+    if(next>=0)sel=next;
+    if(inR.every(function(v,i){return !v||owner[i]>=0;})){
+      win=true;winT=1.1;
+      var bonus=Math.max(10,40+level*10-Math.max(0,moves-pieces.length)*4);
+      score+=bonus;msg='It fits! +'+bonus;msgT=1.6;beep(900,0.3,'square',0.05,1.9);
+      if(score>best){best=score;newBest=true;lsSet('by.shape',best);}
+    }
+    return true;
+  }
+  function reset(hard){if(hard){level=1;score=0;newBest=false;}st='run';t=0;msg='';msgT=0;showCur=false;build();}
+  g.start=function(){best=lsGet('by.shape',0);reset(true);};
+  g.resize=function(){if(pieces)metrics();};
+  g.stop=function(){};
+  function inB(b,x,y){return x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h;}
+  function spin(){if(sel<0||win)return;var p=pieces[sel];if(p.at){var a=p.at;lift(sel);p.r=(p.r+1)%4;if(!place(sel,a[0],a[1])){p.r=(p.r+3)%4;place(sel,a[0],a[1]);}moves++;}else p.r=(p.r+1)%4;beep(500,0.04,'square',0.03,1.2);}
+  g.down=function(x,y){
+    if(st==='over'){if(t>0.7)reset(true);return;}
+    showCur=false;
+    if(inB(rot,x,y)){spin();return;}
+    for(var i=0;i<tray.length;i++)if(inB(tray[i],x,y)){if(sel===i&&!pieces[i].at)spin();else sel=i;beep(560,0.03,'square',0.02,1);return;}
+    var cx=Math.floor((x-ox)/S),cy=Math.floor((y-oy)/S);
+    if(cx<0||cy<0||cx>=GW||cy>=GH)return;
+    var o=owner[cy*GW+cx];
+    if(o>=0&&(sel<0||pieces[sel].at||o===sel)){lift(o);sel=o;moves++;beep(380,0.05,'square',0.03,1);return;}
+    if(sel>=0)place(sel,cx,cy);
+  };
+  g.move=function(x,y){var cx=Math.floor((x-ox)/S),cy=Math.floor((y-oy)/S);hover=(cx>=0&&cy>=0&&cx<GW&&cy<GH)?[cx,cy]:null;};
+  g.key=function(c,d){
+    if(!d)return;
+    if(st==='over'){if(t>0.7&&(c==='Space'||c==='Enter'))reset(true);return;}
+    showCur=true;
+    if(c==='KeyQ')sel=(sel+pieces.length-1)%pieces.length;
+    else if(c==='KeyE'||c==='Tab')sel=(sel+1)%pieces.length;
+    else if(c==='ArrowLeft'||c==='KeyA')cur[0]=Math.max(0,cur[0]-1);
+    else if(c==='ArrowRight'||c==='KeyD')cur[0]=Math.min(GW-1,cur[0]+1);
+    else if(c==='ArrowUp'||c==='KeyW')cur[1]=Math.max(0,cur[1]-1);
+    else if(c==='ArrowDown'||c==='KeyS')cur[1]=Math.min(GH-1,cur[1]+1);
+    else if(c==='KeyF'||c==='KeyR'||c==='KeyV')spin();
+    else if(c==='Space'||c==='Enter'){
+      var o=owner[cur[1]*GW+cur[0]];
+      if(o>=0&&(pieces[sel].at||o===sel)){lift(o);sel=o;moves++;}
+      else place(sel,cur[0],cur[1]);
+    }
+  };
+  g.update=function(dt){
+    t+=dt;if(msgT>0)msgT-=dt;
+    if(win){winT-=dt;if(winT<=0){level++;if(level>LAST){st='over';t=0;}else build();}}
+  };
+  function mini(p,b,on){
+    var c=rotN(p.shape,p.r),w=1,h=1;c.forEach(function(q){w=Math.max(w,q[0]+1);h=Math.max(h,q[1]+1);});
+    var s=Math.min(26,(b.w-14)/w,(b.h-14)/h),x0=b.x+(b.w-s*w)/2,y0=b.y+(b.h-s*h)/2;
+    if(on){ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.strokeRect(b.x+3,b.y+3,b.w-6,b.h-6);}
+    c.forEach(function(q){ctx.fillStyle=p.at?'rgba(255,255,255,.12)':p.col;ctx.fillRect(x0+q[0]*s,y0+q[1]*s,s-1,s-1);});
+  }
+  g.draw=function(){
+    ctx.fillStyle='#17243f';ctx.fillRect(0,0,V.w,V.h);
+    for(var i=0;i<GW*GH;i++){
+      var x=ox+(i%GW)*S,y=oy+((i/GW)|0)*S;
+      if(!inR[i]){ctx.fillStyle='#1d2c4c';ctx.fillRect(x+1,y+1,S-2,S-2);continue;}
+      if(owner[i]>=0)box(x,y,S,S,pieces[owner[i]].col);
+      else{ctx.fillStyle='#e9eefb';ctx.fillRect(x+1,y+1,S-2,S-2);}
+    }
+    /* the ghost: where the chosen piece would land */
+    var at=showCur?cur:hover;
+    if(at&&sel>=0&&!pieces[sel].at&&!win){
+      var okF=fits(sel,at[0],at[1]);
+      cellsOf(pieces[sel],at[0],at[1]).forEach(function(c){if(c[0]<0||c[1]<0||c[0]>=GW||c[1]>=GH)return;ctx.fillStyle=okF?'rgba(94,216,138,.55)':'rgba(255,107,91,.45)';ctx.fillRect(ox+c[0]*S+2,oy+c[1]*S+2,S-4,S-4);});
+    }
+    if(showCur){ctx.lineWidth=3;ctx.strokeStyle=P.sun;ctx.strokeRect(ox+cur[0]*S+2,oy+cur[1]*S+2,S-4,S-4);}
+    for(var k=0;k<pieces.length;k++)mini(pieces[k],tray[k],k===sel);
+    box(rot.x,rot.y,rot.w,rot.h,'#e9eefb');ctx.font='bold 18px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=P.ink;ctx.fillText('Turn  \u21bb',rot.x+rot.w/2,rot.y+rot.h/2+1);
+    var left=pieces.filter(function(p){return !p.at;}).length;
+    txt('Score '+score,10,22,16,'#fff','left');
+    txt('Shape '+Math.min(level,LAST)+'/'+LAST,V.w/2,22,16,P.sun);
+    txt('Best '+best,V.w-10,22,15,P.sun,'right');
+    txt('Pieces left '+left+' · Moves '+moves,ox+S*GW/2,oy-16,15,'#fff');
+    if(msgT>0)txt(msg,ox+S*GW/2,oy+S*GH/2,22,P.grass);
+    if(st==='over'){
+      ctx.fillStyle='rgba(23,36,63,.88)';ctx.fillRect(0,0,V.w,V.h);
+      txt('EVERY SHAPE FILLED!',V.w/2,V.h*0.4,28,P.grass);
+      txt('Score '+score,V.w/2,V.h*0.4+42,22,'#fff');
+      if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
+      if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
+    }
+  };
+  /* a real solver: fill the first empty square with some piece, turned some way, and back up when stuck */
+  function solve(){
+    var own=new Array(GW*GH).fill(-1),used=new Array(pieces.length).fill(false),plan=[],steps=0;
+    function go(){
+      if(++steps>200000)return false;
+      var first=-1;for(var i=0;i<GW*GH;i++)if(inR[i]&&own[i]<0){first=i;break;}
+      if(first<0)return true;
+      var fx=first%GW,fy=(first/GW)|0;
+      for(var k=0;k<pieces.length;k++){
+        if(used[k])continue;
+        for(var r=0;r<4;r++){
+          var c=rotN(pieces[k].shape,r),a=c[0],cells=c.map(function(q){return [fx+q[0]-a[0],fy+q[1]-a[1]];});
+          if(!cells.every(function(q){return q[0]>=0&&q[1]>=0&&q[0]<GW&&q[1]<GH&&inR[q[1]*GW+q[0]]&&own[q[1]*GW+q[0]]<0;}))continue;
+          cells.forEach(function(q){own[q[1]*GW+q[0]]=k;});used[k]=true;plan.push({k:k,r:r,x:fx,y:fy});
+          if(go())return true;
+          cells.forEach(function(q){own[q[1]*GW+q[0]]=-1;});used[k]=false;plan.pop();
+        }
+      }
+      return false;
+    }
+    return go()?plan:null;
+  }
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [LAST,'shapes'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.25||win)return [level-1,'shapes'];m.c=0;
+    if(m.lv!==level||!m.plan){
+      m.lv=level;
+      /* take every piece back first, then work out a full fit */
+      for(var i=0;i<pieces.length;i++)if(pieces[i].at){var a=pieces[i].at,c=cellsOf(pieces[i],a[0],a[1])[0];tb.tap(ox+(c[0]+0.5)*S,oy+(c[1]+0.5)*S);return [level-1,'shapes'];}
+      m.plan=solve()||[];
+    }
+    var s=m.plan[0];if(!s){m.plan=null;return [level-1,'shapes'];}
+    var b=tray[s.k];
+    if(sel!==s.k){tb.tap(b.x+b.w/2,b.y+b.h/2);return [level-1,'shapes'];}
+    if(pieces[s.k].r!==s.r){tb.tap(rot.x+rot.w/2,rot.y+rot.h/2);return [level-1,'shapes'];}
+    tb.tap(ox+(s.x+0.5)*S,oy+(s.y+0.5)*S);m.plan.shift();
+    return [level-1,'shapes'];
   };
   return g;
 })();
