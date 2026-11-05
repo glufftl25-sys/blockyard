@@ -20999,6 +20999,12 @@ window.BY_TESTBOTS=function(o){return tbRun(o||{}).then(function(r){return r?{re
 window.BY_TESTBOTS.stop=function(){if(TB.on){TB.stop=true;tbShow();}};
 window.BY_TESTBOTS.progress=function(){return {on:TB.on,i:TB.i,n:TB.n,name:TB.name};};
 window.BY_TESTBOTS.duel=function(cmd){if(cmd==='open'){if(cur!==GAMES.duel)openGame('duel');return true;}return GAMES.duel.tbm('mp',cmd);};
+/* online room probe for the two-player checks: which room this copy is in and where the other players are */
+window.BY_TESTBOTS.net=function(cmd){
+  if(cmd==='obbymp'){GAMES.obby.mp=true;GAMES.obby.title='Obby Race';if(cur!==GAMES.obby)openGame('obby');return true;}
+  if(cmd==='close'){if(cur)closeGame();return true;}
+  return {room:NET.name,joined:!!NET.room,fail:!!NET.fail,game:cur?cur.title:'',others:netOthers().map(function(p){var q=p.presence;return {x:q.x,z:q.z,sec:q.sec};})};
+};
 window.BY_TESTBOTS.ver=function(){var u=UPDATES[0];return u?u.id+' \u00b7 '+u.t:'';};
 function cmdPlayers(){
   CMD.busy=true;cmdRender();

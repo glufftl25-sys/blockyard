@@ -98,8 +98,10 @@ async function run(game, out) {
   await L.page.waitForTimeout(1000);
   rep.ver = await L.page.evaluate(() => (window.BY_TESTBOTS && BY_TESTBOTS.ver && BY_TESTBOTS.ver()) || '');
   /* every hub tile; GAMES is private, so a tile the bots cannot open shows up as an empty result below */
-  let list = await L.page.evaluate(() => [...document.querySelectorAll('#games .tile[data-game]')].map(t => t.getAttribute('data-game'))
-    .filter((id, i, a) => a.indexOf(id) === i).map(id => ({ id })));
+  /* tiles that open another game's code: duelmenu opens Blaster Duel, obbymp is Sky Obby online (the two-player checks cover it) */
+  const ALIAS = { duelmenu: 'duel', obbymp: 'obby' };
+  let list = await L.page.evaluate(() => [...document.querySelectorAll('#games .tile[data-game]')].map(t => t.getAttribute('data-game')));
+  list = list.map(id => ALIAS[id] || id).filter((id, i, a) => a.indexOf(id) === i).map(id => ({ id }));
   if (process.env.PILOT_IDS) { const only = process.env.PILOT_IDS.split(','); list = list.filter(x => only.includes(x.id)); }
   for (const x of list) {
     const g = { id: x.id, t: x.id, pilot: false, tries: [], best: 0, label: '' };
