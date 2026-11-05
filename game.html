@@ -1580,7 +1580,7 @@ GAMES.runner=(function(){
     ctx.globalAlpha=1;
     txt('DUCK',57,h-35,18,'#fff');txt('JUMP',w-57,h-35,18,'#fff');
     if(st==='ready'){
-      panel(groundY-200,[['BOX HOPPER',34,P.sun],['TAP TO RUN',22,'#fff'],['Right side: jump (hold = higher)',14,'#fff'],['Left side: duck under birds',14,'#fff']]);
+      panel(Math.max(6,groundY-200),[['BOX HOPPER',34,P.sun],['TAP TO RUN',22,'#fff'],['Right side: jump (hold = higher)',14,'#fff'],['Left side: duck under birds',14,'#fff']]);
     }else if(st==='over'){
       var lines=[['GAME OVER',34,P.brick],['Score '+score(),24,'#fff'],[newBest?'New best!':'Best '+best,18,P.sun]];
       lines.push([overT>0.45?'Tap to retry':' ',20,'#fff']);
@@ -2011,11 +2011,11 @@ GAMES.arena=(function(){
     }
     if(banner>0&&st==='run'){
       ctx.globalAlpha=Math.min(1,banner*2);
-      txt(bannerS,V.w/2,V.h/2-86,bannerS.length>12?30:34,bannerBoss?P.brick:P.sun);
-      if(bannerSub)txt(bannerSub,V.w/2,V.h/2-52,16,'#fff');
+      txt(bannerS,V.w/2,Math.max(62,V.h/2-86),bannerS.length>12?30:34,bannerBoss?P.brick:P.sun);
+      if(bannerSub)txt(bannerSub,V.w/2,Math.max(96,V.h/2-52),16,'#fff');
       ctx.globalAlpha=1;
     }
-    var my=V.h/2-110;
+    var my=Math.max(6,V.h/2-110);
     if(st==='ready'){
       if(fromYard)panel(my,[['BLOCK BLITZ',32,P.sun],['Drag anywhere to move',16,'#fff'],['Beat the wave '+YWAVE+' boss to go back',16,'#fff'],['TAP TO START',22,P.sun]]);
       else panel(my,[['BLOCK BLITZ',32,P.sun],['Drag anywhere to move',16,'#fff'],['Survive waves. Beat bosses!',16,'#fff'],['TAP TO START',22,P.sun]]);
@@ -14961,7 +14961,7 @@ GAMES.road=(function(){
       var x=laneX(c.l);
       ctx.beginPath();ctx.arc(x,c.y,12,0,6.2832);ctx.fillStyle=P.sun;ctx.fill();
       ctx.lineWidth=3;ctx.strokeStyle=P.ink;ctx.stroke();
-      txt('B',x,c.y,13,P.ink);
+      if(c.y>10)txt('B',x,c.y,13,P.ink);
     });
     function car(x,y,c,flip){
       box(x-17,y-28,34,56,c);
@@ -16035,9 +16035,13 @@ GAMES.fish=(function(){
 /* ===== Beat Blocks: tap the notes as they reach the line ===== */
 GAMES.beat=(function(){
   var g={kind:'canvas',title:'Beat Blocks',lw:400};
+  /* fixed world height so the notes have room to fall on landscape screens; the lanes sit in a centre column */
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  var FW=400,FX=0;
+  function colW(){FW=Math.min(V.w,560);FX=(V.w-FW)/2;}
   var LANES=4,notes,score,best,st,t,combo,maxCombo,hits,miss,newBest,spawn,pops,lit,speed,bar;
   var TONES=[330,392,440,523];
-  function laneX(i){return (V.w/LANES)*i+(V.w/LANES)/2;}
+  function laneX(i){return (FW/LANES)*i+(FW/LANES)/2;}
   function reset(){notes=[];pops=[];score=0;st='run';t=0;combo=0;maxCombo=0;hits=0;miss=0;newBest=false;spawn=0.8;lit=[0,0,0,0];speed=260;bar=0;}
   g.start=function(){best=lsGet('by.beat',0);reset();};
   g.stop=function(){};
@@ -16065,7 +16069,7 @@ GAMES.beat=(function(){
   }
   g.down=function(x,y){
     if(st==='over'){if(t>0.7)reset();return;}
-    judge(clampN(Math.floor(x/(V.w/LANES)),0,LANES-1));
+    colW();judge(clampN(Math.floor((x-FX)/(FW/LANES)),0,LANES-1));
   };
   g.key=function(c,d){
     if(!d)return;
@@ -16103,51 +16107,53 @@ GAMES.beat=(function(){
     });
   };
   g.draw=function(){
-    ctx.fillStyle='#120b24';ctx.fillRect(0,0,V.w,V.h);
+    colW();ctx.save();ctx.translate(FX,0);
+    ctx.fillStyle='#120b24';ctx.fillRect(-FX,0,V.w,V.h);
     var pulse=0.5+0.5*Math.sin(bar*6);
     for(var i=0;i<LANES;i++){
-      var w=V.w/LANES;
+      var w=FW/LANES;
       ctx.fillStyle=i%2?'#1a1033':'#160d2c';ctx.fillRect(i*w,0,w,V.h);
       if(lit[i]>0){ctx.fillStyle='rgba(255,210,63,'+(lit[i]*4)+')';ctx.fillRect(i*w,0,w,V.h);}
     }
     var L=line();
-    ctx.fillStyle='rgba(255,255,255,'+(0.3+pulse*0.25)+')';ctx.fillRect(0,L-3,V.w,6);
+    ctx.fillStyle='rgba(255,255,255,'+(0.3+pulse*0.25)+')';ctx.fillRect(0,L-3,FW,6);
     notes.forEach(function(n){
       if(n.done)return;
-      var w=V.w/LANES;
+      var w=FW/LANES;
       box(n.l*w+10,n.y-16,w-20,32,[P.brick,P.sky,P.grass,P.lilac][n.l]);
       ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillRect(n.l*w+14,n.y-12,w-28,6);
     });
     for(i=0;i<LANES;i++){
-      var w2=V.w/LANES;
+      var w2=FW/LANES;
       ctx.strokeStyle=lit[i]>0?P.sun:'rgba(255,255,255,.35)';ctx.lineWidth=4;
       ctx.strokeRect(i*w2+10,L-22,w2-20,44);
     }
     pops.forEach(function(p){ctx.globalAlpha=clampN(p.t*2.2,0,1);txt(p.s,p.x,p.y,18,p.c);ctx.globalAlpha=1;});
-    ctx.fillStyle='rgba(18,11,36,.7)';ctx.fillRect(0,0,V.w,62);
+    ctx.fillStyle='rgba(18,11,36,.7)';ctx.fillRect(-FX,0,V.w,62);
     txt('Score '+score,10,20,17,'#fff','left');
-    txt('Best '+best,V.w-10,20,14,P.sun,'right');
-    txt(combo>1?('Combo x'+combo):'Tap the lane as the block lands',V.w/2,20,combo>1?17:12,combo>1?P.sun:'#9fb0d8');
-    txt(Math.max(0,Math.ceil(90-t))+'s left',V.w/2,44,13,'#9fb0d8');
+    txt('Best '+best,FW-10,20,14,P.sun,'right');
+    txt(combo>1?('Combo x'+combo):'Tap the lane as the block lands',FW/2,20,combo>1?17:Math.max(12,10*V.css),combo>1?P.sun:'#9fb0d8');
+    txt(Math.max(0,Math.ceil(90-t))+'s left',FW/2,44,13,'#9fb0d8');
     if(st==='over'){
-      ctx.fillStyle='rgba(18,11,36,.88)';ctx.fillRect(0,0,V.w,V.h);
-      txt('SONG OVER',V.w/2,V.h*0.36,30,P.lilac);
-      txt('Score '+score,V.w/2,V.h*0.36+42,24,'#fff');
-      txt(hits+' hits · best combo x'+maxCombo,V.w/2,V.h*0.36+72,16,'#9fb0d8');
-      if(newBest)txt('NEW BEST!',V.w/2,V.h*0.36+102,18,P.sun);
-      if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.36+(newBest?134:104),16,'#fff');
+      ctx.fillStyle='rgba(18,11,36,.88)';ctx.fillRect(-FX,0,V.w,V.h);
+      txt('SONG OVER',FW/2,V.h*0.36,30,P.lilac);
+      txt('Score '+score,FW/2,V.h*0.36+42,24,'#fff');
+      txt(hits+' hits · best combo x'+maxCombo,FW/2,V.h*0.36+72,16,'#9fb0d8');
+      if(newBest)txt('NEW BEST!',FW/2,V.h*0.36+102,18,P.sun);
+      if(t>0.7)txt('Tap to play again',FW/2,V.h*0.36+(newBest?134:104),16,'#fff');
     }
+    ctx.restore();
   };
   /* test bots: play for real */
   g.tbp=function(tb,dt){
     var m=tb.m;
-    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(FW/2,V.h/2);}return [score,'points'];}
     m.o=0;
     var L=line();
     for(var i=0;i<LANES;i++){
       var n=null;notes.forEach(function(q){if(q.l===i&&!q.done&&(!n||Math.abs(q.y-L)<Math.abs(n.y-L)))n=q;});
       if(!n)continue;var d=n.y-L;
-      if(d>-speed*0.04&&d<16){if(Math.random()<0.5)tb.k('Digit'+(i+1));else tb.tap(laneX(i),L);}
+      if(d>-speed*0.04&&d<16){if(Math.random()<0.5)tb.k('Digit'+(i+1));else tb.tap(laneX(i)+FX,L);}
     }
     return [score,'points'];
   };
