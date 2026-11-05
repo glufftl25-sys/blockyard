@@ -2900,11 +2900,11 @@ function dashHit(cells,px,py,slide,dz){
 
 GAMES.dash=(function(){
   var g={kind:'canvas',title:'Lane Dash',lw:400,is3d:true};
-  var st='ready',t=0,z=0,speed=14,lane=1,px=0,py=0,vy=0,slideT=0,rows=[],coins=[],coinN=0,nextRow=40,overT=0,best=0,newBest=false,flash=0,shake=0,step=0,rd=Math.random,sw=null,score=0,fy=1.6;
+  var passT=0,passed=false,st='ready',t=0,z=0,speed=14,lane=1,px=0,py=0,vy=0,slideT=0,rows=[],coins=[],coinN=0,nextRow=40,overT=0,best=0,newBest=false,flash=0,shake=0,step=0,rd=Math.random,sw=null,score=0,fy=1.6;
   function score_(){return Math.floor(z*0.5)+coinN*10;}
   function laneX(i){return (i-1)*DS.LANE;}
   function reset(){
-    st='ready';t=0;z=0;speed=14;lane=1;px=0;py=0;vy=0;slideT=0;rows=[];coins=[];coinN=0;nextRow=40;overT=0;newBest=false;flash=0;shake=0;sw=null;
+    passT=0;passed=false;st='ready';t=0;z=0;speed=14;lane=1;px=0;py=0;vy=0;slideT=0;rows=[];coins=[];coinN=0;nextRow=40;overT=0;newBest=false;flash=0;shake=0;sw=null;
   }
   function spawnRow(){
     var r=dashRow(rd,z);r.z=nextRow;rows.push(r);
@@ -2970,6 +2970,8 @@ GAMES.dash=(function(){
     if(st!=='run')return;
     speed=Math.min(30,14+z*0.012);
     z+=speed*dt;step+=dt*speed*0.5;
+    if(passT>0)passT-=dt;
+    if(!passed&&best>0&&score_()>best){passed=true;passT=1.6;beep(784,0.1,'square',0.05,1.6);setTimeout(function(){beep(1047,0.16,'square',0.05,1.8);},110);FX3.burst(px,2,z+3,[255,210,63],10,5);}
     if(py>0||vy>0){vy-=DS.G*dt;py+=vy*dt;if(py<=0){py=0;vy=0;}}
     if(slideT>0)slideT-=dt;
     while(nextRow<z+80)spawnRow();
@@ -3056,6 +3058,7 @@ GAMES.dash=(function(){
   }
   function hud(){
     if(CAM3.mode===1&&st==='run')radar();
+    if(passT>0&&st==='run')txt('New best!',V.w/2,CAM3.mode===1?150:96,20,P.sun);
     txt('Score '+score_(),12,24,19,'#fff','left');
     txt('Coins '+coinN,12,46,14,P.sun,'left');
     txt('Best '+best,V.w-12,24,15,'#fff','right');
@@ -3201,8 +3204,9 @@ GAMES.stars=(function(){
     var fr=CAM3.mode===1,ez=fr?Math.min(z+8,HALF+2):z-8;
     if(CAM3.snap){CAMP.x=x*0.6;CAMP.z=ez;CAM3.snap=false;}
     else{CAMP.x+=(x*0.6-CAMP.x)*0.12;CAMP.z+=(ez-CAMP.z)*0.12;}
-    if(CAM3.mode===2)R3.camera(x,y+1.45,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
-    else R3.look(CAMP.x,13,CAMP.z,CAMP.x*0.9,0,CAMP.z+(fr?-8.5:8.5),V.w*0.98,V.w/2,V.h*0.5);
+    var shk=flash>0?(Math.random()-0.5)*flash*1.2:0;
+    if(CAM3.mode===2)R3.camera(x+shk*0.3,y+1.45,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
+    else R3.look(CAMP.x+shk,13,CAMP.z,CAMP.x*0.9,0,CAMP.z+(fr?-8.5:8.5),V.w*0.98,V.w/2,V.h*0.5);
     var n=Math.round(HALF*2/TILE),i,j;
     for(i=0;i<n;i++)for(j=0;j<n;j++){
       R3.box(-HALF+(i+0.5)*TILE,-0.6,-HALF+(j+0.5)*TILE,TILE,0.6,TILE,((i+j)&1)?[126,222,150]:[105,206,132],0,true);
@@ -3491,8 +3495,9 @@ GAMES.gems=(function(){
     var fr=CAM3.mode===1,ez=fr?Math.min(z+9,HALF+2):z-9,i,j;
     if(CAM3.snap){CAMP.x=x*0.6;CAMP.z=ez;CAM3.snap=false;}
     else{CAMP.x+=(x*0.6-CAMP.x)*0.12;CAMP.z+=(ez-CAMP.z)*0.12;}
-    if(CAM3.mode===2)R3.camera(x,y+1.45,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
-    else R3.look(CAMP.x,14+y*0.6,CAMP.z,CAMP.x*0.9,y*0.5,CAMP.z+(fr?-9:9),V.w*0.98,V.w/2,V.h*0.5);
+    var shk=flash>0?(Math.random()-0.5)*flash*1.2:0;
+    if(CAM3.mode===2)R3.camera(x+shk*0.3,y+1.45,z,CAM3.yaw,CAM3.pitch,V.w*0.82,V.w/2,V.h*0.5);
+    else R3.look(CAMP.x+shk,14+y*0.6,CAMP.z,CAMP.x*0.9,y*0.5,CAMP.z+(fr?-9:9),V.w*0.98,V.w/2,V.h*0.5);
     var n=Math.round(HALF*2/TILE);
     for(i=0;i<n;i++)for(j=0;j<n;j++)R3.box(-HALF+(i+0.5)*TILE,-0.6,-HALF+(j+0.5)*TILE,TILE,0.6,TILE,((i+j)&1)?[236,214,170]:[222,196,150],0,true);
     for(i=0;i<4;i++){
@@ -9446,7 +9451,7 @@ GAMES.golf=(function(){
       if(step(o,dt/n,tm,true)){
         bx=o.x;bz=o.z;vx=o.vx;vz=o.vz;
         total+=shots;card[hole]=shots;st='sunk';overT=0;
-        msg=shots<=H.par-1?'BIRDIE!':(shots===H.par?'PAR!':'+'+(shots-H.par));
+        msg=shots===1?'HOLE IN ONE!':(shots<=H.par-1?'BIRDIE!':(shots===H.par?'PAR!':'+'+(shots-H.par)));if(shots===1){for(var hc=0;hc<5;hc++)FX3.burst(H.cup[0],0.6,H.cup[1],FX3C[hc],6,8);setTimeout(function(){beep(1175,0.25,'square',0.05,1.9);},180);}
         msgT=1.4;beep(880,0.3,'square',0.06,1.9);for(var fc=0;fc<5;fc++)FX3.burst(H.cup[0],0.4,H.cup[1],FX3C[fc],5,6);buzz(80,0.4);
         return;
       }
@@ -9645,7 +9650,7 @@ GAMES.dive=(function(){
     else{var bk=m===1?0.5:-0.5;R3.look(x,y+6,z+bk,x,y-12,z-bk*0.8,V.w*0.8,V.w/2,V.h*0.6);}
     var tg=nextRing();
     for(var i=0;i<rings.length;i++){
-      var r=rings[i];if(r.y>y+0.3)continue;
+      var r=rings[i];if(r.y>y+0.3||((r.done||r.miss)&&r.y>y-0.6))continue;
       var n=18,c=r.done?[94,216,138]:(r.miss?[150,150,160]:(r===tg?[255,210,63]:[255,186,90]));
       for(var a=0;a<n;a++){
         var an=a/n*6.2832;
@@ -9664,6 +9669,11 @@ GAMES.dive=(function(){
     if(st==='ready')card3([['SKY DIVE',32,P.sun],[keys3()?'Steer with the arrows or W A S D':'Steer with the stick',14],['Fall through the rings!',14]]);
     if(st==='over')card3([['SPLASH!',32,P.brick],['Score '+score,22],[newBest?'NEW BEST!':'Best '+best,16,newBest?P.sun:'#fff'],
       [overT>0.6?(keys3()?'Press any key to dive again':'Tap to dive again'):'',16]],0.6);
+    if(st==='run'){
+      var sk=(fall()-14)/10,cx0=V.w/2,cy0=V.h*0.6;ctx.save();ctx.strokeStyle='rgba(255,255,255,'+(0.18+sk*0.25)+')';ctx.lineWidth=1.5;ctx.beginPath();
+      for(var sl=0;sl<10;sl++){var an=sl*0.628+t*0.3,r0=60+((t*260+sl*37)%140),r1=r0+14+sk*26;ctx.moveTo(cx0+Math.cos(an)*r0,cy0+Math.sin(an)*r0*0.6);ctx.lineTo(cx0+Math.cos(an)*r1,cy0+Math.sin(an)*r1*0.6);}
+      ctx.stroke();ctx.restore();
+    }
     if(flash>0){ctx.fillStyle='rgba(255,236,140,'+(flash*0.8)+')';ctx.fillRect(0,0,V.w,V.h);}
     if(st!=='over')stick();
     CAM3.draw(st==='ready');
