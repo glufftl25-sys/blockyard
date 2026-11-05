@@ -638,6 +638,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#bfe0f2" width="88" height="88"/><g fill="#5b6fae" stroke="#14213d" stroke-width="2"><rect x="6" y="8" width="16" height="16"/><rect x="66" y="64" width="16" height="16"/><rect x="40" y="56" width="10" height="24"/></g><circle cx="26" cy="54" r="15" fill="rgba(255,77,77,.3)"/><rect x="18" y="46" width="16" height="16" fill="#ff4d4d" stroke="#14213d" stroke-width="3"/><rect x="22" y="51" width="3" height="4" fill="#14213d"/><rect x="28" y="51" width="3" height="4" fill="#14213d"/><rect x="52" y="20" width="16" height="16" fill="#5ed88a" stroke="#14213d" stroke-width="3"/><rect x="48" y="16" width="24" height="24" fill="rgba(200,245,255,.7)" stroke="#fff" stroke-width="2"/><rect x="51" y="19" width="4" height="4" fill="#fff"/><text x="26" y="40" font-size="10" font-weight="700" text-anchor="middle" fill="#ff4d4d" stroke="#14213d" stroke-width="0.6">IT</text></svg></span>
           <span class="tt">Freeze Tag</span><span class="ts"><span id="best-ftag">Wins 0</span> · Online · Freeze or thaw</span>
         </button>
+        <button class="tile" type="button" data-game="racers" data-name="block racers online multiplayer 2d racing race car track laps bots" style="--c:#ffd23f">
+          <span class="thumb"><span class="bon">ONLINE</span><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#5aa83c" width="88" height="88"/><path d="M14 20h44a16 16 0 0 1 0 32H30a16 16 0 0 0 0 32" fill="none" stroke="#14213d" stroke-width="22"/><path d="M14 20h44a16 16 0 0 1 0 32H30a16 16 0 0 0 0 32" fill="none" stroke="#4a4f63" stroke-width="16"/><path d="M14 20h44a16 16 0 0 1 0 32H30a16 16 0 0 0 0 32" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="5 5"/><rect x="40" y="13" width="18" height="11" fill="#ff6b5b" stroke="#14213d" stroke-width="2.5"/><rect x="50" y="15" width="5" height="7" fill="#fff"/><rect x="38" y="46" width="18" height="11" fill="#3cc8f0" stroke="#14213d" stroke-width="2.5"/><rect x="40" y="48" width="5" height="7" fill="#fff"/></svg></span>
+          <span class="tt">Block Racers</span><span class="ts"><span id="best-racers">Wins 0</span> · Online · Race 3 laps</span>
+        </button>
         <button class="tile" type="button" data-game="hoops" data-name="hoops basketball shoot 2d" style="--c:#ff9a3c">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#2d3a6b" width="88" height="88"/><rect x="34" y="16" width="36" height="6" fill="#ff5a4d"/><path d="M36 22l8 16h18l6-16" fill="none" stroke="#fff" stroke-width="2"/><rect x="66" y="10" width="6" height="20" fill="#9aa4bb"/><circle cx="26" cy="58" r="13" fill="#ff9a3c" stroke="#14213d" stroke-width="3"/><path d="M13 58h26M26 45v26" stroke="#14213d" stroke-width="2"/></svg></span>
           <span class="tt">Hoops</span><span class="ts"><span id="best-hoops">Best 0</span> · Flick and score</span>
@@ -4843,6 +4847,237 @@ GAMES.ftag=(function(){
   return g;
 })();
 HUBBEST['best-ftag']=function(){return 'Wins '+lsGet('by.ftag',0);};
+/* ===== Block Racers (2D, online): top-down racing, 3 laps round a looping track, 2 to 8 cars (players and bots).
+   Point where you want to go (arrows, WASD or the stick) and the car turns and drives that way; grass slows you down
+   and the yellow arrow pads give a boost. Uses the 2D online lobby kit. Every device drives its own car and bots, and
+   cars from other devices drive through yours like ghosts, so it is fair with any ping. Each car sends its lap, how
+   far round it is and its finish time; the host says when the race is over. ===== */
+GAMES.racers=(function(){
+  var g={kind:'canvas',title:'Block Racers',lw:360};
+  var LAPS=3,TW=3.4,MAXS=10.5,GRASS=4.2,ACC=9,TURN=3.4,BOOST=1.5,RACE=150000,AFTER=20000,SHOW=7000,MAXB=7;
+  var PAL=['#3cc8f0','#ff6b5b','#5ed88a','#ffd23f','#b48cff','#ff9a3c','#ff8ad4','#2fd4c4'];
+  /* the track: a loop through these points, smoothed */
+  var NODES=[[6,4],[20,3],[34,4],[38,9],[34,13],[25,12],[21,16],[26,20],[34,20],[36,24],[30,28],[14,28],[6,26],[3,20],[8,15],[4,10]];
+  var TR=[],TLEN=0,BW=42,BH=32,PADS=[0.18,0.52,0.8];
+  (function(){
+    var n=NODES.length,i,k;
+    for(i=0;i<n;i++){
+      var p0=NODES[(i-1+n)%n],p1=NODES[i],p2=NODES[(i+1)%n],p3=NODES[(i+2)%n];
+      for(k=0;k<14;k++){var t=k/14,t2=t*t,t3=t2*t;
+        TR.push([0.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),
+                 0.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)]);}
+    }
+    var s=0;TR.forEach(function(p,j){var q=TR[(j+1)%TR.length];p.push(s);s+=Math.hypot(q[0]-p[0],q[1]-p[1]);});TLEN=s;
+  })();
+  var NT=TR.length;
+  var L=lob2d({title:'Block Racers',room:'w2-race',maxP:6,maxB:MAXB,maxT:8,defNb:4,col:P.sun,
+    note:function(np,nb){return (np+nb)+' cars · '+LAPS+' laps';},
+    onMatch:function(){mine=[];res=null;saved=false;fx=[];skid=[];},
+    onAct:function(a){if(a.a==='again')L.again();}});
+  var mine=[],res=null,saved=false,fx=[],skid=[],t=0,sc=10,ox=0,oy=0;
+  function now(){return Date.now();}
+  function me(){return L.myKey();}
+  function roster(){
+    var ks=L.keyList(),out=ks.slice(),n=0;
+    (L.alloc||[]).forEach(function(e){for(var j=0;j<e[1];j++){if(ks.indexOf(e[0])>=0)out.push(e[0]+':b'+n);n++;}});
+    return out;
+  }
+  function allKeys(){var out=L.keyList().slice(),n=0;(L.alloc||[]).forEach(function(e){for(var j=0;j<e[1];j++){out.push(e[0]+':b'+n);n++;}});return out;}
+  function colorOf(k){var r=allKeys().sort(),i=r.indexOf(k);return PAL[(i<0?0:i)%PAL.length];}
+  function nameOf(k){
+    if(k===me())return 'You';
+    var b=k.lastIndexOf(':b');if(b>0)return 'Bot '+((+k.slice(b+2))+1);
+    var p=L.groupOthers().filter(function(x){return x.peer===k;})[0];return p?netName(p).slice(0,10):'Player';
+  }
+  /* nearest point of the track, searched near the last one */
+  function near(x,y,hint){
+    var best=hint|0,bd=1e9,i,from=hint==null?0:hint-12,to=hint==null?NT:hint+12;
+    for(i=from;i<to;i++){var j=(i%NT+NT)%NT,p=TR[j],d=(p[0]-x)*(p[0]-x)+(p[1]-y)*(p[1]-y);if(d<bd){bd=d;best=j;}}
+    return [best,Math.sqrt(bd)];
+  }
+  function setup(){
+    var mk=me(),list=allKeys();
+    mine=[{k:mk,bi:-1}].concat(L.myBots().map(function(i){return {k:mk+':b'+i,bi:i};}));
+    /* the grid: two by two behind the start line */
+    var p=TR[0],q=TR[1],a=Math.atan2(q[1]-p[1],q[0]-p[0]);
+    mine.forEach(function(e){
+      var idx=Math.max(0,list.indexOf(e.k)),row=Math.floor(idx/2)+1,side=idx%2?0.8:-0.8;
+      e.x=p[0]-Math.cos(a)*row*1.6-Math.sin(a)*side;e.y=p[1]-Math.sin(a)*row*1.6+Math.cos(a)*side;
+      e.a=a;e.v=0;e.i=near(e.x,e.y)[0];e.lap=0;e.half=false;e.fin=0;e.bt=0;e.ofs=(Math.random()-0.5)*1.4;e.skill=0.9+Math.random()*0.1;e.prog=0;
+    });
+  }
+  function angTo(a,b){var d=b-a;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d+=6.2832;return d;}
+  function drive(e,dx,dy,mag,dt){
+    var n2=near(e.x,e.y,e.i),off=n2[1]>TW/2;e.i=n2[0];
+    if(mag>0.1){var want=Math.atan2(dy,dx),da=angTo(e.a,want);e.a+=clampN(da,-TURN*dt,TURN*dt)*(0.6+0.4*Math.min(1,e.v/4));}
+    var top=(off?GRASS:MAXS)*(e.bt>0?BOOST:1)*(e.k===me()?cheatSpd():1),thr=mag>0.1?Math.min(1,mag):0;
+    if(e.v<top*thr)e.v=Math.min(top*thr,e.v+ACC*dt*(e.bt>0?1.8:1));else e.v=Math.max(top*thr,e.v-ACC*(off?1.4:0.8)*dt);
+    e.x+=Math.cos(e.a)*e.v*dt;e.y+=Math.sin(e.a)*e.v*dt;
+    e.x=clampN(e.x,0,BW);e.y=clampN(e.y,0,BH);
+    if(e.bt>0)e.bt-=dt;
+    /* boost pads */
+    PADS.forEach(function(f){var pi=Math.floor(f*NT),p=TR[pi];if(Math.hypot(p[0]-e.x,p[1]-e.y)<1.3&&e.bt<=0.2){e.bt=1.1;if(e.k===me())beep(660,0.15,'square',0.04,2);for(var k=0;k<6;k++)fx.push({x:e.x,y:e.y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:0.4,c:P.sun});}});
+    if(off&&e.v>3&&Math.random()<0.5)fx.push({x:e.x,y:e.y,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,life:0.4,c:'#8bc34a'});
+    /* laps: past the halfway point, then over the line */
+    var f=e.i/NT;
+    if(f>0.45&&f<0.6)e.half=true;
+    if(e.half&&f<0.1&&(e.lastF||0)>0.9){e.lap++;e.half=false;
+      if(e.lap>=LAPS&&!e.fin){e.fin=Math.max(1,now()-L.mStart);if(e.k===me()){beep(990,0.4,'square',0.06,2);}}
+      else if(e.k===me())beep(780,0.15,'square',0.05,1.5);}
+    /* before halfway, being near the end of the loop means just behind the line */
+    e.lastF=f;e.prog=e.lap+(!e.half&&f>0.6?f-1:f);
+  }
+  function botDrive(e,dt){
+    var look=(e.i+8)%NT,p=TR[look],q=TR[(look+1)%NT],a=Math.atan2(q[1]-p[1],q[0]-p[0]);
+    var tx=p[0]-Math.sin(a)*e.ofs-e.x,ty=p[1]+Math.cos(a)*e.ofs-e.y;
+    if(Math.random()<0.01)e.ofs=(Math.random()-0.5)*1.4;
+    drive(e,tx,ty,e.skill,dt);
+  }
+  function remotes(){
+    var out=[];
+    L.groupOthers().forEach(function(p){
+      var q=p.presence;if(!Array.isArray(q.e))return;
+      var age=Math.min(0.2,Math.max(0,(now()-(p.updatedAt||now()))/1000));
+      q.e.slice(0,MAXB+1).forEach(function(v){
+        if(!Array.isArray(v))return;
+        var id=v[0]|0,k=id===0?p.peer:p.peer+':b'+(id-1),a=netNum(v[3],-7,7,0),sp=netNum(v[4],0,20,0);
+        out.push({k:k,x:netNum(v[1],0,BW,0)+Math.cos(a)*sp*age,y:netNum(v[2],0,BH,0)+Math.sin(a)*sp*age,a:a,v:sp,prog:netNum(v[5],0,LAPS+1,0),fin:+v[6]||0,bt:v[7]?1:0});
+      });
+    });
+    return out;
+  }
+  function cars(){return mine.concat(remotes());}
+  function standings(){
+    var cs=cars(),r=roster();
+    return cs.filter(function(c){return r.indexOf(c.k)>=0;}).sort(function(a,b){
+      if(a.fin&&b.fin)return a.fin-b.fin;if(a.fin)return -1;if(b.fin)return 1;return b.prog-a.prog;});
+  }
+  function hostEnd(el){
+    if(res)return;
+    var st=standings(),done=st.filter(function(c){return c.fin;});
+    if(el>=RACE||(st.length&&done.length===st.length)||(done.length&&el-done[0].fin>=AFTER))res={at:now()};
+  }
+  function fmt(ms){var s=ms/1000;return Math.floor(s/60)+':'+((s%60)<10?'0':'')+(s%60).toFixed(1);}
+  g.start=function(){L.start();t=0;};
+  g.stop=function(){L.stop();};
+  g.pre=function(w,h){g.lw=Math.max(360,Math.ceil(clampN(h,400,480)*w/h));};
+  g.resize=function(){L.layout();};
+  g.down=function(px,py,id){L.down(px,py,id);};
+  g.move=function(px,py,id){L.move(px,py,id);};
+  g.up=function(px,py,id){L.up(px,py,id);};
+  g.key=function(c,d){L.key(c,d);};
+  g.update=function(dt){
+    t+=dt;
+    fx.forEach(function(f){f.x+=f.vx*dt;f.y+=f.vy*dt;f.life-=dt;});fx=fx.filter(function(f){return f.life>0;});
+    if(L.update(dt))return;
+    if(!L.mStart)return;
+    if(!mine.length)setup();
+    var n=now(),el=n-L.mStart;
+    if(!L.amHost()){var hp=L.hostPeer();if(hp&&hp.presence.res&&!res)res={at:+hp.presence.res.at||n};}
+    if(el>=0&&!res){
+      var mv=L.moveVec();
+      mine.forEach(function(e){
+        if(e.fin){e.v*=Math.exp(-2*dt);e.x+=Math.cos(e.a)*e.v*dt;e.y+=Math.sin(e.a)*e.v*dt;return;}
+        if(e.bi<0)drive(e,mv[0],mv[1],mv[2],dt);else botDrive(e,dt);
+        if(e.v>4&&Math.random()<0.25){skid.push({x:e.x,y:e.y,life:1.2});if(skid.length>160)skid.shift();}
+      });
+    }
+    skid.forEach(function(s){s.life-=dt;});skid=skid.filter(function(s){return s.life>0;});
+    if(L.amHost())hostEnd(el);
+    if(res&&!saved){saved=true;var st=standings();if(st[0]&&st[0].k===me()&&st[0].fin){lsSet('by.racers',lsGet('by.racers',0)+1);beep(880,0.5,'square',0.06,2);}}
+    if(res&&n>=res.at+SHOW){L.toLobby();return;}
+    var p0=mine[0]||{x:1,y:1};
+    L.send({x:Math.round(p0.x*100)/100,z:Math.round(p0.y*100)/100,res:L.amHost()?res:null,
+      e:mine.map(function(e){return [e.bi<0?0:e.bi+1,Math.round(e.x*100)/100,Math.round(e.y*100)/100,Math.round(e.a*100)/100,Math.round(e.v*10)/10,Math.round(e.prog*1000)/1000,e.fin,e.bt>0?1:0];})});
+  };
+  /* ---- drawing ---- */
+  function layout(){
+    var wd=L.wide();
+    if(wd){sc=Math.min((V.w*0.72)/BW,(V.h-20)/BH);ox=(V.w-sc*BW)/2;oy=(V.h-sc*BH)/2;}
+    else{sc=Math.min((V.w-10)/BW,(V.h-120)/BH);ox=(V.w-sc*BW)/2;oy=Math.max(60,(V.h-sc*BH)/2+10);}
+  }
+  function path(w){ctx.beginPath();TR.forEach(function(p,i){var X=ox+p[0]*sc,Y=oy+p[1]*sc;if(i)ctx.lineTo(X,Y);else ctx.moveTo(X,Y);});ctx.closePath();ctx.lineWidth=w;ctx.stroke();}
+  function drawCar(c,me2){
+    var X=ox+c.x*sc,Y=oy+c.y*sc,l=Math.max(10,sc*1.0),w=Math.max(6,sc*0.56);
+    ctx.save();ctx.translate(X,Y);ctx.rotate(c.a);
+    if(c.bt){ctx.fillStyle='rgba(255,210,63,.6)';ctx.fillRect(-l*0.9,-w*0.35,l*0.4,w*0.7);}
+    ctx.fillStyle=P.ink;ctx.fillRect(-l/2-1.5,-w/2-1.5,l+3,w+3);
+    ctx.fillRect(-l*0.38,-w/2-2.5,l*0.22,w+5);ctx.fillRect(l*0.18,-w/2-2.5,l*0.22,w+5);
+    ctx.fillStyle=colorOf(c.k);ctx.fillRect(-l/2,-w/2,l,w);
+    ctx.fillStyle='rgba(255,255,255,.75)';ctx.fillRect(l*0.05,-w*0.32,l*0.22,w*0.64);
+    ctx.restore();
+    if(me2){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(X,Y,l*0.85,0,6.283);ctx.stroke();}
+  }
+  function drawMatch(){
+    layout();
+    var n=now(),el=n-L.mStart,i;
+    /* grass, track, kerbs, start line, boost pads */
+    ctx.fillStyle='#5aa83c';ctx.fillRect(ox,oy,BW*sc,BH*sc);
+    ctx.fillStyle='rgba(255,255,255,.05)';for(i=0;i<BW;i+=2)ctx.fillRect(ox+i*sc,oy,sc,BH*sc);
+    ctx.lineJoin='round';
+    ctx.strokeStyle=P.ink;path(TW*sc+8);
+    ctx.setLineDash([sc*0.8,sc*0.8]);ctx.strokeStyle='#ff5a4d';path(TW*sc+6);ctx.setLineDash([]);
+    ctx.strokeStyle='#4a4f63';path(TW*sc);
+    ctx.setLineDash([sc*0.7,sc*0.9]);ctx.strokeStyle='rgba(255,255,255,.5)';path(Math.max(1,sc*0.12));ctx.setLineDash([]);
+    var p=TR[0],q=TR[1],a=Math.atan2(q[1]-p[1],q[0]-p[0]);
+    ctx.save();ctx.translate(ox+p[0]*sc,oy+p[1]*sc);ctx.rotate(a);
+    for(i=0;i<6;i++)for(var j=0;j<2;j++){ctx.fillStyle=(i+j)&1?'#fff':P.ink;ctx.fillRect(j*sc*0.35-sc*0.35,-TW*sc/2+i*TW*sc/6,sc*0.35,TW*sc/6);}
+    ctx.restore();
+    PADS.forEach(function(f){var pi=Math.floor(f*NT),pp=TR[pi],qq=TR[(pi+1)%NT],aa=Math.atan2(qq[1]-pp[1],qq[0]-pp[0]);
+      ctx.save();ctx.translate(ox+pp[0]*sc,oy+pp[1]*sc);ctx.rotate(aa);ctx.fillStyle=P.ink;ctx.fillRect(-sc*0.9,-sc*0.9,sc*1.8,sc*1.8);
+      ctx.fillStyle=P.sun;ctx.fillRect(-sc*0.8,-sc*0.8,sc*1.6,sc*1.6);ctx.fillStyle=P.ink;
+      ctx.beginPath();ctx.moveTo(-sc*0.4,-sc*0.5);ctx.lineTo(sc*0.5,0);ctx.lineTo(-sc*0.4,sc*0.5);ctx.closePath();ctx.fill();ctx.restore();});
+    skid.forEach(function(s){ctx.globalAlpha=Math.min(0.35,s.life*0.3);ctx.fillStyle=P.ink;ctx.fillRect(ox+s.x*sc-1.5,oy+s.y*sc-1.5,3,3);});ctx.globalAlpha=1;
+    var cs=cars();
+    cs.forEach(function(c){if(c.k!==me())drawCar(c,false);});
+    if(mine[0])drawCar(mine[0],true);
+    fx.forEach(function(f){ctx.globalAlpha=Math.min(1,f.life*3);ctx.fillStyle=f.c;ctx.fillRect(ox+f.x*sc-2.5,oy+f.y*sc-2.5,5,5);});ctx.globalAlpha=1;
+    /* standings and laps */
+    var st=standings(),wd=L.wide(),m0=mine[0],lap=m0?Math.min(LAPS,m0.lap+1):1;
+    var lx=wd?Math.max(60,ox/2):12,al=wd?'center':'left';
+    txt(m0&&m0.fin?'Finished!':'Lap '+lap+'/'+LAPS,lx,wd?40:18,wd?24:16,P.sun,al);
+    txt(el>0?fmt(m0&&m0.fin?m0.fin:el):'',lx,wd?70:38,wd?18:12,'#fff',al);
+    var rx=wd?V.w-Math.max(60,ox/2):V.w-12;
+    st.slice(0,wd?8:4).forEach(function(c,k){
+      var yy=(wd?34:16)+k*(wd?22:15),lab=(k+1)+'. '+nameOf(c.k)+(c.fin?' ✓':'');
+      if(wd){ctx.fillStyle=P.ink;ctx.fillRect(rx-74,yy-6,12,12);ctx.fillStyle=colorOf(c.k);ctx.fillRect(rx-72,yy-4,8,8);txt(lab,rx-56,yy+1,12,c.k===me()?P.sun:'#fff','left');}
+      else txt(lab,rx,yy,11,c.k===me()?P.sun:'#fff','right');
+    });
+    if(el<0){
+      ctx.fillStyle='rgba(16,26,51,.6)';ctx.fillRect(0,V.h/2-46,V.w,92);
+      var cd=Math.ceil(-el/1000);txt(cd>0?String(cd):'GO!',V.w/2,V.h/2-10,44,cd>1?'#ff5a4d':(cd===1?P.sun:'#5ed88a'));
+      txt('Point where you want to drive · '+LAPS+' laps',V.w/2,V.h/2+26,13,'#fff');
+    }
+    if(res){
+      ctx.fillStyle='rgba(16,26,51,.88)';var bh=Math.min(V.h-40,110+Math.min(st.length,5)*18);ctx.fillRect(0,V.h/2-bh/2,V.w,bh);
+      var w0=st[0];
+      txt(w0&&w0.fin?(w0.k===me()?'You win!':nameOf(w0.k)+' wins!'):'Race over',V.w/2,V.h/2-bh/2+26,26,P.sun);
+      st.slice(0,5).forEach(function(c,k){txt((k+1)+'. '+nameOf(c.k)+'  '+(c.fin?fmt(c.fin):'lap '+Math.min(LAPS,Math.floor(c.prog)+1)),V.w/2,V.h/2-bh/2+54+k*18,13,c.k===me()?P.sun:'#fff');});
+      var by=V.h/2+bh/2-40;
+      if(L.cfg==='solo')L.btn('Play again',V.w/2-80,by,150,30,{a:'again'},true);
+      L.btn('Lobby',L.cfg==='solo'?V.w/2+80:V.w/2,by,150,30,{a:'leave'});
+    }
+  }
+  g.draw=function(){
+    ctx.fillStyle='#101a33';ctx.fillRect(0,0,V.w,V.h);
+    L.draw();
+    if(L.st==='match'&&L.mStart)drawMatch();
+    L.stickDraw();
+  };
+  /* test bots: drive like a bot, through the arrow keys */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(L.tbLobby(tb,dt))return [m.top||0,'track covered (%)'];
+    var e=mine[0];
+    if(!e||!L.mStart||now()<L.mStart||res||e.fin){tb.only([]);return [m.top||0,'track covered (%)'];}
+    var look=(e.i+8)%NT,p=TR[look];
+    tbWalk2(tb,p[0]-e.x,p[1]-e.y);
+    m.top=Math.max(m.top||0,Math.round(e.prog*100));
+    return [m.top,'track covered (%)'];
+  };
+  return g;
+})();
+HUBBEST['best-racers']=function(){return 'Wins '+lsGet('by.racers',0);};
 /* ===== Paint Battle (2D, online): walk around the lobby and step on a yellow pad to pick how many players (1 to 5) and
    bots (0 to 10). For 2+ players the pad turns green with the player and bot count above it, and its maker stays on it
    until enough players walk onto the green square; then the group moves to its own match room. Matches last 60 seconds:
