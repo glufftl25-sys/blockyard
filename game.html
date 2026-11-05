@@ -3351,8 +3351,12 @@ function netTags(tags){
   tags.forEach(function(t){
     var p=R3.project(t.x,t.y,t.z);
     if(!p||p[2]>45)return;
-    var sz=Math.max(10,Math.min(15,220/p[2]));
-    txt('@'+t.n,p[0],p[1],sz,'#fff');
+    var sz=Math.max(10,Math.min(15,220/p[2])),s='@'+t.n,hw=s.length*sz*0.29+4;
+    /* keep the whole tag on screen; fade it out when its player is well off the edge */
+    var px=clampN(p[0],hw,V.w-hw),py=clampN(p[1],sz,V.h-sz*0.6),off=Math.max(Math.abs(p[0]-px),Math.abs(p[1]-py));
+    if(off>60)return;
+    ctx.globalAlpha=off>0?Math.max(0.25,1-off/60):1;
+    txt(s,px,py,sz,'#fff');
   });
   ctx.restore();
 }
@@ -10559,6 +10563,8 @@ GAMES.tag=(function(){
   var CAMP={x:0,z:-13.5},t,x,y,z,vx,vz,vy,face,step,buf,flash,secs,claim,IT,lastSeen,applied,msg,msgT;
   /* nobody else here (offline, or alone online): three bots play tag with you, until a real player joins.
      LIT is who is It in that game; the It bot chases the nearest one, the others run away from It. */
+  /* polish: lastIt = who was It last frame (a change means a tag: burst there), beatT = time to the next heartbeat when It is near */
+  var lastIt='',beatT=0;
   var BOTC=[[94,216,138],[180,140,255],[255,154,60]],BOTN=['Bot Mint','Bot Grape','Bot Mango'];var bots=[],LIT=null;
   function blocked(px,pz,r){for(var i=0;i<PIL.length;i++)if(Math.abs(px-PIL[i][0])<PS+r&&Math.abs(pz-PIL[i][1])<PS+r)return true;return false;}
   function push(o,r){
@@ -10639,7 +10645,7 @@ GAMES.tag=(function(){
   }
   g.start=function(){
     t=0;x=(Math.random()*2-1)*6;z=(Math.random()*2-1)*6;y=0;vx=vz=vy=0;face=0;step=0;buf=0;flash=0;secs=0;
-    claim=null;IT=null;lastSeen=null;applied={};msg='';msgT=0;bots=[];LIT=null;
+    claim=null;IT=null;lastSeen=null;applied={};msg='';msgT=0;bots=[];LIT=null;nfxClear();lastIt='';beatT=0;
     PAD.reset();netJoin('w3-tag');STAT.add('plays3d',1);
   };
   g.stop=function(){PAD.reset();netLeave();};
@@ -10713,6 +10719,15 @@ GAMES.tag=(function(){
     if(!it&&claim&&Date.now()-claim.at>2500)claim=null;
     /* just became It */
     if(it&&safe<0.35&&msgT<=0){flash=0.5;beep(260,0.35,'sawtooth',0.06,0.6);msg='You are It!';msgT=1.2;}
+    /* a tag happened (It changed hands): red burst on the new It; a heartbeat while It is close to me */
+    var nowIt=info?info.p:'';
+    if(nowIt&&nowIt!==lastIt){
+      var ip=itPos(nowIt);
+      if(ip&&lastIt){nfxBurst(ip[0],1.2,ip[1],[255,90,77],12,4);nfxPop(ip[0],2.8,ip[1],nowIt===me()?'You are It!':'Tagged!',nowIt===me()?'#ff8a7a':P.sun);}
+    }
+    lastIt=nowIt;
+    if(!it&&nowIt){var ip2=itPos(nowIt),dI=ip2?Math.hypot(ip2[0]-x,ip2[1]-z):99;beatT-=dt;if(dI<6&&beatT<=0){beatT=0.25+dI*0.12;beep(90,0.08,'sine',0.05,0.8);}}
+    nfxStep(dt);
     var pres={x:Math.round(x*100)/100,y:Math.round(y*100)/100,z:Math.round(z*100)/100,f:Math.round(face*100)/100,it:it,secs:Math.round(secs),claim:claim||null,im:cheatOn('god')?1:0};
     pres.hs=amHost()&&IT?IT:null;
     netSend(pres);netFlush();
@@ -10746,19 +10761,32 @@ GAMES.tag=(function(){
       blockPerson(x,y,z,face,hex2rgb(avPart('body',avOf(W&&W.av).body).c),step,flash>0,myAv3());
       if(it)R3.box(x,y+2.3,z,0.5,0.5,0.5,[255,90,77],t*3);
     }
+    /* a red ring on the floor under whoever is It */
+    var ipd=info?itPos(info.p):null;
+    if(ipd){for(var ri=0;ri<10;ri++){var ra=ri/10*6.2832+t*2;R3.box(ipd[0]+Math.cos(ra)*0.9,0.02,ipd[1]+Math.sin(ra)*0.9,0.22,0.05,0.22,[255,90,77],0,true);}
+    }
     R3.shadow(x,0.02,z,0.45);
+    nfxDraw();
     R3.flush();
     netTags(tags);
+    nfxText();
     var ck=netCompact();
     txt(it?'YOU ARE IT!':'Run away!',V.w/2,ck?V.h-18:100,ck?20:24,it?P.brick:'#fff');
     txt(botsOn()&&!NET.blocked?(NET.room?'Playing with bots until friends join':'Playing with bots'):netStatus(),12,24,11,P.sun,'left');
     txt('It for '+Math.floor(secs)+'s',V.w-12,24,11,'#fff','right');
+    if(!it&&info){var ip3=itPos(info.p),d3=ip3?Math.hypot(ip3[0]-x,ip3[1]-z):99;if(d3<6&&msgT<=0)txt('It is close! Run!',V.w/2,netMidY(0.16),ck?14:16,'#ff8a7a');}
     if(msgT>0)txt(msg,V.w/2,netMidY(0.16),ck?18:22,P.sun);
     else if(it&&safe<=SAFE)txt('No tag-backs for '+Math.ceil(SAFE-safe)+'s',V.w/2,netMidY(0.14),ck?12:14,'#fff');
     else if(it)txt('Touch someone to pass it on',V.w/2,netMidY(0.14),ck?12:13,'#fff');
     PAD.draw();CAM3.draw(false);
     if(flash>0){ctx.fillStyle='rgba(255,90,77,'+(flash*0.5)+')';ctx.fillRect(0,0,V.w,V.h);}
   };
+  /* where whoever is It stands: [x, z] (me, a bot or another player) */
+  function itPos(k){
+    if(k===me())return [x,z];
+    for(var i=0;i<bots.length;i++)if(bots[i].k===k)return [bots[i].x,bots[i].z];
+    var s=NET.sm[k];return s?[s.x,s.z]:null;
+  }
   /* test bots: play for real */
   g.tbp=function(tb,dt){
     var m=tb.m,info=botsOn()?LIT:hostIT(),it=!!(info&&info.p===me()),d=[0,0];
