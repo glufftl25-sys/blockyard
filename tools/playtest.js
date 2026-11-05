@@ -15,7 +15,8 @@
    Usage: node tools/playtest.js [path/to/game.html] [outDir]
    Optional: PLAYTEST_MS (ms per game on the laptop, default 4000; the phone gets 3/4 of it), PLAYTEST_MP=0 to skip the
    two-player check, PLAYTEST_ONLYMP=1 to do only the two-player, chat and website checks, PLAYTEST_SITE=0 to skip the website
-   check, PLAYTEST_DEBUG=1 to print the chat screens when the chat check fails. */
+   check, PLAYTEST_DEBUG=1 to print the chat screens when the chat check fails,
+   PLAYTEST_PILOTS=1 to also run the slow pilot and quality check (tools/pilots.js; writes pilots.json). */
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -418,6 +419,21 @@ function problemOf(r) {
     const lap = report.runs[0];
     lap.results.push(site);
     if (!site.ok) lap.problems.push(problemOf(site));
+  }
+  if (process.env.PLAYTEST_PILOTS === '1') {
+    /* opt-in, slow: every hub game has a pilot that scores within 8 s, plus the phone quality report (tools/pilots.js) */
+    const pl = require('./pilots');
+    const pr = await pl.run(game, out);
+    report.pilots = { noPilot: pr.noPilot, neverScored: pr.neverScored, sharedSmall: pr.sharedSmall, secs: pr.secs };
+    const pc = { id: 'm.pilots', t: 'Every game has a pilot that scores', check: true, err: {}, ok: true, steps: pr.games.length, fail: '' };
+    const bits = [];
+    if (pr.noPilot.length) bits.push('no pilot: ' + pr.noPilot.join(', '));
+    if (pr.neverScored.length) bits.push('never scored in ' + pr.tries + ' tries of ' + pr.ms / 1000 + ' s: ' + pr.neverScored.join(', '));
+    pc.fail = bits.join('; '); pc.ok = !pc.fail;
+    if (!report.runs.length) report.runs.push({ size: 'laptop', w: 1280, h: 720, problems: [], results: [], lag: [], pageErrors: [] });
+    report.runs[0].results.push(pc);
+    if (!pc.ok) report.runs[0].problems.push(problemOf(pc));
+    console.log(pl.summary(pr));
   }
   report.secs = Math.round((Date.now() - t0) / 1000);
   fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify(report, null, 1));
