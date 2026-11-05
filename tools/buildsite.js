@@ -312,7 +312,7 @@ ${updates.length ? `
 <footer>
   <div class="wrap">
     <span>Blockyard Arcade &middot; ${n} games${updates[0] ? ' &middot; updated ' + esc(updates[0].d) : ''}</span>
-    <nav aria-label="More"><a href="game.html">Play</a><a href="${ITCH}" rel="noopener">itch.io</a><a href="bots.html">Test bots</a><a href="https://github.com/glufftl25-sys/blockyard" rel="noopener">Source</a></nav>
+    <nav aria-label="More"><a href="game.html">Play</a><a href="${ITCH}" rel="noopener">itch.io</a><a href="bots.html">Test bots</a><a href="privacy.html">Privacy</a><a href="https://github.com/glufftl25-sys/blockyard" rel="noopener">Source</a></nav>
   </div>
 </footer>
 

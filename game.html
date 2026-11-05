@@ -23680,7 +23680,8 @@ function emHtml(){
       h+='<p class="note '+(EM.err?'err':'good')+'">'+(EM.err?esc(EM.err):(EM.saving?'Saving...':(EM.savedAt?'Saved '+emAgo(EM.savedAt)+'. Your progress saves by itself while you play.':'Your progress saves by itself while you play.')))+'</p>';
       h+='<button class="choice" type="button" data-em="save"'+(EM.saving?' disabled':'')+'>Save now</button>';
     }
-    if(EM.user.emailVerified===false)h+='<p class="note">Check your inbox and tap the link to confirm your email. It helps you get back in if you forget your password.</p><button class="choice alt" type="button" data-em="verify"'+dis+'>Send the email again</button>';
+    if(EM.user.emailVerified===false&&!unIs(EM.user.email))h+='<p class="note">Check your inbox and tap the link to confirm your email. It helps you get back in if you forget your password.</p><button class="choice alt" type="button" data-em="verify"'+dis+'>Send the email again</button>';
+    h+=emDelHtml();
     return h;
   }
   if(l&&!EM.user&&EM.load==='loading')return h+'<p class="note">Checking your email account...</p>';
@@ -23773,8 +23774,44 @@ function emVerify(){
   EM.busy=true;emShow();
   emFire().then(function(fb){return fb.A.sendEmailVerification(EM.user);}).then(function(){EM.busy=false;EM.msg={t:'good',s:'Sent. Check your inbox (and spam) for the link.'};emShow();},function(e){emErr(emWhy(e));});
 }
+/* Delete my account (Google Play requires it): the online save, the online account itself, and this player and its
+   progress on this device. It asks for the password again, which also satisfies Firebase's "signed in recently" rule. */
+function emDelHtml(){
+  if(!EM.user)return '';
+  if(!EM.delAsk)return '<button class="choice alt" type="button" data-em="del">Delete my account</button>';
+  var dis=EM.busy?' disabled':'';
+  return '<div class="sheet"><h3>Delete your account?</h3><p>This deletes your online account and all its progress: bricks, avatar, worlds, tasks and best scores, on every device. It cannot be undone.</p></div>'+
+    '<label class="lbl" for="em-delpw">Type your password to confirm</label><input class="field" id="em-delpw" type="password" maxlength="60" autocomplete="current-password" value="">'+
+    '<button class="choice" type="button" data-em="delgo"'+dis+' style="background:var(--brick);color:#fff">'+(EM.busy?'Deleting...':'Delete my account forever')+'</button>'+
+    '<button class="choice alt" type="button" data-em="delno"'+dis+'>Keep my account</button>';
+}
+function emDelete(){
+  if(!EM.user||EM.busy)return;
+  var u=EM.user,uid=u.uid,l=emLink(),pid=l&&l.pid,pw=String(EM.delpw||'');
+  EM.un=unIs(u.email);
+  if(!pw)return emErr('Type your password to delete your account.');
+  EM.busy=true;EM.deleting=true;EM.msg=null;emShow();
+  emFire().then(function(fb){
+    return fb.A.reauthenticateWithCredential(u,fb.A.EmailAuthProvider.credential(u.email,pw)).then(function(){
+      return fb.F.deleteDoc(fb.F.doc(fb.db,'saves',uid));
+    }).then(function(){return fb.A.deleteUser(u);});
+  }).then(function(){
+    if(pid){
+      var pre='blockyard.u.'+pid+'.',ks=[];
+      try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf(pre)===0)ks.push(k);}}catch(e){}
+      ks.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+      var wasMe=GST&&GST.id===pid;
+      PLAYERS=PLAYERS.filter(function(q){return q.id!==pid;});savePlayers();
+      if(wasMe)switchPlayer('');
+    }
+    EM.user=null;emSetLink(null);EM.lastCode='';EM.savedAt=0;EM.err='';EM.delAsk=false;EM.delpw='';EM.busy=false;EM.deleting=false;EM.un=false;
+    EM.msg={t:'good',s:'Your account and all its progress are deleted.'};
+    syncAcct();emShow();
+  },function(e){EM.delpw='';EM.deleting=false;var f=$('em-delpw');if(f)f.value='';emErr(emWhy(e));EM.un=false;});
+}
 /* save this player's progress to the email account when it changed */
 function emUpload(force){
+  if(EM.deleting)return Promise.resolve();
   var l=emLink();
   if(!EM.user||!l||l.uid!==EM.user.uid||!GST)return Promise.resolve();
   if(!l.pid){l.pid=GST.id;emSetLink(l);}
@@ -23826,7 +23863,7 @@ document.addEventListener('visibilitychange',function(){if(document.hidden&&EM.u
 window.addEventListener('pagehide',function(){if(EM.user)emUpload(false);});
 $('set-body').addEventListener('input',function(e){
   var id=e.target.id;
-  if(id==='em-mail')EM.email=e.target.value;else if(id==='em-pw')EM.pw=e.target.value;else if(id==='em-pw2')EM.pw2=e.target.value;
+  if(id==='em-mail')EM.email=e.target.value;else if(id==='em-pw')EM.pw=e.target.value;else if(id==='em-pw2')EM.pw2=e.target.value;else if(id==='em-delpw')EM.delpw=e.target.value;
 });
 $('set-body').addEventListener('keydown',function(e){
   if(e.key!=='Enter')return;
@@ -23843,6 +23880,9 @@ $('set-body').addEventListener('click',function(e){
   else if(a==='out')emOut();
   else if(a==='verify')emVerify();
   else if(a==='save')emUpload(true);
+  else if(a==='del'){EM.delAsk=true;EM.delpw='';EM.msg=null;setRender();var df=$('em-delpw');if(df)df.focus();}
+  else if(a==='delno'){EM.delAsk=false;EM.delpw='';setRender();}
+  else if(a==='delgo')emDelete();
   else if(a==='modein'||a==='modenew'){EM.mode=a==='modenew'?'new':'in';EM.msg=null;EM.pw='';EM.pw2='';setRender();}
 });
 /* open Settings at the email part, from the sign-in panel */
