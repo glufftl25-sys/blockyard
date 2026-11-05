@@ -17686,7 +17686,10 @@ function guestView(){
   }else if(GST){
     h+='<div class="me"><span class="meav">'+avSvg(W&&W.av)+'</span><span class="metx"><strong>@'+esc(GST.name)+'</strong><span>'+(SOLO?'Signed in':'Player on this device')+'</span></span><span class="mebtns"><button class="mini ok" id="av-go" type="button">Avatar</button><button class="mini" type="button" data-acc="rename">Name</button></span></div>';
     if(!GST.pw)h+='<p class="note err">Your '+ACCWORD()+' has no password yet. Add one in Settings so nobody else can play as you.</p>';
-    h+='<div class="sheet"><h3>Your progress is saved</h3><p>Bricks, avatar items, worlds, tasks and best scores all save to this '+ACCWORD()+'. Sign out and back in from Settings. To carry it to another device, copy your '+(SOLO?'account':'save')+' code in Settings and paste it there.</p></div>';
+    var onl=SOLO&&emOn()&&emLink()&&emLink().pid===GST.id;
+    h+='<div class="sheet"><h3>Your progress is saved'+(onl?' online':'')+'</h3><p>Bricks, avatar items, worlds, tasks and best scores all save to this '+ACCWORD()+'. '+(onl?'Sign in as @'+esc(GST.name)+' with your password on any device and it all comes with you.':'Sign out and back in from Settings. To carry it to another device, copy your '+(SOLO?'account':'save')+' code in Settings and paste it there.')+'</p></div>';
+    if(SOLO&&!onl&&EM.err)h+='<p class="note err">'+esc(EM.err)+'</p>';
+    else if(SOLO&&!onl&&!emLink())h+='<p class="note">This '+ACCWORD()+' saves only on this device for now. Sign out and sign back in with your password (6+ characters) to save it online.</p>';
     if(SOLO)h+='<button class="choice alt" type="button" data-acc="code">Show my account code</button>';
     if(SOLO)h+='<button class="choice alt" type="button" data-acc="email">'+(emOn()?'Email saving is on':'Save my progress to my email')+'</button>';
   }else if(SOLO&&ACC.mode!=='new'&&ACC.mode!=='pw'){
@@ -17733,8 +17736,10 @@ function accCreate(){
     var p={id:'p'+rndHex(5),name:n,pw:pwMake(ACC.pw),at:Date.now()};
     if(!PLAYERS.length&&!LSP)copyProgress('blockyard.','blockyard.u.'+p.id+'.');
     PLAYERS.push(p);savePlayers();
+    var pw=ACC.pw;
     ACC={mode:'',pick:'',name:'',pw:'',pw2:'',msg:{t:'good',s:'Welcome @'+n+'! You are signed in.'},busy:false};
     switchPlayer(p.id);render();
+    if(SOLO)unLink(p,pw);
   },40);
 }
 function accSignIn(){
@@ -17742,8 +17747,10 @@ function accSignIn(){
   ACC.busy=true;ACC.msg=null;render();
   setTimeout(function(){
     if(p.pw&&!pwCheck(ACC.pw,p.pw)){ACC.pw='';return accErr('That password is not right.');}
+    var pw=ACC.pw;
     ACC={mode:'',pick:'',name:'',pw:'',pw2:'',msg:{t:'good',s:'Hi @'+p.name+', you are signed in.'},busy:false};
     switchPlayer(p.id);render();
+    if(SOLO)unLink(p,pw);
   },40);
 }
 function accRename(){
@@ -18038,7 +18045,8 @@ socBody.addEventListener('click',function(e){
     else if(ac==='email'){closeSocial();emOpen(emOn()?'in':'new');}
     else if(ac==='emailin'||ac==='emin'){ACC={mode:'',pick:'',name:'',pw:'',pw2:'',msg:null,busy:false};EM.msg=null;render();}
     else if(ac==='emnew'){ACC={mode:'emnew',pick:'',name:'',pw:'',pw2:'',msg:null,busy:false};EM.msg=null;render();var gn=$('gate-name');if(gn)gn.focus();}
-    else if(ac==='emgo'){if(ACC.mode==='emnew')emMake();else emSignIn();}
+    else if(ac==='emgo'){if(EM.byMail){EM.un=false;if(ACC.mode==='emnew')emMake();else emSignIn();}else if(ACC.mode==='emnew')unMake();else unSignIn();}
+    else if(ac==='bymail'||ac==='byname'){EM.byMail=ac==='bymail';EM.msg=null;EM.pw='';EM.pw2='';render();var gf=$(EM.byMail?'gate-mail':'gate-name');if(gf)gf.focus();}
     else if(ac==='emreset')emReset();
     else if(ac==='guest'){try{sessionStorage.setItem('by.gate','skip');}catch(x){}closeSocial();}
     return;
@@ -23634,6 +23642,13 @@ function emFire(){
 }
 function emWhy(e){
   var c=String((e&&e.code)||'');
+  if(EM.un){
+    if(c==='auth/invalid-email')return 'Player names use 3 to 16 letters, numbers or underscores.';
+    if(c==='auth/email-already-in-use')return 'That player name is already taken. Pick another one.';
+    if(c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found'||c==='auth/invalid-login-credentials')return 'That player name or password is not right.';
+    if(c==='auth/operation-not-allowed'||c==='auth/configuration-not-found')return 'Online accounts are not switched on yet. The owner needs to turn on Email/Password in Firebase.';
+    if(c==='auth/network-request-failed'||c==='unavailable')return 'Could not connect. Check your internet and try again, or tap Play without signing in.';
+  }
   if(c==='auth/invalid-email')return 'That email address does not look right.';
   if(c==='auth/email-already-in-use')return 'There is already an account with that email. Sign in instead.';
   if(c==='auth/weak-password')return 'Your password needs at least 6 characters.';
@@ -23658,7 +23673,7 @@ function emHtml(){
   if(EM.msg)h+='<p class="note '+EM.msg.t+'" role="status">'+esc(EM.msg.s)+'</p>';
   if(EM.load==='fail')h+='<p class="note err">Email accounts could not load. Check your internet, then open Settings again.</p>';
   if(EM.user){
-    h+='<div class="row"><span class="who">'+esc(EM.user.email||'')+'<small>'+(l&&l.pid&&GST&&l.pid===GST.id?'Saving @'+esc(GST.name)+'’s progress':'Signed in with email')+'</small></span><button class="mini" type="button" data-em="out">Sign out of email</button></div>';
+    h+='<div class="row"><span class="who">'+(unIs(EM.user.email)?'@'+esc(GST?GST.name:unNameOf(EM.user))+' online account':esc(EM.user.email||''))+'<small>'+(l&&l.pid&&GST&&l.pid===GST.id?'Saving @'+esc(GST.name)+'’s progress':'Signed in with email')+'</small></span><button class="mini" type="button" data-em="out">Sign out of email</button></div>';
     if(!GST)h+='<p class="note">Make a player (or sign in to one) and its progress will save to this email.</p>';
     else if(l&&l.pid&&l.pid!==GST.id)h+='<p class="note">This email saves a different player. Switch back to that player, or sign out of email and sign in with another one.</p>';
     else{
@@ -23704,9 +23719,9 @@ function emCreate(){
   }).then(function(){emShow();},function(e){emErr(emWhy(e));});
 }
 function emSignIn(){
-  if(!emCheck(false))return;
+  if(!emCheck(false))return Promise.resolve();
   EM.busy=true;EM.msg=null;emShow();
-  emFire().then(function(fb){
+  return emFire().then(function(fb){
     return fb.A.signInWithEmailAndPassword(fb.auth,EM.email,EM.pw).then(function(cr){
       EM.user=cr.user;var pwHold=EM.pw;EM.pw='';
       return fb.F.getDoc(fb.F.doc(fb.db,'saves',cr.user.uid)).then(function(snap){
@@ -23724,7 +23739,7 @@ function emSignIn(){
           if(!GST.pw){GST.pw=pwMake(pwHold);savePlayers();}
           emWatch(fb);EM.busy=false;return emUpload(true).then(emDone);
         }else{
-          var np=emNewPlayer(emNameFrom(cr.user.email),pwHold);
+          var np=emNewPlayer(unIs(cr.user.email)?unNameOf(cr.user):emNameFrom(cr.user.email),pwHold);
           emSetLink({uid:cr.user.uid,email:cr.user.email,pid:np.id,rev:0});
           EM.msg={t:'good',s:'Signed in as @'+np.name+'! You can change your name in your account.'};
           emWatch(fb);EM.busy=false;return emUpload(true).then(emDone);
@@ -23856,10 +23871,18 @@ function emNewPlayer(name,pw){
 }
 function emDone(){try{if(GST&&!social.hidden){ACC={mode:'',pick:'',name:'',pw:'',pw2:'',msg:null,busy:false};closeSocial();}}catch(e){}}
 function emGateHtml(){
-  var make=ACC.mode==='emnew',dis=EM.busy?' disabled':'';
-  var h='<div class="sheet"><h3>'+(make?'Make your account':'Sign in')+'</h3><p>'+(make?'Pick a player name, then your email and a password. Your progress saves to your account, so you can sign in on any device.':'Sign in with your email to play with your own progress. You stay signed in on this device until you sign out.')+'</p></div>';
+  var make=ACC.mode==='emnew',dis=EM.busy?' disabled':'',mail=!!EM.byMail;
+  var h='<div class="sheet"><h3>'+(make?'Make your account':'Sign in')+'</h3><p>'+(mail?(make?'Pick a player name, then your email and a password. Your progress saves to your account, so you can sign in on any device.':'Sign in with your email to play with your own progress. You stay signed in on this device until you sign out.'):(make?'Pick a player name and a password. Everything you do saves to your account online, so you can sign in with them on any device.':'Sign in with your player name and password. All your progress comes with you, on any device.'))+'</p></div>';
   if(EM.msg)h+='<p class="note '+EM.msg.t+'" role="status">'+esc(EM.msg.s)+'</p>';
   if(EM.load==='fail')h+='<p class="note err">Sign in could not load. Check your internet and try again.</p>';
+  if(!mail){
+    h+='<label class="lbl" for="gate-name">Player name</label><input class="field" id="gate-name" maxlength="16" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="3 to 16 letters, numbers or _" value="'+esc(EM.name)+'">';
+    h+='<label class="lbl" for="gate-pw">Password</label><input class="field" id="gate-pw" type="password" maxlength="60" autocomplete="'+(make?'new-password':'current-password')+'" placeholder="At least 6 characters" value="'+esc(EM.pw)+'">';
+    if(make)h+='<label class="lbl" for="gate-pw2">Type the password again</label><input class="field" id="gate-pw2" type="password" maxlength="60" autocomplete="new-password" value="'+esc(EM.pw2)+'">'+PWTIP+'<p class="note">Pick a password you will remember. Player-name accounts cannot reset a forgotten password.</p>';
+    h+='<button class="choice" type="button" data-acc="emgo"'+dis+'>'+(EM.busy?'One moment...':(make?'Make my account':'Sign in'))+'</button>';
+    h+='<button class="choice alt" type="button" data-acc="'+(make?'emin':'emnew')+'">'+(make?'I already have an account':'New here? Make an account')+'</button>';
+    h+='<button class="choice alt" type="button" data-acc="bymail">Use my email instead</button>';
+  }else{
   if(make)h+='<label class="lbl" for="gate-name">Player name</label><input class="field" id="gate-name" maxlength="16" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="3 to 16 letters, numbers or _" value="'+esc(EM.name)+'">';
   h+='<label class="lbl" for="gate-mail">Email</label><input class="field" id="gate-mail" type="email" maxlength="120" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" value="'+esc(EM.email)+'">';
   h+='<label class="lbl" for="gate-pw">Password</label><input class="field" id="gate-pw" type="password" maxlength="60" autocomplete="'+(make?'new-password':'current-password')+'" placeholder="At least 6 characters" value="'+esc(EM.pw)+'">';
@@ -23867,12 +23890,13 @@ function emGateHtml(){
   h+='<button class="choice" type="button" data-acc="emgo"'+dis+'>'+(EM.busy?'One moment...':(make?'Make my account':'Sign in'))+'</button>';
   h+='<button class="choice alt" type="button" data-acc="'+(make?'emin':'emnew')+'">'+(make?'I already have an account':'New here? Make an account')+'</button>';
   if(!make)h+='<button class="choice alt" type="button" data-acc="emreset"'+dis+'>Forgot my password</button>';
+  h+='<button class="choice alt" type="button" data-acc="byname">Use my player name instead</button>';
+  }
   if(PLAYERS.length){
     h+='<p class="lbl">Players on this device</p>';
     PLAYERS.forEach(function(p){h+='<div class="row"><span class="ava">'+playerAv(p)+'</span><span class="who">@'+esc(p.name)+'</span><button class="mini ok" type="button" data-acc="pick" data-id="'+esc(p.id)+'">Sign in</button></div>';});
   }
   h+='<button class="choice alt" type="button" data-acc="code">Sign in with an account code</button>';
-  h+='<button class="choice alt" type="button" data-acc="new">Make a player without email</button>';
   h+='<button class="choice alt" type="button" data-acc="guest">Play without signing in</button>';
   return h;
 }
@@ -23903,6 +23927,102 @@ function emOutQuiet(){
   var up=emUpload(true);
   emSetLink(null);EM.user=null;EM.lastCode='';EM.savedAt=0;EM.err='';EM.msg=null;
   up.then(null,function(){}).then(function(){return emFire();}).then(function(fb){return fb.A.signOut(fb.auth);}).then(null,function(){});
+}
+/* ===== Player-name accounts: every account saves online. A player name + password is a Firebase account behind the scenes
+   (the name becomes <name>@u.blockyard-arcade.firebaseapp.com, which is never emailed), using the same save as email accounts:
+   saves/<uid>, readable and writable only by its owner. Sign in with the name and password on any device and the progress
+   comes with you, no account code needed. Players made before this get their online account the next time they sign in. ===== */
+var UNDOM='u.blockyard-arcade.firebaseapp.com';
+function unMail(n){return String(n||'').toLowerCase()+'@'+UNDOM;}
+function unIs(mail){return typeof mail==='string'&&mail.slice(-UNDOM.length-1)==='@'+UNDOM;}
+function unNameOf(u){
+  var d=u&&typeof u.displayName==='string'?u.displayName:'';
+  if(NAME_RE.test(d))return d;
+  return emNameFrom(u&&u.email);
+}
+/* the online save of this account replaces this device's copy of the same-named player (the account is the real one) */
+function unAdopt(fb,uid,p){
+  return fb.F.getDoc(fb.F.doc(fb.db,'saves',uid)).then(function(s){
+    var d=s.exists()?s.data():null;
+    if(!d||typeof d.code!=='string'||(d.rev|0)<1)return emUpload(true);
+    var body=svBody(d.code),cp=body&&body.p&&okPlayer(body.p)?body.p:null;
+    if(cp&&cp.id!==p.id){PLAYERS=PLAYERS.filter(function(q){return q.id!==p.id;});savePlayers();}
+    var res=svLoad(d.code,null,true);
+    if(res&&typeof res==='string'){EM.err=res;return;}
+    emSetLink({uid:uid,email:unMail(p.name),pid:GST?GST.id:p.id,rev:d.rev|0,at:Date.now()});
+    EM.lastCode=svMake();EM.savedAt=Date.now();
+  });
+}
+/* make sure this player has an online account: sign in to it, or make it */
+function unLink(p,pw){
+  if(!emOk()||!p||typeof pw!=='string'||pw.length<6)return Promise.resolve(false);
+  var l=emLink();
+  if(l&&l.pid===p.id)return Promise.resolve(true);
+  EM.un=true;
+  return emFire().then(function(fb){
+    var mail=unMail(p.name);
+    var first=(l&&EM.user)?emUpload(true).then(null,function(){}).then(function(){return fb.A.signOut(fb.auth);}).then(function(){EM.user=null;emSetLink(null);}):Promise.resolve();
+    return first.then(function(){
+      return fb.A.signInWithEmailAndPassword(fb.auth,mail,pw).then(function(cr){
+        EM.user=cr.user;emSetLink({uid:cr.user.uid,email:mail,pid:p.id,rev:0});EM.lastCode='';
+        emWatch(fb);return unAdopt(fb,cr.user.uid,p);
+      },function(e){
+        var c=String((e&&e.code)||'');
+        if(!/invalid-credential|user-not-found|invalid-login-credentials|wrong-password/.test(c))throw e;
+        return fb.A.createUserWithEmailAndPassword(fb.auth,mail,pw).then(function(cr){
+          EM.user=cr.user;emSetLink({uid:cr.user.uid,email:mail,pid:p.id,rev:0});
+          try{fb.A.updateProfile(cr.user,{displayName:p.name}).catch(function(){});}catch(_){}
+          emWatch(fb);return emUpload(true);
+        },function(e2){
+          if(String((e2&&e2.code)||'')==='auth/email-already-in-use'){EM.err='@'+p.name+' is already taken online by someone else, so this player saves only on this device. Change its name in your account to save it online.';return false;}
+          throw e2;
+        });
+      });
+    });
+  }).then(function(r){EM.un=false;syncAcct();emShow();return r!==false;},function(e){EM.err=emWhy(e);EM.un=false;emShow();return false;});
+}
+/* the Sign in screen: player name + password */
+function unSignIn(){
+  var nm=String(EM.name||'').trim(),pw=String(EM.pw||'');
+  EM.un=true;
+  if(!NAME_RE.test(nm))return emErr('Type your player name: 3 to 16 letters, numbers or underscores.');
+  if(!pw)return emErr('Type your password.');
+  var lp=PLAYERS.filter(function(q){return q.name.toLowerCase()===nm.toLowerCase();})[0];
+  if(lp){
+    if(lp.pw&&!pwCheck(pw,lp.pw)){EM.pw='';return emErr('That password is not right.');}
+    if(!lp.pw){lp.pw=pwMake(pw);savePlayers();}
+    EM.pw='';EM.name='';EM.msg={t:'good',s:'Hi @'+lp.name+', you are signed in.'};
+    switchPlayer(lp.id);emDone();
+    unLink(lp,pw);
+    return;
+  }
+  if(pw.length<6)return emErr('That player name or password is not right.');
+  EM.email=unMail(nm);
+  emSignIn().then(function(){EM.email='';EM.name='';EM.un=false;},function(){EM.email='';EM.un=false;});
+}
+function unMake(){
+  var nm=String(EM.name||'').trim(),pw=String(EM.pw||'');
+  EM.un=true;
+  if(!NAME_RE.test(nm))return emErr('Pick a player name: 3 to 16 letters, numbers or underscores.');
+  if(isBadName(nm))return emErr('That name is not allowed. Pick a different one.');
+  if(PLAYERS.some(function(q){return q.name.toLowerCase()===nm.toLowerCase();}))return emErr('There is already a player called @'+nm+' on this device. Sign in to it instead.');
+  if(pw.length<6)return emErr('Your password needs at least 6 characters.');
+  if(pw!==EM.pw2)return emErr('The two passwords do not match.');
+  EM.busy=true;EM.msg=null;emShow();
+  emFire().then(function(fb){
+    return fb.A.createUserWithEmailAndPassword(fb.auth,unMail(nm),pw).then(function(cr){
+      EM.user=cr.user;
+      try{fb.A.updateProfile(cr.user,{displayName:nm}).catch(function(){});}catch(_){}
+      var first=!PLAYERS.length&&!LSP;
+      var p={id:'p'+rndHex(5),name:nm,pw:pwMake(pw),at:Date.now()};
+      if(first)copyProgress('blockyard.','blockyard.u.'+p.id+'.');
+      PLAYERS.push(p);savePlayers();switchPlayer(p.id);
+      emSetLink({uid:cr.user.uid,email:unMail(nm),pid:p.id,rev:0});
+      EM.pw='';EM.pw2='';EM.name='';EM.busy=false;
+      EM.msg={t:'good',s:'Welcome @'+nm+'! Your account is ready. Sign in with @'+nm+' and your password on any device and all your progress comes with you.'};
+      emWatch(fb);return emUpload(true);
+    });
+  }).then(function(){EM.busy=false;EM.un=false;emDone();emShow();},function(e){emErr(emWhy(e));EM.un=false;});
 }
 /* links from the website: game.html#play=<id> opens that game straight away (the Sign in screen can wait) */
 (function(){
