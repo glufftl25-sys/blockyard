@@ -662,6 +662,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#1a1530" width="88" height="88"/><rect x="8" y="8" width="72" height="72" fill="#e6d3aa" stroke="#14213d" stroke-width="3"/><g fill="#7a5a3c" stroke="#14213d" stroke-width="2"><rect x="8" y="8" width="72" height="10"/><rect x="8" y="70" width="72" height="10"/><rect x="8" y="8" width="10" height="72"/><rect x="70" y="8" width="10" height="72"/><rect x="38" y="30" width="12" height="12"/></g><circle cx="58" cy="58" r="7" fill="#1a1530" stroke="#14213d" stroke-width="2"/><circle cx="28" cy="28" r="7" fill="#3cc8f0" stroke="#14213d" stroke-width="2"/><circle cx="26" cy="26" r="2" fill="#fff"/><path d="M28 40v14h16" fill="none" stroke="#14213d" stroke-width="2" stroke-dasharray="3 3"/></svg></span>
           <span class="tt">Tilt Maze</span><span class="ts"><span id="best-tilt">Best 0</span> · Roll every marble home</span>
         </button>
+        <button class="tile" type="button" data-game="gates" data-name="logic lamp gates circuit switches and or not xor puzzle brain 2d" style="--c:#ffd23f">
+          <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#141c33" width="88" height="88"/><path d="M20 24h14v12h10M20 52h14V40h10M60 38h10" fill="none" stroke="#ffd23f" stroke-width="3"/><rect x="6" y="17" width="14" height="14" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="6" y="45" width="14" height="14" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="40" y="29" width="22" height="18" fill="#fff3c2" stroke="#14213d" stroke-width="2"/><text x="51" y="42" font-family="Arial" font-weight="bold" font-size="8" text-anchor="middle" fill="#14213d">AND</text><circle cx="76" cy="38" r="8" fill="#ffe066" stroke="#14213d" stroke-width="2"/><circle cx="76" cy="38" r="13" fill="none" stroke="#ffe066" stroke-width="2" opacity=".5"/><path d="M20 72h48" stroke="#5a6488" stroke-width="3"/><rect x="6" y="65" width="14" height="14" fill="#3a4466" stroke="#14213d" stroke-width="2"/></svg></span>
+          <span class="tt">Logic Lamp</span><span class="ts"><span id="best-gates">Best 0</span> · Switch on the right lamps</span>
+        </button>
         <button class="tile" type="button" data-game="memo" data-name="memory match pairs cards puzzle 2d" style="--c:#ff6b5b">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#15233f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="10" width="30" height="34" fill="#ff6b5b"/><rect x="48" y="10" width="30" height="34" fill="#2e4270"/><rect x="8" y="48" width="30" height="34" fill="#2e4270"/><rect x="48" y="48" width="30" height="34" fill="#ff6b5b"/></g><text x="23" y="34" font-size="20" text-anchor="middle" fill="#14213d">★</text><text x="63" y="72" font-size="20" text-anchor="middle" fill="#14213d">★</text></svg></span>
           <span class="tt">Memory Match</span><span class="ts"><span id="best-memo">Best 0</span> · Find the pairs</span>
@@ -12349,6 +12353,188 @@ GAMES.tilt=(function(){
     tb.k({u:'KeyW',d:'KeyS',l:'KeyA',r:'KeyD'}[d]);
     m.k=level+':'+key(mar,open);
     return [level-1,'boxes'];
+  };
+  return g;
+})();
+
+/* ===== Logic Lamp: flip the switches so the gates light the lamps.
+   Each board is a little circuit: switches on the left, gates in the middle (AND needs both, OR needs one, NOT turns it
+   round, XOR needs exactly one), lamps on the right. Wires glow when they carry power, so you can follow it. A lamp with
+   a sun must end up on; one with a moon must end up off. Every board is checked first: some switch setting works, and
+   par is the fewest flips to reach one. Ten boards with more switches, deeper circuits and more lamps.
+   Tap a switch, or pick one with up/down and press Space (or type its number). ===== */
+HUBBEST['best-gates']='by.gates';
+GAMES.gates=(function(){
+  var g={kind:'canvas',title:'Logic Lamp',lw:400};
+  var nIn,sw,nodes,lamps,par,flips,level,score,best,st,t,newBest,msg,msgT,sel,win,winT,cols,S,X0,Y0,CW,RH,wide,swb,layout;
+  var LAST=10;
+  /* inputs, depth, gate kinds, lamps (1 = must be on, 0 = must be off) */
+  var LV=[[2,1,'A',[1]],[3,2,'AO',[1]],[3,2,'AON',[1]],[4,2,'AON',[1]],[4,2,'AONX',[1]],[5,3,'AONX',[1]],[5,2,'AONX',[1,1]],[6,2,'AONX',[1,0]],[6,3,'AONX',[1,1]],[6,3,'AONX',[1,0,1]]];
+  var OPN={A:'AND',O:'OR',N:'NOT',X:'XOR'};
+  function evalN(id,v){
+    var n=nodes[id];
+    if(n.op==='I')return v[n.i];
+    var a=evalN(n.a,v);
+    if(n.op==='N')return a?0:1;
+    var b=evalN(n.b,v);
+    return n.op==='A'?(a&b):(n.op==='O'?(a|b):(a^b));
+  }
+  function lampsOk(v){return lamps.every(function(l){return evalN(l.n,v)===l.want;});}
+  function bits(k){var v=[];for(var i=0;i<nIn;i++)v.push((k>>i)&1);return v;}
+  function nearest(from){
+    var bestK=-1,bd=99;
+    for(var k=0;k<(1<<nIn);k++){var v=bits(k);if(!lampsOk(v))continue;var d=0;for(var i=0;i<nIn;i++)if(v[i]!==from[i])d++;if(d<bd){bd=d;bestK=k;}}
+    return bestK<0?null:{v:bits(bestK),d:bd};
+  }
+  function build(){
+    var L=LV[Math.min(level,LAST)-1],tries=0;
+    nIn=L[0];
+    for(;;){
+      tries++;nodes=[];
+      for(var i=0;i<nIn;i++)nodes.push({op:'I',i:i});
+      var kinds=L[2],gates=0;
+      function gen(d,noNot){
+        if(d<=0||gates>=6)return Math.floor(Math.random()*nIn);
+        var ks=kinds.split('').filter(function(k){return !(noNot&&k==='N');}),op=ks[Math.floor(Math.random()*ks.length)];
+        gates++;
+        var sub=function(){return gen(Math.random()<0.7?d-1:Math.max(0,d-2),false);};
+        if(op==='N'){var a0=gen(d-1,true);nodes.push({op:'N',a:a0});return nodes.length-1;}
+        var a=sub(),b=sub(),guard=0;while(b===a&&guard++<8)b=sub();
+        nodes.push({op:op,a:a,b:b});return nodes.length-1;
+      }
+      lamps=L[3].map(function(w){gates=0;return {n:gen(L[1],false),want:w};});
+      sw=[];for(var s=0;s<nIn;s++)sw.push(Math.random()<0.5?1:0);
+      if(lamps.some(function(l){return nodes[l.n].op==='I';}))continue;
+      var nr=nearest(sw);
+      if(!nr||nr.d===0)continue;
+      var need=level<=2?1:(level<=5?2:3);
+      if(nr.d<need&&tries<300)continue;
+      par=nr.d;break;
+    }
+    flips=0;sel=0;win=false;winT=0;place();metrics();
+  }
+  /* columns: switches, then each gate by how far it is from the switches, then the lamps */
+  function depthOf(id){var n=nodes[id];if(n.op==='I')return 0;if(n.dp!==undefined)return n.dp;n.dp=1+Math.max(depthOf(n.a),n.b!==undefined?depthOf(n.b):0);return n.dp;}
+  function place(){
+    var maxD=0;nodes.forEach(function(n,i){n.dp=undefined;});nodes.forEach(function(n,i){var d=depthOf(i);if(d>maxD)maxD=d;});
+    cols=maxD+2;layout={};
+    var byCol={};
+    /* only gates that feed a lamp are drawn */
+    var used={};function mark(id){if(used[id])return;used[id]=1;var n=nodes[id];if(n.op==='I')return;mark(n.a);if(n.b!==undefined)mark(n.b);}
+    lamps.forEach(function(l){mark(l.n);});
+    nodes.forEach(function(n,i){if(n.op==='I'||!used[i])return;var c=depthOf(i);(byCol[c]=byCol[c]||[]).push(i);});
+    for(var c in byCol){
+      /* sort each column by the average row of its inputs, so wires cross less */
+      byCol[c].sort(function(a,b){return avgRow(a)-avgRow(b);});
+      byCol[c].forEach(function(id,k){layout[id]={c:+c,r:(k+0.5)/byCol[c].length};});
+    }
+    function avgRow(id){var n=nodes[id],ra=rowOf(n.a),rb=n.b!==undefined?rowOf(n.b):ra;return (ra+rb)/2;}
+    function rowOf(id){return nodes[id].op==='I'?(nodes[id].i+0.5)/nIn:(layout[id]?layout[id].r:0.5);}
+  }
+  function metrics(){
+    wide=vWide();
+    X0=wide?40:16;Y0=wide?(V.h<500?80:96):104;
+    var hgt=wide?V.h-Y0-40:Math.min(V.h-Y0-110,560);
+    CW=(V.w-X0*2)/(cols+0.2);RH=hgt;S=Math.max(34,Math.min(60,Math.floor(Math.min(CW*0.62,hgt/Math.max(nIn,lamps.length*2)*0.8))));
+    swb=[];for(var i=0;i<nIn;i++)swb.push({x:X0,y:Y0+(i+0.5)/nIn*RH-S/2,w:S*1.1,h:S});
+  }
+  function posOf(id){
+    var n=nodes[id];
+    if(n.op==='I'){var b=swb[n.i];return {x:b.x+b.w,y:b.y+b.h/2};}
+    var p=layout[id];return {x:X0+CW*(p.c+0.1)+CW*0.15,y:Y0+p.r*RH};
+  }
+  function lampPos(k){return {x:X0+CW*(cols-0.4),y:Y0+(k+0.5)/lamps.length*RH};}
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function reset(hard){if(hard){level=1;score=0;newBest=false;}st='run';t=0;msg='';msgT=0;build();}
+  g.start=function(){best=lsGet('by.gates',0);reset(true);};
+  g.resize=function(){if(lamps)metrics();};
+  g.stop=function(){};
+  function flip(i){
+    if(st!=='run'||win||i<0||i>=nIn)return;
+    sw[i]=sw[i]?0:1;flips++;sel=i;beep(sw[i]?660:440,0.05,'square',0.03,1.3);
+    if(lampsOk(sw)){
+      win=true;winT=1.1;
+      var bonus=Math.max(10,30+level*10-Math.max(0,flips-par)*5);
+      score+=bonus;msg=(flips<=par?'Perfect! ':'Lit! ')+'+'+bonus;msgT=1.6;beep(900,0.3,'square',0.05,1.9);
+      if(score>best){best=score;newBest=true;lsSet('by.gates',best);}
+    }
+  }
+  g.down=function(x,y){
+    if(st==='over'){if(t>0.7)reset(true);return;}
+    /* each switch answers to its whole row band, so it is easy to hit even when the switches are small */
+    var band=RH/nIn;
+    for(var i=0;i<nIn;i++){var b=swb[i],cy=b.y+b.h/2;if(x>=0&&x<=b.x+b.w+24&&Math.abs(y-cy)<=Math.max(b.h/2+4,band/2)){flip(i);return;}}
+  };
+  g.key=function(c,d){
+    if(!d)return;
+    if(st==='over'){if(t>0.7&&(c==='Space'||c==='Enter'))reset(true);return;}
+    if(c==='ArrowUp'||c==='KeyW'||c==='ArrowLeft'||c==='KeyA')sel=(sel+nIn-1)%nIn;
+    else if(c==='ArrowDown'||c==='KeyS'||c==='ArrowRight'||c==='KeyD')sel=(sel+1)%nIn;
+    else if(c==='Space'||c==='Enter'||c==='KeyF')flip(sel);
+    else if(/^Digit[1-9]$/.test(c))flip(+c.slice(5)-1);
+  };
+  g.update=function(dt){
+    t+=dt;if(msgT>0)msgT-=dt;
+    if(win){winT-=dt;if(winT<=0){level++;if(level>LAST){st='over';t=0;}else build();}}
+  };
+  /* each wire gets its own lane for the up-and-down part, so wires that pass each other do not look joined */
+  function wire(a,b,on,lane){
+    var mx=a.x+(b.x-a.x)*(0.18+0.64*((lane%5)/4));
+    [[on?7:5,P.ink],[on?3.5:2.5,on?'#ffd23f':'#5a6488']].forEach(function(L){
+      ctx.lineWidth=L[0];ctx.strokeStyle=L[1];ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(mx,a.y);ctx.lineTo(mx,b.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    });
+  }
+  g.draw=function(){
+    ctx.fillStyle='#141c33';ctx.fillRect(0,0,V.w,V.h);
+    txt('Score '+score,10,22,16,'#fff','left');
+    txt('Board '+Math.min(level,LAST)+'/'+LAST,V.w/2,22,16,P.sun);
+    txt('Best '+best,V.w-10,22,15,P.sun,'right');
+    txt('Flips '+flips+' · Par '+par,V.w/2,Y0-44,15,'#fff');
+    ctx.lineJoin='miter';
+    var gw=Math.max(40,Math.min(70,CW*0.5)),gh=Math.max(26,Math.min(44,S*0.8));
+    /* wires first, gates on top */
+    Object.keys(layout).forEach(function(k){
+      var id=+k,n=nodes[id],p=posOf(id),inL={x:p.x-gw/2,y:p.y};
+      var ins=n.op==='N'?[n.a]:[n.a,n.b];
+      ins.forEach(function(src,j){var q=posOf(src);if(nodes[src].op!=='I')q={x:q.x+gw/2,y:q.y};wire(q,{x:inL.x,y:p.y+(ins.length>1?(j?gh*0.25:-gh*0.25):0)},evalN(src,sw),src*3+id+j);});
+    });
+    lamps.forEach(function(l,k){var p=posOf(l.n),q=lampPos(k);wire({x:p.x+gw/2,y:p.y},{x:q.x-S*0.4,y:q.y},evalN(l.n,sw),k*2+1);});
+    Object.keys(layout).forEach(function(k){
+      var id=+k,n=nodes[id],p=posOf(id),on=evalN(id,sw);
+      box(p.x-gw/2,p.y-gh/2,gw,gh,on?'#fff3c2':'#c7cede');
+      ctx.font='bold '+Math.round(Math.min(15,gw*0.27,gh*0.45))+'px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=P.ink;ctx.fillText(OPN[n.op],p.x,p.y+1);
+    });
+    for(var i=0;i<nIn;i++){
+      var b=swb[i],on=sw[i];
+      box(b.x,b.y,b.w,b.h,on?P.sun:'#3a4466');
+      txt(on?'1':'0',b.x+b.w/2,b.y+b.h/2,Math.min(22,b.h*0.5),on?P.ink:'#fff');
+      if(i===sel){ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.strokeRect(b.x-4,b.y-4,b.w+8,b.h+8);}
+    }
+    lamps.forEach(function(l,k){
+      var q=lampPos(k),on=evalN(l.n,sw),good=on===l.want,r=S*0.42;
+      ctx.fillStyle=on?'#ffe066':'#2a3150';ctx.beginPath();ctx.arc(q.x,q.y,r,0,7);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=P.ink;ctx.stroke();
+      if(on){ctx.fillStyle='rgba(255,224,102,.25)';ctx.beginPath();ctx.arc(q.x,q.y,r*1.6,0,7);ctx.fill();}
+      txt(l.want?'☀':'☾',q.x+r+12,q.y,18,l.want?P.sun:'#9fb0d8','left');
+      if(good){ctx.fillStyle=P.grass;ctx.beginPath();ctx.arc(q.x+r*0.8,q.y-r*0.8,6,0,7);ctx.fill();}
+    });
+    txt('Light every ☀ lamp, keep every ☾ lamp dark. Tap the switches.',V.w/2,V.h-16,Math.max(12,9*V.css),'#9fb0d8');
+    if(msgT>0)txt(msg,V.w/2,Y0-20,20,P.grass);
+    if(st==='over'){
+      ctx.fillStyle='rgba(20,28,51,.88)';ctx.fillRect(0,0,V.w,V.h);
+      txt('ALL LAMPS LIT!',V.w/2,V.h*0.4,30,P.grass);
+      txt('Score '+score,V.w/2,V.h*0.4+42,22,'#fff');
+      if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
+      if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
+    }
+  };
+  /* test bots: try every switch setting, go for the closest one that works, and tap those switches */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [LAST,'boards'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.3||win)return [level-1,'boards'];m.c=0;
+    var nr=nearest(sw);if(!nr)return [level-1,'boards'];
+    for(var i=0;i<nIn;i++)if(nr.v[i]!==sw[i]){var b=swb[i];tb.tap(b.x+b.w/2,b.y+b.h/2);break;}
+    return [level-1,'boards'];
   };
   return g;
 })();
