@@ -2673,12 +2673,13 @@ GAMES.obby=(function(){
     L=obCourse();
     S={x:0,y:0,z:0,vx:0,vy:0,vz:0,g:null,buf:0,coy:0,cp:0,sec:0,face:0};
     spawnAt(L[0]);
-    st='ready';t=0;clock=0;deaths=0;msg='';msgT=0;flash=0;overT=0;newBest=false;
+    st='ready';t=0;clock=0;deaths=0;msg='';msgT=0;flash=0;overT=0;newBest=false;nfxClear();
     cam.x=S.x;cam.y=S.y+6.4;cam.z=S.z-9;
     var rd=obRng(99),last=L[L.length-1];clouds=[];
     for(var i=0;i<46;i++)clouds.push({x:rd()*110-55,y:-14-rd()*14,z:rd()*(last.z+80)-30,w:4+rd()*6,d:3+rd()*4});
   }
   function die(){
+    nfxBurst(S.x,Math.max(S.y,-10),S.z,[230,240,255],10,3);
     deaths++;flash=0.35;obResetPlats(L);spawnAt(L[S.cp]);S.face=0;
     if(CAM3.mode===2){CAM3.yaw=0;CAM3.pitch=0.3;}
     msg='Try again!';msgT=1.0;beep(180,0.3,'sawtooth',0.06,0.45);
@@ -2709,6 +2710,7 @@ GAMES.obby=(function(){
   g.update=function(dt){
     t+=dt;if(flash>0)flash-=dt;if(msgT>0)msgT-=dt;
     CAM3.tick(dt);
+    nfxStep(dt);
     if(st==='win'){overT+=dt;camUpdate(dt);return;}
     var moving=PAD.axes(),mv=CAM3.dir(PAD.ax,PAD.ay);
     var jp=PAD.take();
@@ -2722,8 +2724,14 @@ GAMES.obby=(function(){
       var h=Math.min(dt,1/30),n=Math.max(1,Math.ceil(dt/h)),k;
       for(k=0;k<n;k++){
         var ev=obStep(S,dt/n,mv[0]*cs,mv[1]*cs,k===0&&jp,PAD.holding(),L);
-        if(ev==='jump')beep(520,0.1,'square',0.04,1.8);
-        else if(ev==='cp'){msg='CHECKPOINT!';msgT=1.4;beep(780,0.2,'square',0.05,1.6);}
+        if(ev==='jump'){beep(520,0.1,'square',0.04,1.8);nfxBurst(S.x,S.y+0.1,S.z,[235,240,250],3,1.2);}
+        else if(ev==='land'&&S.vy===0)nfxBurst(S.x,S.y+0.1,S.z,[235,240,250],2,1);
+        else if(ev==='cp'){
+          /* a checkpoint: green burst, a two-note chime and the name of the next stage */
+          msg=S.sec<6?'Checkpoint! Next: '+SEC[Math.min(6,S.sec+1)]:'Checkpoint!';msgT=1.8;
+          beep(780,0.15,'square',0.05,1.6);setTimeout(function(){beep(1040,0.2,'square',0.05,1.6);},140);
+          nfxBurst(S.x,S.y+0.5,S.z,[63,213,138],14,4);nfxPop(S.x,S.y+2.6,S.z,'Saved!',P.sun);
+        }
         else if(ev==='win'){win();break;}
         else if(ev==='die'){die();break;}
       }
@@ -2739,6 +2747,8 @@ GAMES.obby=(function(){
   function win(){
     if(g.mp&&!finT)finT=clock;
     st='win';overT=0;
+    nfxConfetti(S.x,S.y+2,S.z);nfxConfetti(S.x,S.y+3,S.z+2);
+    setTimeout(function(){beep(990,0.25,'square',0.05,1.5);},180);setTimeout(function(){beep(1320,0.35,'square',0.05,1.6);},380);
     STAT.add('obbyDone',1);
     if(!best||clock<best){best=clock;newBest=true;lsSet('by.obby',best);}
     beep(660,0.5,'square',0.06,2);
@@ -2773,8 +2783,10 @@ GAMES.obby=(function(){
     if(CAM3.mode!==2)blockPerson(S.x,S.y,S.z,S.face,body,step,flash>0,myAv3());
     if(gnd)R3.shadow(S.x,gt+0.02,S.z,0.45);
     var tags=g.mp?netDraw(1/60):null;
+    nfxDraw();
     R3.flush();
     if(tags)netTags(tags);
+    nfxText();
     hud();
     if(g.mp)raceBoard();
     if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash/0.35*0.6)+')';ctx.fillRect(0,0,V.w,V.h);}
@@ -2793,6 +2805,12 @@ GAMES.obby=(function(){
     txt(SEC[Math.max(1,S.sec)],12,46,13,P.sun,'left');
     txt(fmt(clock),V.w-12,24,19,'#fff','right');
     if(deaths)txt('Falls '+deaths,V.w-12,46,13,'#fff','right');
+    if(st==='run'&&L){
+      /* how far along the course I am */
+      var pr=clampN((S.z-L[0].z)/Math.max(1,L[L.length-1].z-L[0].z),0,1),bw=Math.min(180,V.w-220),bx=(V.w-bw)/2,by=V.h-12;
+      ctx.fillStyle='rgba(20,33,61,0.55)';ctx.fillRect(bx-2,by-2,bw+4,8);
+      ctx.fillStyle=P.sun;ctx.fillRect(bx,by,bw*pr,4);
+    }
     var ck=netCompact();
     if(msgT>0&&st==='run')txt(msg,V.w/2,netMidY(0.28)+(ck?6:0),ck?20:26,P.sun);
     if(st==='ready'&&ck){
