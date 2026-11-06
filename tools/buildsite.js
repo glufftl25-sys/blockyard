@@ -324,13 +324,14 @@ ${updates.length ? `
           </ol>
         </article>
         <article class="plat">
-          <h3>Computer</h3>
-          <a class="btn alt" href="game.html">Open Blockyard</a>
+          <h3>Windows</h3>
+          <a class="btn" href="downloads/blockyard.exe" download>&#11015; Download for Windows</a>
           <ol>
-            <li>Open Blockyard in <b>Chrome</b> or <b>Edge</b>.</li>
-            <li>Click the install icon at the right end of the address bar, or open the game's <b>Settings</b> and click <b>Install Blockyard</b>.</li>
-            <li>It opens in its own window, like any other program.</li>
+            <li>Click the button and open <b>blockyard.exe</b> when it finishes.</li>
+            <li>If Windows says it protected your PC, click <b>More info</b>, then <b>Run anyway</b>.</li>
+            <li>Blockyard opens in its own window. It plays offline too.</li>
           </ol>
+          <p class="nodl">On a Mac or Chromebook: open Blockyard in <b>Chrome</b> or <b>Edge</b> and click the install icon at the right end of the address bar.</p>
         </article>
       </div>
       <p class="more">Prefer itch.io? <a href="${ITCH}" rel="noopener">Blockyard is on itch.io too</a>.</p>
