@@ -23165,6 +23165,9 @@ var GCH={log:[],out:[],seen:{},open:false,unread:0,own:false,last:0,ids:1,peek:[
 var GCH_ONLINE={obby:1,hill:1,paint:1,party:1,yard:1,duel:1,tag:1,ball:1,fall:1,bumpers:1,bridge:1,ftag:1,racers:1};
 var GCH_NONE={td:1,maker:1};
 function gchOn(){return !SOLO&&!!(cur&&cur.kind==='canvas'&&CURID&&!GCH_NONE[CURID]);}
+/* only players with an account can chat: guests get no chat bubble, and lines from guests are ignored on every screen */
+function gchCan(){return !SOLO&&!!SOC.account;}
+function gchFromAccount(p){return !!(p&&p.by&&AVN[p.by]);}
 function gchMuted(){return !!lsGet('gch.mute',false);}
 function gchOut(){var n=Date.now();GCH.out=GCH.out.filter(function(m){return n-m[2]<45000;});return GCH.out.length?GCH.out.slice():null;}
 function gchClean(s){return String(s==null?'':s).replace(CTRL,' ').replace(/\s+/g,' ').trim().slice(0,120);}
@@ -23208,6 +23211,7 @@ function gchAdd(m){
 function gchSys(t){gchAdd({sys:true,t:t,at:Date.now()});}
 function gchSend(txt){
   txt=gchClean(txt);if(!txt)return false;
+  if(!gchCan()){gchSys('Make an account to chat. Guests cannot chat.');return false;}
   var n=Date.now();if(n-GCH.last<800){gchSys('Slow down a little');return false;}
   if(NET.blocked){gchSys('Chat is off while you are reported');return false;}
   if(!NET.room){gchSys(NET.fail?'Chat is offline right now':'Still connecting, try again in a second');return false;}
@@ -23221,11 +23225,12 @@ function gchSend(txt){
 }
 /* new messages from the other people in the room */
 function gchScan(){
-  if(!gchOn()||!NET.room)return;
+  if(!gchOn()||!gchCan()||!NET.room)return;
   var mute=gchMuted();
   NET.peers.forEach(function(p){
     if(p.sameTab||p.kind!=='viewer'||!p.presence||!Array.isArray(p.presence.gc))return;
     if(p.by&&typeof blkOn==='function'&&blkOn(p.by))return;
+    if(!gchFromAccount(p))return;
     p.presence.gc.slice(-4).forEach(function(m){
       if(!Array.isArray(m))return;
       var k=p.peer+'#'+(m[0]|0);if(GCH.seen[k])return;GCH.seen[k]=1;
@@ -23239,7 +23244,7 @@ function gchScan(){
   var ks=Object.keys(GCH.seen);if(ks.length>600)ks.slice(0,300).forEach(function(k){delete GCH.seen[k];});
 }
 function gchOpen(open){
-  if(!gchOn())open=false;
+  if(!gchOn()||!gchCan())open=false;
   GCH.open=open;
   var pn=$('gcpanel');if(pn)pn.hidden=!open;
   if(open){GCH.unread=0;GCH.peek=[];GCH.stick=true;gchPeekShow();if(document.pointerLockElement)try{document.exitPointerLock();}catch(e){}var i=$('gch-in');if(i)setTimeout(function(){try{i.focus();}catch(e){}},30);}
@@ -23249,7 +23254,7 @@ function gchOpen(open){
 /* a new game: fresh chat, and single-player games get their own chat room */
 function gchGameStart(){
   GCH.log=[];GCH.out=[];GCH.unread=0;GCH.peek=[];GCH.own=false;GCH.game=CURID||'';
-  var b=$('gchat');if(b)b.hidden=!gchOn();
+  var b=$('gchat');if(b)b.hidden=!gchOn()||!gchCan();
   gchOpen(false);
   clearInterval(GCH.beatT);
   if(!gchOn())return;
