@@ -462,6 +462,22 @@ function problemOf(r) {
     report.runs[0].results.push(nm);
     if (!nm.ok) report.runs[0].problems.push(problemOf(nm));
   }
+  {
+    /* static: the default control keys must be the keys the games read (Settings > Controls translates the player's keys
+       to BIND_CANON; a default that differs from it swaps keys in every game, as left:'KeyD',right:'KeyA' once did) */
+    const kc = { id: 'm.keys', t: 'Default keys (A left, D right)', check: true, err: {}, ok: true, steps: 1, fail: '' };
+    const src = fs.readFileSync(game, 'utf8');
+    const obj = name => { const m = src.match(new RegExp('var ' + name + '=(\\{[^}]*\\})')); if (!m) return null; const o = {}; m[1].replace(/(\w+):'(\w+)'/g, (_, k, v) => { o[k] = v; }); return o; };
+    const def = obj('BIND_DEF'), can = obj('BIND_CANON');
+    if (def && can) {
+      const bad = ['forward', 'back', 'left', 'right', 'jump'].filter(k => def[k] !== can[k]);
+      if (bad.length) kc.fail = 'the default keys do not match what the games read: ' + bad.map(k => k + ' is ' + def[k] + ' but games expect ' + can[k]).join(', ');
+    }
+    kc.ok = !kc.fail;
+    if (!report.runs.length) report.runs.push({ size: 'laptop', w: 1280, h: 720, problems: [], results: [], lag: [], pageErrors: [] });
+    report.runs[0].results.push(kc);
+    if (!kc.ok) report.runs[0].problems.push(problemOf(kc));
+  }
   if (fs.existsSync(path.join(__dirname, 'checkrelease.js'))) {
     /* tools/checkrelease.js, local part only (no network): the home page, updates list, manifest, sw.js and itch loader agree */
     const rc = { id: 'm.release', t: 'Release check', check: true, err: {}, ok: true, steps: 1, fail: '' };
