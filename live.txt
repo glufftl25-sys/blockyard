@@ -1,0 +1,22 @@
+ok   index.html matches what buildsite.js builds now
+ok   game.html has an UPDATES list - 111 entries, newest u113 "Chat is for accounts"
+ok   UPDATES ids are unique
+ok   UPDATES are newest first
+ok   index.html's newest update is the newest in game.html
+ok   index.html lists the games - 72 game cards
+ok   manifest.webmanifest game count matches - manifest says 72, site lists 72
+ok   sw.js has a CORE list - game.html index.html manifest.webmanifest icon-192.png icon-512.png site/favicon.svg
+ok   every file sw.js and the manifest name exists
+ok   game.html registers sw.js - sw.js
+ok   every local file index.html links to exists - 78 files
+ok   Blockyard-itch.zip has an index.html loader
+ok   itch loader loads the live game first - https://glufftl25-sys.github.io/blockyard/game.html
+ok   itch loader skips old cached copies when online
+ok   itch loader keeps a copy for offline in the Cache API
+ok   itch loader tries the next address when one answers with a non-game
+info main (origin/main, run git fetch first) newest update: u113 "Chat is for accounts"
+info this checkout newest update: u113
+ok   live game.html has the same newest update as main - live u113, main u113
+ok   live home page's newest update matches the live game - home "Chat is for accounts"
+info live sw.js is the same as this checkout
+all checks passed
