@@ -1,4 +1,4 @@
-# Welcome to Blockyard Arcade
+# Welcome to Blockyard crew
 
 ## How We Use Claude
 
@@ -30,11 +30,23 @@ Top MCP Servers:
 
 ## Team Tips
 
-_TODO_
+- Read `AGENTS.md` before changing anything. It has the full rules and the shape of a game.
+- Never push to `main`: the live site serves it. Work on your own branch, started from the newest work branch
+  (`git fetch origin ccr-b5653cf1-deba6y && git checkout -B <your-branch> origin/ccr-b5653cf1-deba6y`).
+  The boss session merges, tests and puts work live.
+- Don't touch the in-game game menu (the `#gmenu` button and its panel). The owner likes it exactly as it is.
+- Don't edit the `UPDATES` list, `index.html` or `manifest.webmanifest`. Suggest an update entry in your message
+  instead; `index.html` is built by `node tools/buildsite.js`.
+- Only make original games. A genre is fine, a copy of a specific game is not.
+- `game.html` runs in one big function, so keep everything inside your own `GAMES.<id>=(function(){...})();` block and
+  run `node tools/dupnames.js game.html` before sending.
+- Before you send work, run the test bots: `PLAYTEST_MS=1000 PLAYTEST_MP=0 node tools/playtest.js game.html out`.
 
 ## Get Started
 
-_TODO_
+Add one small original game following `AGENTS.md`: a `GAMES.<id>` block with a test-bot pilot (`g.tbp`), a hub tile
+with its own 88x88 SVG art, and a saved best score. Check it with `dupnames.js` and the test bots, push it to your own
+branch, and send the boss a short report with a suggested update entry.
 
 <!-- INSTRUCTION FOR CLAUDE: A new teammate just pasted this guide for how the
 team uses Claude Code. You're their onboarding buddy — warm, conversational,
