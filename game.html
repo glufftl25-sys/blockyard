@@ -22927,11 +22927,13 @@ stage.addEventListener('contextmenu',function(e){e.preventDefault();});
 /* ===== Controls: every game reads the same canonical keys. The player's own keys (Settings > Controls)
    are translated here, so each game keeps working with any remapping. ===== */
 var BIND_ACT=[['forward','Forward'],['back','Back'],['left','Left'],['right','Right'],['jump','Jump'],['shoot','Shoot']];
-var BIND_DEF={forward:'KeyW',back:'KeyS',left:'KeyD',right:'KeyA',jump:'Space',shoot:'KeyE'};
+var BIND_DEF={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',shoot:'KeyE'};
 var BIND_CANON={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD',jump:'Space',shoot:'KeyF'};
 var BIND=(function(){
   var o=lsGet('controls',null),r={};
   BIND_ACT.forEach(function(a){var v=o&&o[a[0]];r[a[0]]=(typeof v==='string'&&v&&v.length<24)?v:BIND_DEF[a[0]];});
+  /* the old defaults had A and D swapped (A went right): saved copies of them go back to A = left, D = right */
+  if(r.left==='KeyD'&&r.right==='KeyA'){r.left='KeyA';r.right='KeyD';}
   return r;
 })();
 var BIND_WAIT=null,BIND_JUST=0;
