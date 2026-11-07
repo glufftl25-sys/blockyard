@@ -790,6 +790,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#ffd9a0" width="88" height="26"/><rect y="26" fill="#1f6fa0" width="88" height="62"/><rect x="18" y="16" width="34" height="9" fill="#a5532e" stroke="#14213d" stroke-width="2"/><rect x="44" y="2" width="3" height="16" fill="#7a3b20"/><path d="M46 3L60 56" stroke="#fff" stroke-width="1.5"/><path d="M55 58a5 5 0 0 0 10 0" stroke="#dfe6f5" stroke-width="2.5" fill="none"/><rect x="10" y="48" width="22" height="12" fill="#3cc8f0" stroke="#14213d" stroke-width="2"/><path d="M10 54l-7-6v12z" fill="#3cc8f0" stroke="#14213d" stroke-width="2"/><rect x="50" y="66" width="30" height="15" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><path d="M80 73l7-7v14z" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="0" y="82" width="88" height="6" fill="#c9a46a"/></svg></span>
           <span class="tt">Deep Line</span><span class="ts"><span id="best-fish">Best 0</span> · Go fishing</span>
         </button>
+        <button class="tile" type="button" data-game="seesaw" data-name="seesaw stack balance plank weight crane drop blocks 2d" style="--c:#c98a3c">
+          <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#ffe2b8" width="88" height="88"/><rect y="74" width="88" height="14" fill="#8a5a3c"/><rect x="14" y="8" width="60" height="5" fill="#5b4a6b"/><rect x="50" y="13" width="2" height="10" fill="#5b4a6b"/><rect x="43" y="23" width="16" height="12" fill="#3cc8f0" stroke="#14213d" stroke-width="2"/><path d="M44 58l-11 16h22z" fill="#c0605a" stroke="#14213d" stroke-width="2"/><g transform="rotate(-8 44 56)"><rect x="8" y="52" width="72" height="7" fill="#c98a3c" stroke="#14213d" stroke-width="2"/><rect x="14" y="38" width="16" height="14" fill="#b48cff" stroke="#14213d" stroke-width="2"/><rect x="58" y="42" width="14" height="10" fill="#5ed88a" stroke="#14213d" stroke-width="2"/></g></svg></span>
+          <span class="tt">Seesaw Stack</span><span class="ts"><span id="best-seesaw">Best 0</span> · Keep it balanced</span>
+        </button>
         <button class="tile" type="button" data-game="bust" data-name="brick buster breakout paddle ball 2d" style="--c:#ff6b5b">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#101a33" width="88" height="88"/><g><rect x="8" y="14" width="18" height="9" fill="#ff5a4d"/><rect x="29" y="14" width="18" height="9" fill="#ff9a3c"/><rect x="50" y="14" width="18" height="9" fill="#ffd23f"/><rect x="18" y="27" width="18" height="9" fill="#3fd58a"/><rect x="40" y="27" width="18" height="9" fill="#3f8cff"/></g><circle cx="44" cy="52" r="6" fill="#fff"/><rect x="28" y="68" width="32" height="8" rx="3" fill="#ffd23f" stroke="#14213d" stroke-width="3"/></svg></span>
           <span class="tt">Brick Buster</span><span class="ts"><span id="best-bust">Best 0</span> · Bounce and smash</span>
@@ -17441,6 +17445,174 @@ GAMES.fish=(function(){
     var f=m.tg,ttm=(f.y-SURF)/430,dist=0,px=f.x+f.vx*ttm;
     if(!tb.pressing())tb.down(px,V.h*0.5);else tb.mv(px,V.h*0.5);
     if(Math.abs(boat-px)<6){tb.up();m.tg=null;}
+    return [score,'points'];
+  };
+  return g;
+})();
+
+/* ===== Seesaw Stack (2D, original): a crane swings blocks over a plank balanced on a point. Tap to drop each block.
+   Heavy blocks far from the middle tip the plank; tip it too far and piles slide off the end and you lose a heart.
+   Keep it level for bonus points. Touch: tap. Keys/controller: Space (A) drops. ===== */
+GAMES.seesaw=(function(){
+  var g={kind:'canvas',title:'Seesaw Stack',lw:400};
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  HUBBEST['best-seesaw']='by.seesaw';
+  var KINDS=[{m:1,w:34,h:26,c:'#5ed88a'},{m:2,w:42,h:30,c:'#3cc8f0'},{m:3,w:50,h:34,c:'#b48cff'},{m:5,w:44,h:44,c:'#6b7089'}];
+  var st,t,overT,best,newBest,score,placed,lives,ang,angV,piles,fall,hang,craneX,craneT,craneSp,nextK,parts,pops,shake,msg,msgT,lost;
+  function PX(){return V.w/2;}
+  function PY(){return V.h-96;}
+  function half(){return Math.min(V.w*0.4,260);}
+  function CY(){return vWide()?96:118;}
+  function pick(){var r=Math.random(),hv=Math.min(0.35,placed*0.015);return r<hv*0.4?3:(r<hv?2:(r<0.55?0:1));}
+  function reset(){
+    st='ready';t=0;overT=0;newBest=false;score=0;placed=0;lives=3;ang=0;angV=0;piles=[];fall=null;craneT=0;craneSp=1.2;
+    nextK=pick();hang=pick();parts=[];pops=[];shake=0;msg='';msgT=0;lost=[];craneX=PX();
+  }
+  g.start=function(){best=lsGet('by.seesaw',0);reset();};
+  g.stop=function(){};
+  function burst(x,y,col,n,sp){for(var i=0;i<n;i++){var a=Math.random()*Math.PI*2,v=(0.3+Math.random())*sp;parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-60,t:0.4+Math.random()*0.4,c:col,s:2+Math.random()*4});}}
+  function torque(){var s=0;piles.forEach(function(p){p.b.forEach(function(k){s+=KINDS[k].m*p.d;});});return s;}
+  function pileH(p){var h=0;p.b.forEach(function(k){h+=KINDS[k].h;});return h;}
+  function pileW(p){var w=0;p.b.forEach(function(k){w=Math.max(w,KINDS[k].w);});return w;}
+  /* where a point at distance d along the plank sits on screen (top surface of the plank) */
+  function onPlank(d,up){var c=Math.cos(ang),s=Math.sin(ang);return {x:PX()+c*d+s*up,y:PY()+s*d-c*up-8*c};}
+  function release(){
+    if(st==='over'){if(overT>0.8)reset();return;}
+    if(st==='ready'){st='run';t=0;return;}
+    if(fall)return;
+    fall={k:hang,x:craneX,y:CY()+26,vy:0};hang=nextK;nextK=pick();
+    beep(420,0.05,'square',0.03,0.8);
+  }
+  g.down=function(){release();};
+  g.move=function(){};g.up=function(){};
+  g.key=function(c,d){if(d&&(c==='Space'||c==='Enter'||c==='ArrowDown'||c==='KeyS'))release();};
+  function loseHeart(why,x,y){
+    if(!cheatOn('god'))lives--;shake=0.35;msg=why;msgT=1.1;beep(150,0.35,'sawtooth',0.06,0.5);burst(x,y,P.brick,14,200);
+    if(lives<=0){st='over';overT=0;beep(110,0.6,'sawtooth',0.06,0.4);if(score>best){best=score;newBest=true;lsSet('by.seesaw',best);}}
+  }
+  g.update=function(dt){
+    t+=dt;if(shake>0)shake-=dt;if(msgT>0)msgT-=dt;
+    parts=parts.filter(function(p){p.t-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=500*dt;return p.t>0;});
+    pops=pops.filter(function(p){p.t-=dt;p.y-=40*dt;return p.t>0;});
+    lost=lost.filter(function(q){q.vy+=900*dt;q.y+=q.vy*dt;q.x+=q.vx*dt;q.r+=q.vr*dt;return q.y<V.h+80;});
+    if(st==='over'){overT+=dt;return;}
+    if(st!=='run')return;
+    /* the crane swings faster as you go */
+    craneSp=Math.min(3,1.2+placed*0.05);craneT+=dt*craneSp;
+    craneX=PX()+Math.sin(craneT)*(half()+30);
+    /* the plank leans toward the heavier side, with a little wobble */
+    var target=clampN(torque()*0.0011,-0.55,0.55);
+    angV+=(target-ang)*12*dt;angV*=Math.pow(0.08,dt);ang+=angV*dt;
+    if(Math.abs(ang)>0.3&&Math.random()<dt*6)beep(90+Math.random()*30,0.05,'triangle',0.02,1);
+    /* piles slide when it leans too far */
+    for(var i=piles.length-1;i>=0;i--){
+      var p=piles[i];
+      if(Math.abs(ang)>0.17)p.v+=Math.sin(ang)*700*dt;else p.v*=Math.pow(0.02,dt);
+      p.d+=p.v*dt;
+      if(Math.abs(p.d)>half()+pileW(p)*0.3){
+        var at=onPlank(p.d,0);
+        var hh=0;p.b.forEach(function(k){lost.push({k:k,x:at.x,y:at.y-hh-KINDS[k].h,vx:p.v*0.6,vy:-60,r:0,vr:(p.d>0?3:-3)});hh+=KINDS[k].h;});
+        piles.splice(i,1);loseHeart('It slid off!',at.x,at.y);
+        if(st!=='run')return;
+      }
+    }
+    /* the falling block */
+    if(fall){
+      fall.vy+=1100*dt;fall.y+=fall.vy*dt;
+      var K=KINDS[fall.k],d=(fall.x-PX())/Math.cos(ang);
+      if(Math.abs(d)<=half()){
+        var top=null;
+        piles.forEach(function(p){if(Math.abs(p.d-d)<(pileW(p)+K.w)/2-4&&(!top||pileH(p)>pileH(top)))top=p;});
+        var land=onPlank(top?top.d:d,top?pileH(top):0);
+        if(fall.y+K.h/2>=land.y&&top&&top.b.length>=3){
+          /* piles hold 3 blocks; a 4th one tumbles off */
+          lost.push({k:fall.k,x:fall.x,y:land.y-K.h,vx:(fall.x<PX()?-1:1)*120,vy:-200,r:0,vr:fall.x<PX()?-4:4});
+          var lx=fall.x,ly=land.y;fall=null;loseHeart('Too tall! 3 max',lx,ly);return;
+        }
+        if(fall.y+K.h/2>=land.y){
+          if(top)top.b.push(fall.k);else piles.push({d:d,v:0,b:[fall.k]});
+          placed++;var pts=1+(Math.abs(ang)<0.06?2:0);score+=pts;
+          pops.push({x:fall.x,y:land.y-K.h-10,s:pts>1?'Level! +'+pts:'+1',t:0.9,c:pts>1?P.sun:'#fff'});
+          burst(fall.x,land.y,'#d9c7a0',8,120);beep(260+K.m*20,0.08,'square',0.04,0.7);angV+=d*K.m*0.00035;shake=Math.max(shake,0.05*K.m);
+          if(placed%10===0){msg='Great stacking!';msgT=1;beep(880,0.2,'square',0.045,1.8);}
+          fall=null;
+        }
+      }else if(fall.y>PY()+40){loseHeart('Missed the plank!',fall.x,PY());lost.push({k:fall.k,x:fall.x,y:fall.y,vx:0,vy:fall.vy,r:0,vr:2});fall=null;}
+    }
+  };
+  function block(k,x,y,rot){
+    var K=KINDS[k];ctx.save();ctx.translate(x,y);ctx.rotate(rot||0);
+    box(-K.w/2,-K.h,K.w,K.h,K.c);
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillRect(-K.w/2+4,-K.h+4,K.w-8,4);
+    txt(String(K.m),0,-K.h/2+1,Math.min(18,K.h*0.55),P.ink);
+    ctx.restore();
+  }
+  g.draw=function(){
+    var bg=ctx.createLinearGradient(0,0,0,V.h);bg.addColorStop(0,'#ffe2b8');bg.addColorStop(1,'#f6b48a');
+    ctx.fillStyle=bg;ctx.fillRect(0,0,V.w,V.h);
+    ctx.save();if(shake>0)ctx.translate((Math.random()-0.5)*shake*24,(Math.random()-0.5)*shake*24);
+    /* far hills and the ground */
+    ctx.fillStyle='#e99a72';ctx.beginPath();ctx.moveTo(-10,V.h);for(var x=0;x<=V.w+40;x+=40)ctx.lineTo(x,V.h-130-Math.sin(x*0.01)*30);ctx.lineTo(V.w+10,V.h);ctx.fill();
+    ctx.fillStyle='#8a5a3c';ctx.fillRect(-20,V.h-40,V.w+40,60);
+    /* crane rail, hook and the block waiting */
+    ctx.fillStyle='#5b4a6b';ctx.fillRect(PX()-half()-60,CY()-30,half()*2+120,8);
+    ctx.strokeStyle='#5b4a6b';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(craneX,CY()-22);ctx.lineTo(craneX,CY());ctx.stroke();
+    box(craneX-16,CY()-30,32,12,'#7a688c');
+    if(!fall&&st!=='over'){block(hang,craneX,CY()+26);ctx.fillStyle='rgba(91,74,107,.18)';ctx.fillRect(craneX-1,CY()+30,2,PY()-CY()-30);}
+    if(fall)block(fall.k,fall.x,fall.y+KINDS[fall.k].h/2);
+    /* the pivot and the plank */
+    ctx.fillStyle=P.ink;ctx.beginPath();ctx.moveTo(PX(),PY()-2);ctx.lineTo(PX()-34,V.h-40);ctx.lineTo(PX()+34,V.h-40);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#c0605a';ctx.beginPath();ctx.moveTo(PX(),PY()+4);ctx.lineTo(PX()-28,V.h-42);ctx.lineTo(PX()+28,V.h-42);ctx.closePath();ctx.fill();
+    ctx.save();ctx.translate(PX(),PY());ctx.rotate(ang);
+    var warn=Math.abs(ang)>0.17;
+    box(-half(),-10,half()*2,14,warn?(Math.floor(t*8)%2?'#e5534b':'#c98a3c'):'#c98a3c');
+    ctx.fillStyle='rgba(0,0,0,.15)';for(var i=-3;i<=3;i++)ctx.fillRect(i*half()/3.5-1,-8,2,10);
+    ctx.restore();
+    piles.forEach(function(p){var hh=0;p.b.forEach(function(k){var at=onPlank(p.d,hh);block(k,at.x,at.y,ang);hh+=KINDS[k].h;});});
+    lost.forEach(function(q){block(q.k,q.x,q.y,q.r);});
+    parts.forEach(function(p){ctx.globalAlpha=Math.min(1,p.t*2.4);ctx.fillStyle=p.c;ctx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);});ctx.globalAlpha=1;
+    pops.forEach(function(p){ctx.globalAlpha=Math.min(1,p.t*2);txt(p.s,p.x,p.y,18+Math.max(0,p.t-0.6)*24,p.c);});ctx.globalAlpha=1;
+    ctx.restore();
+    /* top bar: score, hearts, the next block and a tilt meter */
+    txt('Score '+score,12,22,18,P.ink,'left');
+    txt('Blocks '+placed,12,44,Math.max(14,10*V.css),'#7a3b20','left');
+    for(i=0;i<3;i++)heart(V.w-30-i*24,10,3,i<lives?P.brick:'rgba(20,33,61,.25)');
+    txt('Best '+best,V.w-12,44,Math.max(14,10*V.css),'#7a3b20','right');
+    txt('Next',V.w/2-40,22,Math.max(14,10*V.css),'#7a3b20','right');
+    var NK=KINDS[nextK];box(V.w/2-30,12,NK.w*0.6,NK.h*0.6,NK.c);
+    var mw=120,mx=V.w/2+40;box(mx,16,mw,10,'#e8d2b0');ctx.fillStyle=Math.abs(ang)>0.17?P.brick:P.grass;ctx.fillRect(mx+mw/2+clampN(ang/0.55,-1,1)*mw/2-4,13,8,16);
+    if(msgT>0)txt(msg,V.w/2,CY()+80,24,msg.indexOf('!')>0&&msg!=='Great stacking!'?P.brick:'#7a3b20');
+    if(st==='ready'){
+      ctx.fillStyle='rgba(60,30,40,.78)';ctx.fillRect(V.w/2-185,V.h*0.3,370,162);
+      txt('SEESAW STACK',V.w/2,V.h*0.3+36,32,P.sun);
+      txt('Tap to drop each block onto the plank.',V.w/2,V.h*0.3+70,Math.max(14,10*V.css),'#fff');
+      txt('Heavy blocks tip it. Too far and they slide off!',V.w/2,V.h*0.3+94,Math.max(14,10*V.css),'#fff');
+      txt('Piles hold 3 blocks at most.',V.w/2,V.h*0.3+116,Math.max(14,10*V.css),P.sun);
+      txt('TAP TO START',V.w/2,V.h*0.3+140,18,P.sun);
+    }
+    if(st==='over'){
+      ctx.fillStyle='rgba(60,30,40,.8)';ctx.fillRect(0,0,V.w,V.h);
+      txt('TOPPLED!',V.w/2,V.h*0.36,34,P.sun);
+      txt('Score '+score+' · '+placed+' blocks',V.w/2,V.h*0.36+44,22,'#fff');
+      txt(newBest?'NEW BEST!':'Best '+best,V.w/2,V.h*0.36+76,18,P.sun);
+      if(overT>0.8)txt('Tap to stack again',V.w/2,V.h*0.36+108,16,'#fff');
+    }
+  };
+  /* test bots: play for real. Work out where a block would balance the plank best and drop it when the crane is there. */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(overT>0.9&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;
+    if(st==='ready'){tb.k('Space');return [0,'points'];}
+    if(fall||Math.abs(ang)>0.12)return [score,'points'];
+    var K=KINDS[hang],T=torque(),want=null,bs=1e9;
+    /* try spots along the plank, skipping full piles; best = most level after the drop, not too near the ends */
+    for(var d=-half()*0.85;d<=half()*0.85;d+=8){
+      var full=piles.some(function(p){return p.b.length>=3&&Math.abs(p.d-d)<(pileW(p)+K.w)/2+4;});
+      if(full)continue;var sc=Math.abs(T+K.m*d)+Math.abs(d)*0.15;if(sc<bs){bs=sc;want=d;}
+    }
+    if(want==null)return [score,'points'];
+    if(Math.abs(craneX-(PX()+want*Math.cos(ang)))<10+craneSp*4)tb.k('Space');
     return [score,'points'];
   };
   return g;
