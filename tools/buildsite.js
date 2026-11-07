@@ -187,6 +187,16 @@ section{scroll-margin-top:72px}
 @media (max-width:760px){.upds{grid-template-columns:1fr}}
 
 /* get it */
+.plats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.plat{display:flex;flex-direction:column;gap:14px;background:var(--raise);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:22px}
+.plat h3{font:400 26px/1.1 var(--display);margin:0;letter-spacing:.3px}
+.plat .btn{align-self:flex-start;font-size:18px;padding:12px 20px}
+.plat ol{margin:0;padding-left:22px;color:var(--muted);font-size:16px}
+.plat li+li{margin-top:6px}
+.plat li b,.plat .nodl b{color:var(--text)}
+.plat .nodl{margin:0;font-size:14px;color:var(--muted)}
+.more{margin:20px 0 0;color:var(--muted)}
+@media (max-width:900px){.plats{grid-template-columns:1fr}}
 .band{background:linear-gradient(135deg,#2d2d55,#222243);border:3px solid var(--ink);border-radius:24px;padding:38px;display:grid;grid-template-columns:1.3fr 1fr;gap:30px;align-items:center;box-shadow:0 8px 0 var(--ink)}
 .band h2{margin-bottom:10px}
 .band ol{margin:0;padding-left:22px;color:var(--muted)}
@@ -291,20 +301,40 @@ ${updates.length ? `
 
   <section class="sec" id="get" aria-labelledby="get-h">
     <div class="wrap">
-      <div class="band">
-        <div>
-          <h2 id="get-h">Put it on your home screen</h2>
+      <h2 id="get-h">Get the app</h2>
+      <p class="sub">Free on every device. The app opens full screen, works offline, and updates itself.</p>
+      <div class="plats">
+        <article class="plat">
+          <h3>Android</h3>
+          <a class="btn" href="downloads/blockyard.apk" download>&#11015; Download for Android</a>
           <ol>
-            <li>Open Blockyard and tap <b>Settings</b>, then <b>Install as an app</b>.</li>
-            <li>On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>.</li>
-            <li>It opens full screen, works offline, and updates itself.</li>
+            <li>Tap the button and open the file when it finishes.</li>
+            <li>If your phone asks, allow your browser to install apps.</li>
+            <li>Tap <b>Install</b>. Blockyard shows up with your other apps.</li>
           </ol>
-        </div>
-        <div class="cta">
-          <a class="btn" href="game.html">&#9654; Play now</a>
-          <a class="btn alt" href="${ITCH}" rel="noopener">itch.io</a>
-        </div>
+          <p class="nodl">Or with no download: open this page in Chrome, tap &#8942;, then <b>Install app</b>.</p>
+        </article>
+        <article class="plat">
+          <h3>iPhone &amp; iPad</h3>
+          <a class="btn alt" href="game.html">Open Blockyard</a>
+          <ol>
+            <li>Open this page in <b>Safari</b>.</li>
+            <li>Tap the <b>Share</b> button (the square with an arrow).</li>
+            <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+          </ol>
+        </article>
+        <article class="plat">
+          <h3>Windows</h3>
+          <a class="btn" href="downloads/blockyard.exe" download>&#11015; Download for Windows</a>
+          <ol>
+            <li>Click the button and open <b>blockyard.exe</b> when it finishes.</li>
+            <li>If Windows says it protected your PC, click <b>More info</b>, then <b>Run anyway</b>.</li>
+            <li>Blockyard opens in its own window. It plays offline too.</li>
+          </ol>
+          <p class="nodl">On a Mac or Chromebook: open Blockyard in <b>Chrome</b> or <b>Edge</b> and click the install icon at the right end of the address bar.</p>
+        </article>
       </div>
+      <p class="more">Prefer itch.io? <a href="${ITCH}" rel="noopener">Blockyard is on itch.io too</a>.</p>
     </div>
   </section>
 </main>
@@ -312,7 +342,7 @@ ${updates.length ? `
 <footer>
   <div class="wrap">
     <span>Blockyard Arcade &middot; ${n} games${updates[0] ? ' &middot; updated ' + esc(updates[0].d) : ''}</span>
-    <nav aria-label="More"><a href="game.html">Play</a><a href="${ITCH}" rel="noopener">itch.io</a><a href="bots.html">Test bots</a><a href="https://github.com/glufftl25-sys/blockyard" rel="noopener">Source</a></nav>
+    <nav aria-label="More"><a href="game.html">Play</a><a href="${ITCH}" rel="noopener">itch.io</a><a href="bots.html">Test bots</a><a href="privacy.html">Privacy</a><a href="https://github.com/glufftl25-sys/blockyard" rel="noopener">Source</a></nav>
   </div>
 </footer>
 

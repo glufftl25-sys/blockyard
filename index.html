@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Blockyard Arcade</title>
-<meta name="description" content="65 free block games in one arcade. Play in your browser on a phone, tablet or computer, online with friends, with a controller or touch.">
+<meta name="description" content="72 free block games in one arcade. Play in your browser on a phone, tablet or computer, online with friends, with a controller or touch.">
 <meta name="theme-color" content="#15152b">
 <link rel="icon" href="site/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Blockyard Arcade">
-<meta property="og:description" content="65 free block games in one arcade. Play in your browser, online with friends.">
+<meta property="og:description" content="72 free block games in one arcade. Play in your browser, online with friends.">
 <meta property="og:url" content="https://glufftl25-sys.github.io/blockyard/">
 <meta property="og:image" content="https://glufftl25-sys.github.io/blockyard/site/shots/hub.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -136,6 +136,16 @@ section{scroll-margin-top:72px}
 @media (max-width:760px){.upds{grid-template-columns:1fr}}
 
 /* get it */
+.plats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.plat{display:flex;flex-direction:column;gap:14px;background:var(--raise);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:22px}
+.plat h3{font:400 26px/1.1 var(--display);margin:0;letter-spacing:.3px}
+.plat .btn{align-self:flex-start;font-size:18px;padding:12px 20px}
+.plat ol{margin:0;padding-left:22px;color:var(--muted);font-size:16px}
+.plat li+li{margin-top:6px}
+.plat li b,.plat .nodl b{color:var(--text)}
+.plat .nodl{margin:0;font-size:14px;color:var(--muted)}
+.more{margin:20px 0 0;color:var(--muted)}
+@media (max-width:900px){.plats{grid-template-columns:1fr}}
 .band{background:linear-gradient(135deg,#2d2d55,#222243);border:3px solid var(--ink);border-radius:24px;padding:38px;display:grid;grid-template-columns:1.3fr 1fr;gap:30px;align-items:center;box-shadow:0 8px 0 var(--ink)}
 .band h2{margin-bottom:10px}
 .band ol{margin:0;padding-left:22px;color:var(--muted)}
@@ -170,15 +180,15 @@ footer a:hover{color:var(--text)}
       <div>
         <p class="kicker"><b>&#9679;</b> Free &middot; plays in your browser &middot; no download</p>
         <h1>Blockyard <span>Arcade</span></h1>
-        <p class="lead">65 block games in one place. Race, build, shoot, puzzle and party on a phone, tablet or computer. Play solo, against bots, or online with your friends.</p>
+        <p class="lead">72 block games in one place. Race, build, shoot, puzzle and party on a phone, tablet or computer. Play solo, against bots, or online with your friends.</p>
         <div class="cta">
           <a class="btn" href="game.html">&#9654; Play now</a>
           <a class="btn alt" href="#games">See all games</a>
         </div>
         <ul class="facts">
-          <li><b>65</b><span>games</span></li>
-          <li><b>13</b><span>online games</span></li>
-          <li><b>19</b><span>3D games</span></li>
+          <li><b>72</b><span>games</span></li>
+          <li><b>14</b><span>online games</span></li>
+          <li><b>20</b><span>3D games</span></li>
         </ul>
       </div>
       <div class="shot"><img src="site/shots/hub.png" alt="The Blockyard Arcade hub with game tiles" width="1280" height="720"></div>
@@ -190,7 +200,7 @@ footer a:hover{color:var(--text)}
       <h2 id="games-h">Every game</h2>
       <p class="sub">Tap a game to jump straight in.</p>
       <div class="tools" role="toolbar" aria-label="Filter games">
-        <button class="chip" type="button" data-f="all" aria-pressed="true">All 65</button>
+        <button class="chip" type="button" data-f="all" aria-pressed="true">All 72</button>
         <button class="chip" type="button" data-f="online" aria-pressed="false">Online</button>
         <button class="chip" type="button" data-f="3d" aria-pressed="false">3D</button>
         <button class="chip" type="button" data-f="2d" aria-pressed="false">2D</button>
@@ -221,9 +231,17 @@ footer a:hover{color:var(--text)}
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#bfe0f2" width="88" height="88"/><g fill="#5b6fae" stroke="#14213d" stroke-width="2"><rect x="6" y="8" width="16" height="16"/><rect x="66" y="64" width="16" height="16"/><rect x="40" y="56" width="10" height="24"/></g><circle cx="26" cy="54" r="15" fill="rgba(255,77,77,.3)"/><rect x="18" y="46" width="16" height="16" fill="#ff4d4d" stroke="#14213d" stroke-width="3"/><rect x="22" y="51" width="3" height="4" fill="#14213d"/><rect x="28" y="51" width="3" height="4" fill="#14213d"/><rect x="52" y="20" width="16" height="16" fill="#5ed88a" stroke="#14213d" stroke-width="3"/><rect x="48" y="16" width="24" height="24" fill="rgba(200,245,255,.7)" stroke="#fff" stroke-width="2"/><rect x="51" y="19" width="4" height="4" fill="#fff"/><text x="26" y="40" font-size="10" font-weight="700" text-anchor="middle" fill="#ff4d4d" stroke="#14213d" stroke-width="0.6">IT</text></svg><img class="real" src="site/shots/games/ftag.jpg" alt="" loading="lazy" decoding="async"><b class="tagon">ONLINE</b></span>
         <span class="gt">Freeze Tag</span><span class="gs">Freeze or thaw</span>
       </a>
+      <a class="game" href="game.html#play=racers" style="--c:#ffd23f" data-k="2d online" data-w="block racers online multiplayer 2d racing race car track laps bots block racers">
+        <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#5aa83c" width="88" height="88"/><path d="M14 20h44a16 16 0 0 1 0 32H30a16 16 0 0 0 0 32" fill="none" stroke="#14213d" stroke-width="22"/><path d="M14 20h44a16 16 0 0 1 0 32H30a16 16 0 0 0 0 32" fill="none" stroke="#4a4f63" stroke-width="16"/><path d="M14 20h44a16 16 0 0 1 0 32H30a16 16 0 0 0 0 32" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="5 5"/><rect x="40" y="13" width="18" height="11" fill="#ff6b5b" stroke="#14213d" stroke-width="2.5"/><rect x="50" y="15" width="5" height="7" fill="#fff"/><rect x="38" y="46" width="18" height="11" fill="#3cc8f0" stroke="#14213d" stroke-width="2.5"/><rect x="40" y="48" width="5" height="7" fill="#fff"/></svg><img class="real" src="site/shots/games/racers.jpg" alt="" loading="lazy" decoding="async"><b class="tagon">ONLINE</b></span>
+        <span class="gt">Block Racers</span><span class="gs">Race 3 laps</span>
+      </a>
       <a class="game" href="game.html#play=hoops" style="--c:#ff9a3c" data-k="2d" data-w="hoops basketball shoot 2d hoops">
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#2d3a6b" width="88" height="88"/><rect x="34" y="16" width="36" height="6" fill="#ff5a4d"/><path d="M36 22l8 16h18l6-16" fill="none" stroke="#fff" stroke-width="2"/><rect x="66" y="10" width="6" height="20" fill="#9aa4bb"/><circle cx="26" cy="58" r="13" fill="#ff9a3c" stroke="#14213d" stroke-width="3"/><path d="M13 58h26M26 45v26" stroke="#14213d" stroke-width="2"/></svg><img class="real" src="site/shots/games/hoops.jpg" alt="" loading="lazy" decoding="async"></span>
         <span class="gt">Hoops</span><span class="gs">Flick and score</span>
+      </a>
+      <a class="game" href="game.html#play=archer" style="--c:#5bbf55" data-k="2d" data-w="wind archer archery bow arrow target bullseye sport 2d wind archer">
+        <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#7cc6f0" width="88" height="88"/><rect y="66" width="88" height="22" fill="#5bbf55"/><rect x="62" y="16" width="12" height="50" fill="#f4f7ff" stroke="#14213d" stroke-width="2"/><rect x="62" y="24" width="12" height="34" fill="#14213d"/><rect x="62" y="30" width="12" height="22" fill="#3c7cf0"/><rect x="62" y="35" width="12" height="12" fill="#ff5a4d"/><rect x="62" y="38" width="12" height="6" fill="#ffd23f"/><path d="M80 6v60" stroke="#6b4428" stroke-width="3"/><path d="M80 7l-12 5 12 5z" fill="#ff5a4d"/><path d="M14 30a22 22 0 0 1 0 36" fill="none" stroke="#7a4a24" stroke-width="4"/><path d="M8 52l54-11" stroke="#14213d" stroke-width="4"/><path d="M8 52l54-11" stroke="#d9b27a" stroke-width="2"/><path d="M8 47l4 5-5 4" fill="#ff5a4d"/><path d="M6 14h16M10 20h14" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg><img class="real" src="site/shots/games/archer.jpg" alt="" loading="lazy" decoding="async"></span>
+        <span class="gt">Wind Archer</span><span class="gs">Beat the wind</span>
       </a>
       <a class="game" href="game.html#play=spill" style="--c:#3cc8f0" data-k="2d" data-w="paint spill flood colour color fill puzzle brain 2d paint spill">
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#101a33" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="8" width="18" height="18" fill="#3cc8f0"/><rect x="26" y="8" width="18" height="18" fill="#3cc8f0"/><rect x="44" y="8" width="18" height="18" fill="#ffd23f"/><rect x="62" y="8" width="18" height="18" fill="#ff6b5b"/><rect x="8" y="26" width="18" height="18" fill="#3cc8f0"/><rect x="26" y="26" width="18" height="18" fill="#3cc8f0"/><rect x="44" y="26" width="18" height="18" fill="#5ed88a"/><rect x="62" y="26" width="18" height="18" fill="#ffd23f"/><rect x="8" y="44" width="18" height="18" fill="#3cc8f0"/><rect x="26" y="44" width="18" height="18" fill="#ff6b5b"/><rect x="44" y="44" width="18" height="18" fill="#5f6a88"/><rect x="62" y="44" width="18" height="18" fill="#5ed88a"/><rect x="8" y="62" width="18" height="18" fill="#ffd23f"/><rect x="26" y="62" width="18" height="18" fill="#5ed88a"/><rect x="44" y="62" width="18" height="18" fill="#ff6b5b"/><rect x="62" y="62" width="18" height="18" fill="#3cc8f0"/></g><path d="M14 4c4 6 8 6 12 2" stroke="#fff" stroke-width="3" fill="none"/></svg><img class="real" src="site/shots/games/spill.jpg" alt="" loading="lazy" decoding="async"></span>
@@ -240,6 +258,14 @@ footer a:hover{color:var(--text)}
       <a class="game" href="game.html#play=sums" style="--c:#ffd23f" data-k="2d" data-w="sum grid numbers maths math add logic puzzle brain 2d sum grid">
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#16233f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="8" width="20" height="20" fill="#c7cede"/><rect x="30" y="8" width="20" height="20" fill="#f4f7ff"/><rect x="52" y="8" width="20" height="20" fill="#5ed88a"/><rect x="8" y="30" width="20" height="20" fill="#ffd23f"/><rect x="30" y="30" width="20" height="20" fill="#c7cede"/><rect x="52" y="30" width="20" height="20" fill="#2e4270"/><rect x="8" y="52" width="20" height="20" fill="#2e4270"/><rect x="30" y="52" width="20" height="20" fill="#2e4270"/></g><g font-family="Arial" font-weight="bold" font-size="13" text-anchor="middle"><text x="18" y="23" fill="#14213d">3</text><text x="40" y="23" fill="#14213d">4</text><text x="62" y="23" fill="#fff">7</text><text x="18" y="45" fill="#14213d">5</text><text x="40" y="45" fill="#14213d">1</text><text x="62" y="45" fill="#fff">6</text><text x="18" y="67" fill="#fff">8</text><text x="40" y="67" fill="#fff">5</text></g><text x="74" y="80" font-family="Arial" font-weight="bold" font-size="18" fill="#ffd23f" text-anchor="middle">+</text></svg><img class="real" src="site/shots/games/sums.jpg" alt="" loading="lazy" decoding="async"></span>
         <span class="gt">Sum Grid</span><span class="gs">Make every line add up</span>
+      </a>
+      <a class="game" href="game.html#play=tilt" style="--c:#3cc8f0" data-k="2d" data-w="tilt maze marbles roll holes puzzle brain 2d tilt maze">
+        <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#1a1530" width="88" height="88"/><rect x="8" y="8" width="72" height="72" fill="#e6d3aa" stroke="#14213d" stroke-width="3"/><g fill="#7a5a3c" stroke="#14213d" stroke-width="2"><rect x="8" y="8" width="72" height="10"/><rect x="8" y="70" width="72" height="10"/><rect x="8" y="8" width="10" height="72"/><rect x="70" y="8" width="10" height="72"/><rect x="38" y="30" width="12" height="12"/></g><circle cx="58" cy="58" r="7" fill="#1a1530" stroke="#14213d" stroke-width="2"/><circle cx="28" cy="28" r="7" fill="#3cc8f0" stroke="#14213d" stroke-width="2"/><circle cx="26" cy="26" r="2" fill="#fff"/><path d="M28 40v14h16" fill="none" stroke="#14213d" stroke-width="2" stroke-dasharray="3 3"/></svg><img class="real" src="site/shots/games/tilt.jpg" alt="" loading="lazy" decoding="async"></span>
+        <span class="gt">Tilt Maze</span><span class="gs">Roll every marble home</span>
+      </a>
+      <a class="game" href="game.html#play=gates" style="--c:#ffd23f" data-k="2d" data-w="logic lamp gates circuit switches and or not xor puzzle brain 2d logic lamp">
+        <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#141c33" width="88" height="88"/><path d="M20 24h14v12h10M20 52h14V40h10M60 38h10" fill="none" stroke="#ffd23f" stroke-width="3"/><rect x="6" y="17" width="14" height="14" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="6" y="45" width="14" height="14" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="40" y="29" width="22" height="18" fill="#fff3c2" stroke="#14213d" stroke-width="2"/><text x="51" y="42" font-family="Arial" font-weight="bold" font-size="8" text-anchor="middle" fill="#14213d">AND</text><circle cx="76" cy="38" r="8" fill="#ffe066" stroke="#14213d" stroke-width="2"/><circle cx="76" cy="38" r="13" fill="none" stroke="#ffe066" stroke-width="2" opacity=".5"/><path d="M20 72h48" stroke="#5a6488" stroke-width="3"/><rect x="6" y="65" width="14" height="14" fill="#3a4466" stroke="#14213d" stroke-width="2"/></svg><img class="real" src="site/shots/games/gates.jpg" alt="" loading="lazy" decoding="async"></span>
+        <span class="gt">Logic Lamp</span><span class="gs">Switch on the right lamps</span>
       </a>
       <a class="game" href="game.html#play=memo" style="--c:#ff6b5b" data-k="2d" data-w="memory match pairs cards puzzle 2d memory match">
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#15233f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="10" width="30" height="34" fill="#ff6b5b"/><rect x="48" y="10" width="30" height="34" fill="#2e4270"/><rect x="8" y="48" width="30" height="34" fill="#2e4270"/><rect x="48" y="48" width="30" height="34" fill="#ff6b5b"/></g><text x="23" y="34" font-size="20" text-anchor="middle" fill="#14213d">★</text><text x="63" y="72" font-size="20" text-anchor="middle" fill="#14213d">★</text></svg><img class="real" src="site/shots/games/memo.jpg" alt="" loading="lazy" decoding="async"></span>
@@ -353,6 +379,10 @@ footer a:hover{color:var(--text)}
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#1a1440" width="88" height="88"/><g stroke="#14213d" stroke-width="2.5"><rect x="8" y="30" width="22" height="22" fill="#3cc8f0"/><rect x="33" y="30" width="22" height="22" fill="#fff"/><rect x="58" y="30" width="22" height="22" fill="#ff9a3c"/><rect x="8" y="55" width="22" height="22" fill="#5ed88a"/><rect x="33" y="55" width="22" height="22" fill="#fff"/><rect x="58" y="55" width="22" height="22" fill="#b48cff"/></g><path d="M44 41L44 66" stroke="#ffd23f" stroke-width="5" stroke-linecap="round"/><g fill="#14213d" font-family="sans-serif" font-weight="700" font-size="14" text-anchor="middle"><text x="44" y="46">4</text><text x="44" y="71">6</text></g><text x="44" y="22" fill="#ffd23f" font-family="sans-serif" font-weight="700" font-size="16" text-anchor="middle">=10</text></svg><img class="real" src="site/shots/games/chain.jpg" alt="" loading="lazy" decoding="async"></span>
         <span class="gt">Number Trail</span><span class="gs">Add up to the target</span>
       </a>
+      <a class="game" href="game.html#play=fish" style="--c:#1f8fc0" data-k="2d" data-w="deep line fishing fish boat hook sea catch 2d deep line">
+        <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#ffd9a0" width="88" height="26"/><rect y="26" fill="#1f6fa0" width="88" height="62"/><rect x="18" y="16" width="34" height="9" fill="#a5532e" stroke="#14213d" stroke-width="2"/><rect x="44" y="2" width="3" height="16" fill="#7a3b20"/><path d="M46 3L60 56" stroke="#fff" stroke-width="1.5"/><path d="M55 58a5 5 0 0 0 10 0" stroke="#dfe6f5" stroke-width="2.5" fill="none"/><rect x="10" y="48" width="22" height="12" fill="#3cc8f0" stroke="#14213d" stroke-width="2"/><path d="M10 54l-7-6v12z" fill="#3cc8f0" stroke="#14213d" stroke-width="2"/><rect x="50" y="66" width="30" height="15" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><path d="M80 73l7-7v14z" fill="#ffd23f" stroke="#14213d" stroke-width="2"/><rect x="0" y="82" width="88" height="6" fill="#c9a46a"/></svg><img class="real" src="site/shots/games/fish.jpg" alt="" loading="lazy" decoding="async"></span>
+        <span class="gt">Deep Line</span><span class="gs">Go fishing</span>
+      </a>
       <a class="game" href="game.html#play=bust" style="--c:#ff6b5b" data-k="2d" data-w="brick buster breakout paddle ball 2d brick buster">
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#101a33" width="88" height="88"/><g><rect x="8" y="14" width="18" height="9" fill="#ff5a4d"/><rect x="29" y="14" width="18" height="9" fill="#ff9a3c"/><rect x="50" y="14" width="18" height="9" fill="#ffd23f"/><rect x="18" y="27" width="18" height="9" fill="#3fd58a"/><rect x="40" y="27" width="18" height="9" fill="#3f8cff"/></g><circle cx="44" cy="52" r="6" fill="#fff"/><rect x="28" y="68" width="32" height="8" rx="3" fill="#ffd23f" stroke="#14213d" stroke-width="3"/></svg><img class="real" src="site/shots/games/bust.jpg" alt="" loading="lazy" decoding="async"></span>
         <span class="gt">Brick Buster</span><span class="gs">Bounce and smash</span>
@@ -392,6 +422,10 @@ footer a:hover{color:var(--text)}
       <a class="game" href="game.html#play=kart" style="--c:#ff5a4d" data-k="3d" data-w="block kart racing race cars laps 3d block kart">
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#7cc8ff" width="88" height="88"/><rect y="50" width="88" height="38" fill="#6ec86e"/><polygon points="0,88 26,50 62,50 88,88" fill="#7a7e90"/><rect x="40" y="56" width="4" height="8" fill="#fff"/><rect x="40" y="72" width="4" height="10" fill="#fff"/><rect x="28" y="62" width="32" height="12" fill="#ff5a4d" stroke="#14213d" stroke-width="3"/><rect x="24" y="70" width="8" height="8" fill="#14213d"/><rect x="56" y="70" width="8" height="8" fill="#14213d"/><rect x="38" y="52" width="12" height="10" fill="#3f8cff" stroke="#14213d" stroke-width="2"/><rect x="40" y="44" width="8" height="8" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><rect x="62" y="44" width="10" height="10" fill="#5ed88a" stroke="#14213d" stroke-width="2"/></svg><img class="real" src="site/shots/games/kart.jpg" alt="" loading="lazy" decoding="async"><b class="tag3d">3D</b></span>
         <span class="gt">Block Kart</span><span class="gs">Race 3 laps</span>
+      </a>
+      <a class="game" href="game.html#play=climb" style="--c:#ff9a3c" data-k="3d" data-w="block climb tower lava jump platforms 3d block climb">
+        <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#3a2a60" width="88" height="88"/><rect y="72" width="88" height="16" fill="#ff7a3a"/><rect x="8" y="58" width="24" height="7" fill="#c8bee6" stroke="#14213d" stroke-width="2"/><rect x="40" y="44" width="22" height="7" fill="#3f8cff" stroke="#14213d" stroke-width="2"/><rect x="18" y="28" width="22" height="7" fill="#a8784e" stroke="#14213d" stroke-width="2"/><rect x="52" y="14" width="22" height="7" fill="#5ed88a" stroke="#14213d" stroke-width="2"/><rect x="46" y="30" width="10" height="12" fill="#3f8cff" stroke="#14213d" stroke-width="2"/><rect x="47" y="22" width="8" height="8" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/></svg><img class="real" src="site/shots/games/climb.jpg" alt="" loading="lazy" decoding="async"><b class="tag3d">3D</b></span>
+        <span class="gt">Block Climb</span><span class="gs">Beat the lava</span>
       </a>
       <a class="game" href="game.html#play=tag" style="--c:#ff9a3c" data-k="3d online" data-w="block tag online multiplayer 3d chase block tag">
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#ffd79a" width="88" height="88"/><rect x="12" y="34" width="16" height="26" fill="#ff5a4d" stroke="#14213d" stroke-width="3"/><rect x="14" y="22" width="12" height="12" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><rect x="54" y="38" width="16" height="24" fill="#3f8cff" stroke="#14213d" stroke-width="3"/><rect x="56" y="26" width="12" height="12" fill="#f0c8a0" stroke="#14213d" stroke-width="2"/><polygon points="34,44 48,38 48,50" fill="#14213d"/></svg><img class="real" src="site/shots/games/tag.jpg" alt="" loading="lazy" decoding="async"><b class="tag3d">3D</b><b class="tagon">ONLINE</b></span>
@@ -476,6 +510,17 @@ footer a:hover{color:var(--text)}
         </svg><img class="real" src="site/shots/games/runner.jpg" alt="" loading="lazy" decoding="async"></span>
         <span class="gt">Box Hopper</span><span class="gs">Runner</span>
       </a>
+      <a class="game" href="game.html#play=barrage" style="--c:#8a5cff" data-k="2d" data-w="brick barrage shooter space ship boss shmup action brick barrage">
+        <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true">
+          <rect class="n" width="88" height="88"/>
+          <rect class="w" x="10" y="12" width="3" height="3"/><rect class="w" x="70" y="30" width="3" height="3"/><rect class="w" x="24" y="44" width="3" height="3"/>
+          <rect class="b o" x="22" y="10" width="44" height="20"/><rect class="k" x="32" y="16" width="6" height="6"/><rect class="k" x="50" y="16" width="6" height="6"/>
+          <rect class="w" x="42" y="36" width="4" height="10"/><rect class="w" x="42" y="50" width="4" height="8"/>
+          <rect class="s o" x="38" y="56" width="12" height="12"/><rect class="s o" x="28" y="66" width="32" height="12"/>
+          <rect class="u o" x="22" y="72" width="8" height="10"/><rect class="u o" x="58" y="72" width="8" height="10"/>
+        </svg><img class="real" src="site/shots/games/barrage.jpg" alt="" loading="lazy" decoding="async"></span>
+        <span class="gt">Brick Barrage</span><span class="gs">Shooter</span>
+      </a>
       <a class="game" href="game.html#play=td" style="--c:#b48cff" data-k="2d online" data-w="balloon battle tower defense balloon battle">
         <span class="thumb"><svg class="art" focusable="false" viewBox="0 0 88 88" aria-hidden="true">
           <rect fill="#b5e9c4" width="88" height="88"/>
@@ -534,7 +579,7 @@ footer a:hover{color:var(--text)}
       <h2 id="feat-h">More than a game list</h2>
       <p class="sub">Everything you need to play with friends is built in.</p>
       <div class="feats">
-        <div class="feat"><div class="ic" style="background:var(--grass)"><svg viewBox="0 0 24 24" fill="none" stroke="#14213d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9" r="3"/><path d="M2.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M11 19c.8-3 3-4.5 5.5-4.5S21.2 16 22 19"/></svg></div><h3>Play online</h3><p>13 games put you in a room with people on the website, the app and itch.io. When nobody else is there, bots fill in.</p></div>
+        <div class="feat"><div class="ic" style="background:var(--grass)"><svg viewBox="0 0 24 24" fill="none" stroke="#14213d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="9" r="3"/><path d="M2.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5M11 19c.8-3 3-4.5 5.5-4.5S21.2 16 22 19"/></svg></div><h3>Play online</h3><p>14 games put you in a room with people on the website, the app and itch.io. When nobody else is there, bots fill in.</p></div>
         <div class="feat"><div class="ic" style="background:var(--sun)"><svg viewBox="0 0 24 24" fill="none" stroke="#14213d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></div><h3>Locked friend chat</h3><p>Chat with friends and parties of up to 12. Messages are end-to-end encrypted, and bad words are blurred.</p></div>
         <div class="feat"><div class="ic" style="background:var(--cyan)"><svg viewBox="0 0 24 24" fill="none" stroke="#14213d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 8h11a4 4 0 0 1 3.9 4.9l-1 4.3a2.3 2.3 0 0 1-4 .9L14.6 16H9.4l-1.8 2.1a2.3 2.3 0 0 1-4-.9l-1-4.3A4 4 0 0 1 6.5 8z"/><path d="M8 11v3M6.5 12.5h3"/><circle cx="16" cy="12" r=".6" fill="#14213d"/></svg></div><h3>Touch or controller</h3><p>Every game works with a phone screen, keyboard and mouse, or a gamepad. Change the buttons, stick size and look speed.</p></div>
         <div class="feat"><div class="ic" style="background:var(--lilac)"><svg viewBox="0 0 24 24" fill="none" stroke="#14213d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div><h3>Works offline</h3><p>Install Blockyard as an app and it keeps a copy for when you have no internet. It updates by itself.</p></div>
@@ -561,38 +606,58 @@ footer a:hover{color:var(--text)}
       <h2 id="upd-h">What's new</h2>
       <p class="sub">The latest updates. The full list is in the game under Updates.</p>
       <div class="upds">
-      <article class="upd"><p class="ud">Nov 3, 2026</p><h3>New game: Freeze Tag</h3><ul><li>Play tag online with friends or bots.</li><li>If you are IT, touch runners to freeze them solid.</li><li>Runners: touch a frozen friend to thaw them.</li><li>Freeze everyone to win, or stay free for 60 seconds.</li></ul></article>
-      <article class="upd"><p class="ud">Nov 3, 2026</p><h3>Sparkly 3D games</h3><ul><li>Lane Dash, Star Hunt, Gem Rush, Block Golf, Sky Dive and Block Sled now have sparks and confetti.</li><li>Hits make your controller rumble or your phone buzz.</li></ul></article>
-      <article class="upd"><p class="ud">Nov 3, 2026</p><h3>New game: Block Kart</h3><ul><li>Race 3 laps against 3 bot karts in 3D.</li><li>Steer, brake, and hit the yellow boost pads.</li><li>Beat your fastest race time.</li></ul></article>
-      <article class="upd"><p class="ud">Nov 3, 2026</p><h3>New game: Bridge Builders</h3><ul><li>Team Red and Team Blue race to build a bridge across a canyon.</li><li>Grab blocks from your pile and snap them onto the end of your bridge.</li><li>When it reaches the other side, run across and touch your flag!</li><li>Play online with friends, or with bots as your team.</li></ul></article>
+      <article class="upd"><p class="ud">Nov 3, 2026</p><h3>Chat is for accounts</h3><ul><li>Guests can no longer chat. Make an account to use chat.</li><li>Chat messages from guests are not shown to anyone.</li></ul></article>
+      <article class="upd"><p class="ud">Nov 3, 2026</p><h3>Get the app</h3><ul><li>New on the website: download Blockyard for Android.</li><li>Simple steps to put Blockyard on an iPhone, iPad or computer too.</li><li>The app opens full screen, works offline and updates itself.</li></ul></article>
+      <article class="upd"><p class="ud">Nov 3, 2026</p><h3>Delete your account</h3><ul><li>You can now delete your account in Settings. It asks for your password first.</li><li>It removes your account and all its progress, on every device.</li><li>New privacy page on the website says what Blockyard saves and why.</li></ul></article>
+      <article class="upd"><p class="ud">Nov 3, 2026</p><h3>Accounts that follow you</h3><ul><li>Sign in with your player name and password on any device, and all your progress is there.</li><li>No more account codes: every account saves online by itself.</li><li>Already have a player? Sign in once and it starts saving online.</li><li>Email sign-in still works too.</li></ul></article>
       </div>
     </div>
   </section>
 
   <section class="sec" id="get" aria-labelledby="get-h">
     <div class="wrap">
-      <div class="band">
-        <div>
-          <h2 id="get-h">Put it on your home screen</h2>
+      <h2 id="get-h">Get the app</h2>
+      <p class="sub">Free on every device. The app opens full screen, works offline, and updates itself.</p>
+      <div class="plats">
+        <article class="plat">
+          <h3>Android</h3>
+          <a class="btn" href="downloads/blockyard.apk" download>&#11015; Download for Android</a>
           <ol>
-            <li>Open Blockyard and tap <b>Settings</b>, then <b>Install as an app</b>.</li>
-            <li>On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>.</li>
-            <li>It opens full screen, works offline, and updates itself.</li>
+            <li>Tap the button and open the file when it finishes.</li>
+            <li>If your phone asks, allow your browser to install apps.</li>
+            <li>Tap <b>Install</b>. Blockyard shows up with your other apps.</li>
           </ol>
-        </div>
-        <div class="cta">
-          <a class="btn" href="game.html">&#9654; Play now</a>
-          <a class="btn alt" href="https://bloxyard.itch.io/blockyard-arcade" rel="noopener">itch.io</a>
-        </div>
+          <p class="nodl">Or with no download: open this page in Chrome, tap &#8942;, then <b>Install app</b>.</p>
+        </article>
+        <article class="plat">
+          <h3>iPhone &amp; iPad</h3>
+          <a class="btn alt" href="game.html">Open Blockyard</a>
+          <ol>
+            <li>Open this page in <b>Safari</b>.</li>
+            <li>Tap the <b>Share</b> button (the square with an arrow).</li>
+            <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+          </ol>
+        </article>
+        <article class="plat">
+          <h3>Windows</h3>
+          <a class="btn" href="downloads/blockyard.exe" download>&#11015; Download for Windows</a>
+          <ol>
+            <li>Click the button and open <b>blockyard.exe</b> when it finishes.</li>
+            <li>If Windows says it protected your PC, click <b>More info</b>, then <b>Run anyway</b>.</li>
+            <li>Blockyard opens in its own window. It plays offline too.</li>
+          </ol>
+          <p class="nodl">On a Mac or Chromebook: open Blockyard in <b>Chrome</b> or <b>Edge</b> and click the install icon at the right end of the address bar.</p>
+        </article>
       </div>
+      <p class="more">Prefer itch.io? <a href="https://bloxyard.itch.io/blockyard-arcade" rel="noopener">Blockyard is on itch.io too</a>.</p>
     </div>
   </section>
 </main>
 
 <footer>
   <div class="wrap">
-    <span>Blockyard Arcade &middot; 65 games &middot; updated Nov 3, 2026</span>
-    <nav aria-label="More"><a href="game.html">Play</a><a href="https://bloxyard.itch.io/blockyard-arcade" rel="noopener">itch.io</a><a href="bots.html">Test bots</a><a href="https://github.com/glufftl25-sys/blockyard" rel="noopener">Source</a></nav>
+    <span>Blockyard Arcade &middot; 72 games &middot; updated Nov 3, 2026</span>
+    <nav aria-label="More"><a href="game.html">Play</a><a href="https://bloxyard.itch.io/blockyard-arcade" rel="noopener">itch.io</a><a href="bots.html">Test bots</a><a href="privacy.html">Privacy</a><a href="https://github.com/glufftl25-sys/blockyard" rel="noopener">Source</a></nav>
   </div>
 </footer>
 
