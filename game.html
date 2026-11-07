@@ -678,6 +678,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#17243f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="14" y="14" width="16" height="16" fill="#ff6b5b"/><rect x="30" y="14" width="16" height="16" fill="#ff6b5b"/><rect x="14" y="30" width="16" height="16" fill="#ff6b5b"/><rect x="46" y="14" width="16" height="16" fill="#e9eefb"/><rect x="30" y="30" width="16" height="16" fill="#e9eefb"/><rect x="46" y="30" width="16" height="16" fill="#e9eefb"/><rect x="14" y="46" width="16" height="16" fill="#e9eefb"/><rect x="30" y="46" width="16" height="16" fill="#e9eefb"/></g><g stroke="#14213d" stroke-width="2" transform="rotate(-12 64 64)"><rect x="52" y="56" width="12" height="12" fill="#b48cff"/><rect x="64" y="56" width="12" height="12" fill="#b48cff"/><rect x="64" y="68" width="12" height="12" fill="#b48cff"/></g></svg></span>
           <span class="tt">Shape Fit</span><span class="ts"><span id="best-shape">Best 0</span> · Fill the outline with pieces</span>
         </button>
+        <button class="tile" type="button" data-game="words" data-name="word builder letters spell spelling words wheel puzzle brain 2d" style="--c:#ffd23f">
+          <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#1a2340" width="88" height="88"/><circle cx="44" cy="50" r="30" fill="#24305a"/><g stroke="#14213d" stroke-width="2" fill="#ffd23f"><circle cx="44" cy="26" r="10"/><circle cx="66" cy="44" r="10"/><circle cx="58" cy="70" r="10"/><circle cx="30" cy="70" r="10"/><circle cx="22" cy="44" r="10"/></g><g font-family="Arial" font-weight="bold" font-size="12" text-anchor="middle" fill="#14213d"><text x="44" y="30">W</text><text x="66" y="48">O</text><text x="58" y="74">R</text><text x="30" y="74">D</text><text x="22" y="48">S</text></g><rect x="20" y="4" width="48" height="12" fill="#f4f7ff" stroke="#14213d" stroke-width="2"/><text x="44" y="14" font-family="Arial" font-weight="bold" font-size="9" text-anchor="middle" fill="#14213d">WORD</text></svg></span>
+          <span class="tt">Word Builder</span><span class="ts"><span id="best-words">Best 0</span> · Spell words from the letters</span>
+        </button>
         <button class="tile" type="button" data-game="memo" data-name="memory match pairs cards puzzle 2d" style="--c:#ff6b5b">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#15233f" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="10" width="30" height="34" fill="#ff6b5b"/><rect x="48" y="10" width="30" height="34" fill="#2e4270"/><rect x="8" y="48" width="30" height="34" fill="#2e4270"/><rect x="48" y="48" width="30" height="34" fill="#ff6b5b"/></g><text x="23" y="34" font-size="20" text-anchor="middle" fill="#14213d">★</text><text x="63" y="72" font-size="20" text-anchor="middle" fill="#14213d">★</text></svg></span>
           <span class="tt">Memory Match</span><span class="ts"><span id="best-memo">Best 0</span> · Find the pairs</span>
@@ -13488,6 +13492,261 @@ GAMES.shape=(function(){
     if(pieces[s.k].r!==s.r){tb.tap(rot.x+rot.w/2,rot.y+rot.h/2);return [level-1,'shapes'];}
     tb.tap(ox+(s.x+0.5)*S,oy+(s.y+0.5)*S);m.plan.shift();
     return [level-1,'shapes'];
+  };
+  return g;
+})();
+
+/* ===== Word Builder: make words from a ring of letters.
+   Each round deals the letters of one hidden word, shuffled. Spell words of 3 or more letters with them (each letter once
+   per word) and find enough to fill the bar. Every word that counts is in this game's own word list, written for
+   Blockyard (about 1,500 everyday words). Ten rounds, from 5 letters and 4 words to 7 letters and 12 words. Tap letters,
+   or type them; Enter checks, Backspace takes one back, Space shuffles. Hint shows how a missing word starts.
+   Controller: left/right picks a letter or button, A presses it, B takes one back, X checks, Y shuffles. ===== */
+HUBBEST['best-words']='by.words';
+GAMES.words=(function(){
+  var g={kind:'canvas',title:'Word Builder',lw:400};
+  var WORDS_LIST=(
+    'ace act add age ago aid aim air ale all and ant any ape apt arc are arm art ash ask ate awe axe bad bag ban '+
+    'bar bat bay bed bee beg bet bib bid big bin bit bow box boy bud bug bun bus but buy cab can cap car cat cod '+
+    'cog cop cot cow cry cub cue cup cut dab dad day den dew did dig dim din dip doe dog dot dry due dug dye ear '+
+    'eat egg elf elk elm end era eve ewe eye fan far fat fed fee few fig fin fir fit fix flu fly foe fog for fox '+
+    'fry fun fur gap gas gel gem get gnu goal got gum gut guy hat hay hem hen her hid him hip his hit hog hop hot '+
+    'how hub hue hug hum hut ice icy ink inn ion its ivy jam jar jaw jet job jog joy jug keg key kid kin kit lab '+
+    'lad lap law lay led leg let lid lie lip lit log lot low mad map mat may men met mid mix mob mop mud mug nap '+
+    'net new nil nod not now nut oak oar oat odd off oil old one opt orb ore our out owe owl own pad pal pan par '+
+    'pat paw pay pea peg pen pet pie pig pin pit pod pop pot pro pub pun pup put rag ram ran rap rat raw ray red '+
+    'rib rid rig rim rip rob rod roe rot row rub rug run rye sad sag sap sat saw say sea see set sew she shy sip '+
+    'sir sit six ski sky sly sob sod son sow soy spa spy sub sum sun tab tag tan tap tar tea ten the tie tin tip '+
+    'toe ton too top tor tow toy try tub tug two use van vat vet via vow wag war was wax way web wed wet who why '+
+    'wig win wit woe wok won wow yak yam yap yes yet you zap zip zoo able ache acre aide also ante apes area arts '+
+    'aunt bake bale band bank bare barn base bead beak beam bean bear beat bell belt bend best bike bird bite blue '+
+    'boat bold bolt bone book boot born both bowl brag bran bred brim bulb bump burn bush cake calm came camp cane '+
+    'cape card care cart case cast cent chat chin chip city clam clap clay clip club coat code coin cold cone cook '+
+    'cool cope cord core corn cost crab crew crop crow cube cure dare dark dart data date dawn dead deal dear deer '+
+    'dent desk dial dice dine dire dirt dish dive dome done door dose dove down drag draw drip drop drum duck dune '+
+    'dust each earn ears east easy edge else even ever face fact fade fair fake fame farm fast fear feat feed feel '+
+    'feet fern file fill film find fine fire firm fish five flag flat flea fled flip flow foam fold folk fond font '+
+    'food fool foot fork form fort four free frog from fuel full gain game gate gear gift glad glow glue goat gold '+
+    'golf gone good grab gray grew grin grip grow gust hair half hall hand hang hare harp hate have head heal heap '+
+    'hear heat herd here hero hide high hike hill hint hire hold hole home hood hook hope horn hose host hour huge '+
+    'hunt hurt idea iron item jail joke jump just keen keep kept kind king kite knee knit knot lace lake lamb lamp '+
+    'land lane last late lead leaf lean leap left lend lens lent less lime line lion list live load loan loaf lock '+
+    'long look loop lord lose lost loud love luck lung made mail main make male mane many mare mark mast mate meal '+
+    'mean meat melt menu mild mile milk mind mine mint miss mist mole mood moon more most move much mule must name '+
+    'near neat neck need nest news next nice nine none noon nose note nuts oars oats once only open oven over pace '+
+    'pack page paid pail pain pair pale palm pane park part past path peak pear peas pest pets pick pile pine pink '+
+    'pint pipe plan plant play plot plum poem pole pond pool poor port pose post pour pure push race rack raft rail '+
+    'rain rake ramp rang rare rate read real rear rent rest rice rich ride ring ripe rise road roam roar robe rock '+
+    'rode role roll roof room root rope rose rude rule rust safe said sail sale salt same sand sang sank save seal '+
+    'seat seed seen sent shed ship shoe shop shot show sign silk sing sink site size skin slip slow snap snow soap '+
+    'soft soil sold sole some song soon sort soup spin spot star stay stem step stir stop such suit sure swim tail '+
+    'take tale talk tall tame tank tape task team tear tell tend tent term test than that them then they thin tide '+
+    'tile time tire toad told tone took tool tops tore torn town trap tray tree trim trip true tube tune turn twig '+
+    'twin type unit upon used vase vast vest view vine vote wade wage wait wake walk wall want warm wash wave weak '+
+    'wear week well went were west what when whip wide wife wild will wind wine wing wipe wire wise wish with wolf '+
+    'wood wool word wore work worm yard yarn year yell zone adore after agent alert alien alike alive alone angel '+
+    'anger angle apple apron arena aside badge baker beach beast begin being below bench berry birth black blade '+
+    'blame blank blast blend blind block bloom board boast brain brand brave bread break bride brief bring brook '+
+    'brown brush build cabin camel candy canoe cargo carol carry catch cause chain chair chalk charm chart cheap '+
+    'check cheer chess chest chief child chill choir cider claim class clean clear clerk cliff climb clock close '+
+    'cloud clown coach coast cocoa coral count cover crane crate crawl cream creek crest crisp crowd crown crumb '+
+    'crust cubes cycle daily dairy dance delay depth diary dinner diner dream dress drift drink drive eager eagle '+
+    'early earth eight elbow empty enjoy enter equal error event extra fable faint fairy faith false feast fence '+
+    'field final flame flash fleet float flock flood floor flour fluid flute focus force forge forum frame fresh '+
+    'front frost fruit giant glass globe glove grace grade grain grand grant grape grass great green greet grill '+
+    'groan group guard guess guest guide habit happy heart heavy honey horse hotel house human humor image inner '+
+    'input jelly jewel joint judge juice kneel knife label large laser later laugh layer learn lemon level light '+
+    'limit linen liner local lodge lunch magic major maple march match mayor medal metal meter minor model money '+
+    'month motor mouse mouth movie music nerve never night noble noise north novel nurse ocean offer often olive '+
+    'onion opera orbit order other otter owner paint panda panel paper party pasta paste patch peace peach pearl '+
+    'pedal penny piano piece pilot pinch pizza place plain plane plate point polar porch power press price pride '+
+    'prize proud queen quick quiet radio raise ranch range rapid reach ready relax reply ridge rider right river '+
+    'roast robin robot rocky round route royal ruler salad sauce scale scarf scene scent score scout shade shake '+
+    'shape share shark sharp sheep shelf shell shine shirt shore short shout sight skate skill slate sleep slice '+
+    'slide slope smart smile smoke snack snail snake solar solid sound south space spare spark speak speed spend '+
+    'spice spike spoon sport spray stage stair stamp stand start state steam steel stick still stone store storm '+
+    'story stove straw study style sugar super sweet swing table taste teach teeth thank theme thick thing think '+
+    'three tiger toast today tooth topic torch total touch tower trace track trade trail train treat trend trial '+
+    'tribe trick truck trunk trust truth tulip uncle under union upper urban usual valid value video visit vital '+
+    'voice waste watch water whale wheat wheel white whole world worry write young youth zebra animal anthem artist '+
+    'banana basket beacon better bottle bounce branch breath bridge bright broken bubble bucket butter button '+
+    'camera candle canyon carpet carrot castle center cereal change cheese cherry circle closet clover cobweb '+
+    'coffee collar copper corner cotton county cousin cradle crayon credit cruise danger dancer desert detail '+
+    'direct doctor dollar dragon drawer driver eleven empire energy engine escape effort family farmer father '+
+    'finger flower forest friend frozen garage garden gentle ginger glider golden hammer handle harbor helmet '+
+    'hidden honest hunter island jacket jungle kettle kitten ladder leader lesson letter lizard locket magnet '+
+    'marble market meadow mentor middle minute mirror monkey mother museum napkin nature number orange oyster '+
+    'palace parade parent parrot pencil pepper person pickle pillow planet pocket poster potato puzzle rabbit '+
+    'rescue ribbon rocket saddle salmon sandal school season secret silver singer sister smooth spider spirit '+
+    'spring square stable stream street string summer sunset supper tablet teapot temple tennis thread throne '+
+    'ticket timber tomato tunnel turtle valley velvet voyage walnut wander window winter wizard yellow artisan '+
+    'battery blanket blossom cabinet caramel catalog central chapter chicken coconut compass concert country '+
+    'crystal diamond dolphin eastern express fiction freedom general gingers harvest helpers holiday kitchen '+
+    'lantern leaders library lobster mailbox mermaid monster morning painter partner pelican penguin pirates '+
+    'popcorn printer rainbow raisins reading sandals seaside shelter silence slipper station sunrise teacher '+
+    'thunder trainer uniform village volcano weather western whistle ').trim().split(' ');
+  var DICT={};WORDS_LIST.forEach(function(w){DICT[w]=1;});
+  var LV=[[5,4],[5,5],[5,6],[6,6],[6,7],[6,8],[6,9],[7,9],[7,10],[7,12]];
+  var LAST=10;
+  var seed,letters,pick,targets,found,need,level,score,best,st,t,newBest,msg,msgT,msgC,win,winT,hint,used,tiles,btns,cx,cy,R,wide,foc,lastSeeds,wx,wy,my;
+  /* plain bold letters: easy to read at any size */
+  function ptxt(s2,x,y,size,col){ctx.font='bold '+Math.round(size)+'px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=col;ctx.fillText(s2,x,y+1);}
+  function count(w){var c={};for(var i=0;i<w.length;i++)c[w[i]]=(c[w[i]]||0)+1;return c;}
+  function canMake(w,s){var a=count(w),b=count(s);for(var k in a)if((b[k]||0)<a[k])return false;return true;}
+  function build(){
+    var L=LV[Math.min(level,LAST)-1];need=L[1];
+    var pool=WORDS_LIST.filter(function(w){return w.length===L[0]&&lastSeeds.indexOf(w)<0;}),tries=0;
+    for(;;){
+      tries++;
+      seed=pool[Math.floor(Math.random()*pool.length)];
+      targets=WORDS_LIST.filter(function(w){return canMake(w,seed);});
+      if(targets.length>=need+2||tries>200)break;
+    }
+    lastSeeds.push(seed);if(lastSeeds.length>30)lastSeeds.shift();
+    if(targets.length<need)need=targets.length;
+    letters=seed.split('');shuffle();
+    pick=[];found=[];win=false;winT=0;hint='';foc=0;metrics();
+  }
+  function shuffle(){
+    for(var s=0;s<6;s++){for(var i=letters.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),tm=letters[i];letters[i]=letters[j];letters[j]=tm;}if(letters.join('')!==seed)break;}
+    pick=[];
+  }
+  function metrics(){
+    wide=vWide();
+    if(wide){cx=V.w*0.72;R=Math.min(V.w*0.13,V.h*0.24);cy=Math.min(V.h*0.5+10,V.h-R-100);}
+    else{cx=V.w/2;R=Math.min(V.w*0.3,V.h*0.15);cy=V.h-R-118;}
+    var n=letters.length,tr=Math.max(24,Math.min(36,R*0.42));
+    /* the word being spelled: left column on wide screens, above the ring on tall ones */
+    if(wide){wx=V.w*0.25;wy=Math.max(V.h*0.6,150);my=wy+40;}else{wx=cx;wy=cy-R-tr-34;my=wy-34;}
+    tiles=letters.map(function(l,i){var a=-Math.PI/2+i*2*Math.PI/n;return {x:cx+Math.cos(a)*R,y:cy+Math.sin(a)*R,r:tr};});
+    var by=wide?cy+R+tr+18:cy+R+tr+22,bw=wide?Math.min(84,(V.w*0.44-30)/4):Math.min(84,(V.w-40)/4),bh=46,bx0=cx-(bw*4+24)/2;
+    btns=[{k:'del',l:'⌫'},{k:'mix',l:'Mix'},{k:'hint',l:'Hint'},{k:'ok',l:'Check'}].map(function(b,i){return {k:b.k,l:b.l,x:bx0+i*(bw+8),y:Math.min(V.h-bh-6,by),w:bw,h:bh};});
+  }
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function reset(hard){if(hard){level=1;score=0;newBest=false;lastSeeds=[];}st='run';t=0;msg='';msgT=0;build();}
+  g.start=function(){best=lsGet('by.words',0);reset(true);};
+  g.resize=function(){if(letters)metrics();};
+  g.stop=function(){};
+  function say(s,c){msg=s;msgC=c||'#fff';msgT=1.4;}
+  function word(){return pick.map(function(i){return letters[i];}).join('');}
+  function tap(i){if(st!=='run'||win||pick.indexOf(i)>=0)return;pick.push(i);hint='';beep(520+pick.length*40,0.04,'square',0.03,1.2);}
+  function back(){if(pick.length){pick.pop();beep(330,0.03,'square',0.02,1);}}
+  function check(){
+    if(st!=='run'||win)return;
+    var w=word();
+    if(!w)return;
+    if(w.length<3){say('Use 3 letters or more',P.brick);beep(200,0.08,'square',0.03,1);return;}
+    if(found.indexOf(w)>=0){say('You found '+w.toUpperCase()+' already',P.sun);pick=[];return;}
+    if(!DICT[w]){say(w.toUpperCase()+' is not in the word list',P.brick);beep(200,0.1,'square',0.03,0.9);pick=[];return;}
+    found.push(w);pick=[];
+    var pts=w.length*5+(w===seed?25:0);score+=pts;
+    say((w===seed?'The hidden word! ':'')+w.toUpperCase()+' +'+pts,P.grass);beep(760+w.length*40,0.12,'square',0.04,1.6);
+    if(found.length>=need){
+      win=true;winT=1.4;var bonus=30+level*5;score+=bonus;
+      say('Round done! +'+bonus+(found.indexOf(seed)<0?' · It was '+seed.toUpperCase():''),P.grass);msgT=1.8;
+    }
+    if(score>best){best=score;newBest=true;lsSet('by.words',best);}
+  }
+  function giveHint(){
+    if(st!=='run'||win)return;
+    var left=targets.filter(function(w){return found.indexOf(w)<0;}).sort(function(a,b){return a.length-b.length;});
+    if(!left.length)return;
+    var w=left[Math.floor(Math.random()*Math.min(3,left.length))];
+    hint='Try a '+w.length+'-letter word starting with '+w[0].toUpperCase();score=Math.max(0,score-5);beep(440,0.06,'square',0.03,1.1);
+  }
+  function press(k){if(k==='del')back();else if(k==='mix'){shuffle();beep(500,0.05,'square',0.03,1.3);}else if(k==='hint')giveHint();else if(k==='ok')check();}
+  g.down=function(x,y){
+    if(st==='over'){if(t>0.7)reset(true);return;}
+    for(var i=0;i<tiles.length;i++){var q=tiles[i];if(Math.hypot(x-q.x,y-q.y)<=q.r+6){tap(i);return;}}
+    for(var b=0;b<btns.length;b++){var B=btns[b];if(x>=B.x&&x<=B.x+B.w&&y>=B.y&&y<=B.y+B.h){press(B.k);return;}}
+  };
+  g.key=function(c,d){
+    if(!d)return;
+    if(st==='over'){if(t>0.7&&(c==='Space'||c==='Enter'))reset(true);return;}
+    if(c==='Enter')check();
+    else if(c==='Backspace')back();
+    else if(c==='Space')press('mix');
+    else if(/^Key[A-Z]$/.test(c)){
+      var ch=c.slice(3).toLowerCase();
+      for(var i=0;i<letters.length;i++)if(letters[i]===ch&&pick.indexOf(i)<0){tap(i);return;}
+    }
+  };
+  /* controllers: walk round the letters and buttons with left/right, A presses */
+  g.pad=function(s){
+    if(!s)return;
+    var J=s.j,n=letters.length+btns.length;
+    if(st==='over'){if(J[0]&&t>0.7)reset(true);return;}
+    if(J[14]||J[12])foc=(foc+n-1)%n;
+    if(J[15]||J[13])foc=(foc+1)%n;
+    if(J[0]){if(foc<letters.length)tap(foc);else press(btns[foc-letters.length].k);}
+    if(J[1])back();
+    if(J[2])check();
+    if(J[3])press('mix');
+    g.padOn=true;
+  };
+  g.update=function(dt){
+    t+=dt;if(msgT>0)msgT-=dt;
+    if(win){winT-=dt;if(winT<=0){level++;if(level>LAST){st='over';t=0;}else build();}}
+  };
+  g.draw=function(){
+    ctx.fillStyle='#1a2340';ctx.fillRect(0,0,V.w,V.h);
+    txt('Score '+score,10,22,16,'#fff','left');
+    txt('Round '+Math.min(level,LAST)+'/'+LAST,V.w/2,22,16,P.sun);
+    txt('Best '+best,V.w-10,22,15,P.sun,'right');
+    /* progress bar and the words found so far */
+    var lx=wide?24:16,lw=wide?V.w*0.44:V.w-32,ly=wide?60:52;
+    box(lx,ly,lw,22,'#2e4270');ctx.fillStyle=P.grass;ctx.fillRect(lx+3,ly+3,(lw-6)*Math.min(1,found.length/need),16);
+    txt('Words '+found.length+'/'+need,lx+lw/2,ly+11,14,'#fff');
+    var fx=lx,fy=ly+34,fs=wide?16:15;ctx.font='bold '+fs+'px Arial,sans-serif';
+    found.forEach(function(w){
+      var W=ctx.measureText(w.toUpperCase()).width+16;
+      if(fx+W>lx+lw){fx=lx;fy+=fs+14;}
+      box(fx,fy,W,fs+10,w===seed?P.sun:'#e9eefb');ptxt(w.toUpperCase(),fx+W/2,fy+(fs+10)/2,fs,P.ink);
+      fx+=W+6;
+    });
+    ctx.fillStyle='#24305a';ctx.beginPath();ctx.arc(cx,cy,R+tiles[0].r+10,0,7);ctx.fill();
+    /* the word being spelled, and what happened to the last one */
+    var ww=word().toUpperCase(),bw2=Math.max(90,ww.length*18+30);
+    box(wx-bw2/2,wy-21,bw2,42,'#f4f7ff');
+    ptxt(ww,wx,wy,24,P.ink);
+    if(hint)txt(hint,wx,my,Math.max(13,10*V.css),P.sun);
+    else if(msgT>0)txt(msg,wx,my,Math.max(13,10*V.css),msgC);
+    tiles.forEach(function(q,i){
+      var on=pick.indexOf(i)>=0;
+      ctx.fillStyle=on?'#5a6488':P.sun;ctx.beginPath();ctx.arc(q.x,q.y,q.r,0,7);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=P.ink;ctx.stroke();
+      if(g.padOn&&foc===i){ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.beginPath();ctx.arc(q.x,q.y,q.r+6,0,7);ctx.stroke();}
+      ptxt(letters[i].toUpperCase(),q.x,q.y,q.r*1.05,on?'#c7cede':P.ink);
+    });
+    btns.forEach(function(B,i){
+      box(B.x,B.y,B.w,B.h,B.k==='ok'?P.grass:(B.k==='del'?'#ff9a8f':'#e9eefb'));
+      ctx.font='bold 16px Arial,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=P.ink;ctx.fillText(B.l,B.x+B.w/2,B.y+B.h/2+1);
+      if(g.padOn&&foc===letters.length+i){ctx.lineWidth=3;ctx.strokeStyle='#fff';ctx.strokeRect(B.x-4,B.y-4,B.w+8,B.h+8);}
+    });
+    if(st==='over'){
+      ctx.fillStyle='rgba(26,35,64,.9)';ctx.fillRect(0,0,V.w,V.h);
+      txt('ALL ROUNDS DONE!',V.w/2,V.h*0.4,30,P.grass);
+      txt('Score '+score,V.w/2,V.h*0.4+42,22,'#fff');
+      if(newBest)txt('NEW BEST!',V.w/2,V.h*0.4+74,18,P.sun);
+      if(t>0.7)txt('Tap to play again',V.w/2,V.h*0.4+(newBest?106:80),16,'#fff');
+    }
+  };
+  /* test bots: think of a word from the list that these letters make, then tap its letters and Check */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(st==='over'){if(t>0.8&&!m.o){m.o=1;tb.tap(V.w/2,V.h/2);}return [score,'points'];}
+    m.o=0;m.c=(m.c||0)+dt;if(m.c<0.15||win)return [score,'points'];m.c=0;
+    if(!m.w||m.lv!==level||found.indexOf(m.w)>=0){
+      var left=targets.filter(function(w){return found.indexOf(w)<0;});
+      m.w=left[Math.floor(Math.random()*left.length)];m.lv=level;
+      if(pick.length){var bd=btns[0];tb.tap(bd.x+bd.w/2,bd.y+bd.h/2);m.w=null;return [score,'points'];}
+    }
+    var w=m.w;if(!w)return [score,'points'];
+    if(pick.length<w.length){
+      var ch=w[pick.length];
+      for(var i=0;i<letters.length;i++)if(letters[i]===ch&&pick.indexOf(i)<0){tb.tap(tiles[i].x,tiles[i].y);return [score,'points'];}
+    }
+    var ok=btns[3];tb.tap(ok.x+ok.w/2,ok.y+ok.h/2);m.w=null;
+    return [score,'points'];
   };
   return g;
 })();
