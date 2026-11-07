@@ -100,6 +100,16 @@ h1{font-size:clamp(40px,13vw,56px);line-height:1;color:#fff;-webkit-text-stroke:
 .gpf{outline:4px solid #ffd23f!important;outline-offset:3px;box-shadow:0 0 0 8px rgba(255,210,63,.35)!important}
 #gptoast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);max-width:min(92vw,560px);background:#14213d;color:#fff;border:3px solid #ffd23f;border-radius:12px;padding:10px 14px;font:700 14px/1.35 system-ui,sans-serif;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:99}
 #gptoast.on{opacity:1;transform:translate(-50%,0)}
+#padq{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,10,25,.72)}
+#padq[hidden]{display:none}
+#padq .pq{background:#222243;color:#f3f4ff;border:3px solid #14213d;border-radius:18px;box-shadow:0 8px 0 #14213d;padding:22px;max-width:520px;width:100%;text-align:center;font:600 16px/1.4 'Nunito',system-ui,sans-serif}
+#padq h2{font:400 28px/1.1 'Lilita One',system-ui,sans-serif;margin:0 0 6px}
+#padq p{margin:0 0 16px;color:#9ea3c9}
+#padq .pqb{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#padq .pqb button{font:400 19px/1.1 'Lilita One',system-ui,sans-serif;padding:16px 8px;border-radius:12px;border:3px solid #14213d;color:#14213d;cursor:pointer}
+#padq .pqb small{display:block;font:700 12px/1.3 'Nunito',system-ui,sans-serif;margin-top:6px;opacity:.85}
+#padq [data-pk=xbox]{background:#3fd58a}#padq [data-pk=ps]{background:#3f8cff;color:#fff}#padq [data-pk=switch]{background:#ff5a4d;color:#fff}
+@media (max-width:420px){#padq .pqb{grid-template-columns:1fr}}
 .c-story{background:var(--sun)}.c-arena{background:var(--brick)}.c-runner{background:var(--grass)}.c-td{background:var(--lilac)}
 .c-3d{background:var(--orange)}.c-obby{background:var(--blue)}.c-dash{background:var(--lilac)}.c-stars{background:var(--sun)}
 .card .art{width:clamp(64px,22vw,88px);height:auto;aspect-ratio:1;border:3px solid var(--ink);border-radius:10px;display:block}
@@ -2355,11 +2365,12 @@ CAM3.draw=function(ready){
 function tsetDef(){return {left:false,fixed:false,stick:1,btn:1,alpha:1,look:1,vib:true};}
 function tsetLoad(){var o=lsGet('tset',null)||{};return {left:!!o.left,fixed:!!o.fixed,stick:clampN(+o.stick||1,0.8,1.3),btn:clampN(+o.btn||1,0.8,1.3),alpha:clampN(+o.alpha||1,0.5,1.6),look:clampN(+o.look||1,0.4,2.5),vib:o.vib!==false};}
 var TSET=tsetLoad();
-function psetDef(){var m=[];for(var i=0;i<17;i++)m.push(i);return {map:m,dz:0.22,look:1,inv:false,swap:false,vib:true};}
+function psetDef(){var m=[];for(var i=0;i<17;i++)m.push(i);return {map:m,dz:0.22,look:1,inv:false,swap:false,vib:true,kind:''};}
 function psetLoad(){
   var o=lsGet('pset',null)||{},d=psetDef();
   if(Array.isArray(o.map)&&o.map.length===17&&o.map.every(function(v){return v===(v|0)&&v>=0&&v<17;}))d.map=o.map.slice();
   d.dz=clampN(+o.dz||0.22,0.08,0.4);d.look=clampN(+o.look||1,0.4,2.5);d.inv=!!o.inv;d.swap=!!o.swap;d.vib=o.vib!==false;
+  d.kind=(o.kind==='xbox'||o.kind==='ps'||o.kind==='switch')?o.kind:'';
   return d;
 }
 var PSET=psetLoad();
@@ -7834,7 +7845,7 @@ GAMES.duel=(function(){
     btn('−',V.w/2-110,112,50,44,{a:'sens',d:-0.1},'dark',22);plain(RV.sens.toFixed(1),V.w/2,134,24,'#ffd23f');btn('+',V.w/2+60,112,50,44,{a:'sens',d:0.1},'dark',22);
     plain('Graphics follow the arcade setting (Settings > Graphics).',V.w/2,186,13,'#cfd6f0');
     plain(touch?'Play sideways. Left side moves, drag the right side to aim.':'Click to aim with the mouse. Esc frees the mouse and opens the menu.',V.w/2,208,13,'#cfd6f0');
-    plain('Controller: RT shoot · LT aim · A jump · B slide · X reload · Y utility · LB/RB swap',V.w/2,226,12,'#9fb0d8');
+    plain('Controller: '+padShort(7)+' shoot · '+padShort(6)+' aim · '+padShort(0)+' jump · '+padShort(1)+' slide · '+padShort(2)+' reload · '+padShort(3)+' utility · '+padShort(4)+'/'+padShort(5)+' swap',V.w/2,226,12,'#9fb0d8');
     btn('Edit touch buttons',V.w/2-180,240,220,40,{a:'lay'},'yellow',15);
     btn('Done',V.w/2+50,240,120,40,{a:'close'},'white',16);
   }
@@ -22993,6 +23004,51 @@ function gpPads(){var a=[];try{var l=navigator.getGamepads?navigator.getGamepads
 function gpDz(v){var z=PSET.dz,a=Math.abs(v);if(a<z)return 0;return (v<0?-1:1)*(a-z)/(1-z);}
 /* button names (index = the browser's standard controller layout), and the actions you can move to another button */
 var PADN=['A / ✕','B / ○','X / □','Y / △','LB / L1','RB / R1','LT / L2','RT / R2','View / Share','Menu / Options','L3 (press left stick)','R3 (press right stick)','D-pad up','D-pad down','D-pad left','D-pad right','Home'];
+/* each controller's own button names, by the browser's standard button number.
+   Switch: the bottom button is B and the right one is A, so A presses and B goes back like on a Switch. */
+var PADNK={
+  xbox:['A','B','X','Y','LB','RB','LT','RT','View','Menu','L3 (press left stick)','R3 (press right stick)','D-pad up','D-pad down','D-pad left','D-pad right','Xbox button'],
+  ps:['✕','○','□','△','L1','R1','L2','R2','Share / Create','Options','L3 (press left stick)','R3 (press right stick)','D-pad up','D-pad down','D-pad left','D-pad right','PS button'],
+  'switch':['B','A','Y','X','L','R','ZL','ZR','−','+','Left stick press','Right stick press','D-pad up','D-pad down','D-pad left','D-pad right','Home']
+};
+var PADKN={xbox:'Xbox',ps:'PlayStation','switch':'Switch'};
+function padName(i){var l=PADNK[PSET.kind];return (l&&l[i])||PADN[i]||('Button '+i);}
+/* the short name of the button that does action slot k right now */
+function padShort(k){return padName(PSET.map[k]).replace(/ \(press .*$/,'').replace(/ press$/,'');}
+/* each controller's starting buttons (action slot -> button). Switch: A (right) jumps and presses, B (bottom) goes back. */
+function padKindMap(kind){var m=[];for(var i=0;i<17;i++)m.push(i);if(kind==='switch'){m[0]=1;m[1]=0;}return m;}
+function padGuess(){
+  var id=String((gpPads()[0]||{}).id||'');
+  if(/nintendo|switch|pro controller|joy-?con|057e/i.test(id))return 'switch';
+  if(/playstation|dualshock|dualsense|054c|wireless controller/i.test(id))return 'ps';
+  if(/xbox|xinput|045e/i.test(id))return 'xbox';
+  return '';
+}
+function padHelp(){return 'D-pad moves, '+padShort(0)+' presses, '+padShort(1)+' goes back, '+padShort(9)+' opens the game menu';}
+function padSetKind(kind){
+  PSET.kind=kind;PSET.map=padKindMap(kind);psetSave();
+  GP.prev=[];PCAP=null;
+  if(!$('settings').hidden)setRender();
+}
+var PADQ={open:false};
+function padAsk(){
+  if(PADQ.open)return;
+  var el=$('padq');
+  if(!el){
+    el=document.createElement('div');el.id='padq';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-labelledby','padq-h');
+    el.innerHTML='<div class="pq"><h2 id="padq-h">Which controller do you have?</h2><p>Blockyard sets up the buttons and their names for it. You can change this later in Settings.</p>'+
+      '<div class="pqb"><button type="button" data-pk="xbox">Xbox<small>A B X Y</small></button><button type="button" data-pk="ps">PlayStation<small>✕ ○ □ △</small></button><button type="button" data-pk="switch">Switch<small>A B X Y (Nintendo)</small></button></div></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click',function(e){var b=e.target.closest?e.target.closest('[data-pk]'):null;if(!b)return;padPick(b.getAttribute('data-pk'));});
+  }
+  el.hidden=false;PADQ.open=true;
+  var g=padGuess()||'xbox';gpSet(el.querySelector('[data-pk="'+g+'"]'));
+}
+function padPick(kind){
+  padSetKind(kind);PADQ.open=false;var el=$('padq');if(el)el.hidden=true;gpClearFocus();GP.prev=[];
+  beep(780,0.08,'square',0.04,1.6);
+  gpToast(PADKN[kind]+' controller: '+padHelp());
+}
 var PACT=[[0,'Jump · press a button'],[1,'Back · slide in Blaster Duel'],[2,'Shoot · reload in Blaster Duel'],[3,'Camera view · grenade in Blaster Duel'],[4,'Turn camera left · last weapon'],[5,'Turn camera right · next weapon'],[6,'Aim in Blaster Duel'],[7,'Shoot'],[11,'Slide in Blaster Duel']];
 var PCAPS=[0,1,2,3,4,5,6,7,8,10,11],PCAP=null;
 /* the action k now uses the button q; whatever used q gets k's old button */
@@ -23013,7 +23069,7 @@ function padCapture(s){
 function padTest(s,nowT){
   if(nowT-(GP.testT||0)<120)return;GP.testT=nowT;
   var el=$('pad-test');if(!el||$('settings').hidden)return;
-  var on=[];for(var i=0;i<17;i++)if(s.raw[i]>0.5)on.push(PADN[i].split(' / ')[0].replace(' (press left stick)','').replace(' (press right stick)',''));
+  var on=[];for(var i=0;i<17;i++)if(s.raw[i]>0.5)on.push(padName(i).replace(' (press left stick)','').replace(' (press right stick)',''));
   function dir(x,y){x=gpDz(x);y=gpDz(y);if(!x&&!y)return '';var a=Math.atan2(y,x),k=Math.round(a/(Math.PI/4));return ['→','↘','↓','↙','←','↖','↑','↗'][(k+8)%8];}
   var l=dir(s.ax[0],s.ax[1]),r=dir(s.ax[2],s.ax[3]*(PSET.inv?-1:1));
   var txt2=(on.length?'Pressed: '+on.join(', '):'')+(l?(on.length?' · ':'')+'Move '+l:'')+(r?((on.length||l)?' · ':'')+'Look '+r:'');
@@ -23044,7 +23100,7 @@ function gpToast(m){
   if(!el){el=document.createElement('div');el.id='gptoast';el.setAttribute('role','status');document.body.appendChild(el);}
   el.textContent=m;el.classList.add('on');clearTimeout(GP.hintT);GP.hintT=setTimeout(function(){el.classList.remove('on');},3200);
 }
-window.addEventListener('gamepadconnected',function(){gpStart();gpToast('Controller connected: D-pad moves, A presses, B goes back, Start opens the game menu');});
+window.addEventListener('gamepadconnected',function(){gpStart();if(!PSET.kind){if(typeof TB!=='undefined'&&TB.on){PSET.kind='xbox';}else{padAsk();return;}}gpToast(PADKN[PSET.kind]+' controller connected: '+padHelp());});
 window.addEventListener('gamepaddisconnected',function(){if(!gpPads().length){gpStop();gpToast('Controller disconnected');}});
 document.addEventListener('pointerdown',function(e){if(e.pointerId!==97)gpClearFocus();},true);
 function gpRelease(){
@@ -23065,6 +23121,7 @@ function gpLoop(){
   var P=s.b.map(function(v){return v>0.5;}),J=P.map(function(p,i){return p&&!GP.prev[i];}),U=P.map(function(p,i){return !p&&GP.prev[i];});
   GP.prev=P;
   var inGame=!!(cur&&cur.kind==='canvas'&&!play.hidden&&!(typeof PM!=='undefined'&&PM.open));
+  if(PADQ.open){if(GP.game)gpRelease();GP.game=null;var J2=J.slice();J2[1]=false;gpUI(s,P,J2,dt);if(J[1]&&GP.focus)GP.focus.click();return;}
   if(J[9]&&cur&&!play.hidden){gpRelease();pmToggle();return;}
   if(GP.game&&GP.game!==cur){GP.held={};GP.cur.down=false;GP.game=null;}
   if(inGame){gpClearFocus();GP.game=cur;gpGame(s,P,J,U,dt);}
@@ -23158,7 +23215,7 @@ function gpUI(s,P,J,dt){
   if(J[0]){var cs=gpCands(),f=gpFocused(cs);if(f){if(f.tagName==='INPUT'||f.tagName==='TEXTAREA')f.focus();else f.click();}else{var p=gpFirst(cs);if(p)gpSet(p);}}
   if(J[1])gpBack();
 }
-if(gpPads().length)gpStart();
+if(gpPads().length){gpStart();if(!PSET.kind&&!(typeof TB!=='undefined'&&TB.on))setTimeout(padAsk,400);}
 /* ===== Game chat: the speech bubble left of the game's name opens a chat with only the people in the same game.
    Online games chat inside their own room (the lobby or match you are in). Single-player games join a small chat room
    for that game. Messages ride along in your room presence for 45 seconds, so people who join late still see the
@@ -23532,8 +23589,9 @@ function ctlHtml(){
   h+='<button class="choice" type="button" data-ts="duellay">Move and resize the Blaster Duel buttons</button>';
   h+='<button class="choice alt" type="button" data-ts="reset">Reset phone and tablet controls</button>';
   h+='<p class="lbl">Controller</p><div class="sheet"><p>'+(pads.length?'Connected: '+esc(String(pads[0].id||'controller').replace(/\s*\(.*$/,'').slice(0,40))+'.':'No controller yet. Plug one in or pair it, then press any button.')+'</p><p class="padtest" id="pad-test">'+(pads.length?'Press any button to test it.':'')+'</p></div>';
+  h+='<div class="row"><span class="who">Controller type<small>Sets the button names and starting buttons</small></span><span class="seg">'+['xbox','ps','switch'].map(function(k){var on=Q.kind===k;return '<button class="mini'+(on?' ok':'')+'" type="button" data-ps="kind" data-k="'+k+'" aria-pressed="'+on+'">'+PADKN[k]+'</button>';}).join('')+'</span></div>';
   h+='<p class="note">To change a button: tap the action, then press the controller button you want for it. Tap it again (or press Esc) to cancel.</p>';
-  PACT.forEach(function(a){var w=!!(PCAP&&PCAP.k===a[0]);h+='<div class="row"><span class="who">'+esc(a[1])+'</span><button class="mini'+(w?' bad':'')+'" type="button" data-pb="'+a[0]+'">'+(w?'Press a button…':esc(PADN[Q.map[a[0]]]))+'</button></div>';});
+  PACT.forEach(function(a){var w=!!(PCAP&&PCAP.k===a[0]);h+='<div class="row"><span class="who">'+esc(a[1])+'</span><button class="mini'+(w?' bad':'')+'" type="button" data-pb="'+a[0]+'">'+(w?'Press a button…':esc(padName(Q.map[a[0]])))+'</button></div>';});
   h+='<div class="row"><span class="who">Stick dead zone<small>How far you push before it moves</small></span>'+segBtns('data-ps="dz"',Q.dz,[[0.12,'Small'],[0.22,'Normal'],[0.32,'Big']])+'</div>';
   h+='<div class="row"><span class="who">Look speed<small>The right stick</small></span>'+stepper('data-ps="look"',Q.look)+'</div>';
   h+='<div class="row"><span class="who">Invert look up and down</span>'+onOff('data-ps="inv"',Q.inv)+'</div>';
@@ -23554,7 +23612,8 @@ $('set-body').addEventListener('click',function(e){
     else if(isFinite(v)&&v>0)TSET[ts]=v;
     tsetSave();beep(600,0.05,'square',0.03,1.3);
   }else if(ps){
-    if(ps==='reset'){PSET=psetDef();PCAP=null;}
+    if(ps==='kind'){var kk=b.getAttribute('data-k');if(PADKN[kk])padSetKind(kk);}
+    else if(ps==='reset'){var k0=PSET.kind;PSET=psetDef();PSET.kind=k0;PSET.map=padKindMap(k0);PCAP=null;}
     else if(ps==='inv'||ps==='swap'||ps==='vib')PSET[ps]=!PSET[ps];
     else if(ps==='look')PSET.look=clampN(Math.round((PSET.look+d)*10)/10,0.4,2.5);
     else if(ps==='dz'&&isFinite(v)&&v>0)PSET.dz=v;
