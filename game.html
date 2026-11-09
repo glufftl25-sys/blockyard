@@ -19877,6 +19877,7 @@ var VC={};
 var VSVG='<svg class="vchk" viewBox="0 0 16 16" role="img" aria-label="Verified"><circle cx="8" cy="8" r="7.5" fill="#1d8cf0"/><path d="M4.4 8.4l2.4 2.4 4.8-5" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function isVerified(uid){
   if(!uid)return false;
+  if(SOLO&&typeof WEBA!=='undefined'){var wc=WEBA.doc&&WEBA.doc.checks;return !!(wc&&wc[uid]);}
   var ids=Object.keys(VC),i,l;
   for(i=0;i<ids.length;i++){
     l=VC[ids[i]]&&VC[ids[i]].list;
@@ -21681,6 +21682,7 @@ function giftSubs(){
 function syncAdmin(){
   if(typeof showEvent==='function')showEvent();
   CMD.perms=CMD.owner?P_ALL:(permsOf(SOC.uid)||{});
+  if(!CMD.owner&&typeof WEBA!=='undefined'&&SOLO&&waMine()&&waMine().perms){var wpm={panel:true},wq,wp=waMine().perms;for(wq in CMD.perms)wpm[wq]=CMD.perms[wq];for(wq in wp)if(wp[wq]===true)wpm[wq]=true;CMD.perms=wpm;}
   if(!CMD.owner&&KEYPERMS){var kpm={},kq;for(kq in CMD.perms)kpm[kq]=CMD.perms[kq];for(kq in KEYPERMS)kpm[kq]=true;CMD.perms=kpm;}
   CMD.admin=!!CMD.perms.panel;
   $('cmd-btn').hidden=!CMD.admin;
@@ -21705,6 +21707,7 @@ function vRefresh(skipCmd){
 }
 function showBanner(){
   var best=null,el=$('announce');
+  if(SOLO&&typeof WEBA!=='undefined'){var wa=WEBA.doc&&WEBA.doc.ann,wt=wa&&typeof wa.t==='string'?wa.t.slice(0,200):'';el.hidden=!wt;el.textContent=wt;return;}
   ANN.forEach(function(a){
     if(typeof a.text!=='string'||!a.text||!(permsOf(a.id)||{}).banner)return;
     if(!best||(+a.at||0)>(+best.at||0))best=a;
@@ -22923,7 +22926,7 @@ var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evP
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
 /* ===== Admin panel look: a blocky window with coloured tabs on the left and the chosen tab on the right.
    cmdRender marks where each tab's tools start with ADMT(id); admWrap sorts them into tabs. ===== */
-var ADMTABS=[['log','Server log','#1fae8e'],['announce','Announcements','#2f8cff'],['admins','Admins','#8b3dff'],['players','Players','#22b35a'],['give','Give','#ffc21a'],['mod','Moderation','#ff4d3d'],['cheats','Cheats','#ff7a1a'],['bots','Test bots','#16b8cf']];
+var ADMTABS=[['log','Server log','#1fae8e'],['announce','Announcements','#2f8cff'],['admins','Admins','#8b3dff'],['players','Players','#22b35a'],['give','Give','#ffc21a'],['mod','Moderation','#ff4d3d'],['cheats','Cheats','#ff7a1a'],['bots','Test bots','#16b8cf'],['setup','Setup','#6b7a99']];
 function ADMT(id){return '\u0001'+id+'\u0001';}
 function admWrap(h){
   var parts=h.split('\u0001'),head=parts[0],got={},i;
@@ -23119,8 +23122,10 @@ function cmdRender(){
     /* outside Claude: only the tools that work on this device */
     var hs=own?'<div class="sheet"><h3>Owner commands</h3><p>You unlocked your owner tools on this device with your owner key.</p></div>':'<div class="sheet"><h3>Admin key</h3><p>The owner gave this device a key for: '+esc(okGrantText(okGrantsOf(lsGet('ownerpass',''))))+'.</p></div>';
     if(CMD.msg)hs+='<p class="note '+CMD.msg.t+'" role="status">'+esc(CMD.msg.s)+'</p>';
-    hs+='<p class="note">This copy is not inside Claude, so here you get the tools that work on this device: Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements are in the Claude version, because they need everyone\u2019s shared data.</p>';
-    hs+=ADMT('log')+slogHtml()+ADMT('bots')+(can('testbots')?tbSection(dis):'')+(can('botview')?bvSection(dis):'')+ADMT('cheats')+cmdCheatsHtml();
+    hs+='<p class="note">This is the website and app version. Announcements, blue checks, bricks and roles save to your Firebase and reach every player here (the owner sets it up once in Setup). Requests, cheat reports and chat cleanup are in the Claude version.</p>';
+    if(WEBA.msg)hs+='<p class="note '+WEBA.msg.t+'" role="status">'+esc(WEBA.msg.s)+'</p>';
+    if(WEBA.busy)dis=' disabled';
+    hs+=ADMT('log')+slogHtml()+waSoloHtml(dis)+ADMT('bots')+(can('testbots')?tbSection(dis):'')+(can('botview')?bvSection(dis):'')+ADMT('cheats')+cmdCheatsHtml();
     cmdBody.innerHTML=admWrap(hs);return;
   }
   var h='<div class="sheet"><h3>'+(own?'Owner commands':'Commands')+'</h3><p>'+(own?'Only you decide who sees this and what each role can use.':'Your role: '+esc(myRoleName())+'.')+' Announcements and gifts reach everyone who opens the page.</p></div>';
@@ -23370,6 +23375,172 @@ $('set-body').addEventListener('click',function(e){
   }
   if(a==='off'){lsSet('ownerkey','');lsSet('ownerpass','');ownerSync();OK.msg={t:'good',s:'Owner removed from this player.'};}
   setRender();
+});
+/* ===== Admin tools on the website, the app and itch.io (Firebase). The Claude version keeps its own.
+   Firestore: adm/main {ann:{t,at,by}, checks:{uid:{n,by,at}}, roles:{id:{name,perms,at}}, admins:{uid:{n,role,perms}}},
+   gifts/<uid> {list:{id:{n,by,at}}} (only that player reads it; they add the bricks once), names/<name> {uid} (each
+   player writes their own, so admins can find them by player name). The rules (Admin > Setup) only let the owner's
+   account, and admins whose role allows it, change these. ===== */
+var WEBA={on:false,uid:'',name:'',doc:{},offs:[],msg:null,busy:false,ann:'',vu:'',gu:'',ga:'50',rn:'',au:'',ar:'',sure:''};
+var WAPERMS=[['banner','Announcements'],['verify','Blue checks'],['gift','Give bricks'],['testbots','Test bots'],['botview','Bot viewer'],
+  ['c_speed','Cheat: Speed'],['c_oneshot','Cheat: One shot'],['c_god','Cheat: Immortal'],['c_jump','Cheat: Super jump'],['c_fly','Cheat: Flight'],
+  ['c_ammo','Cheat: Infinite ammo'],['c_reload','Cheat: Fast reload'],['c_bullet','Cheat: Fast bullets'],['c_multi','Cheat: 10x shots'],['c_wave','Cheat: Blitz start wave'],['c_cash','Cheat: Balloons cash'],['c_bricks','Cheat: Free bricks']];
+function waName(u){try{return unIs(u&&u.email)?unNameOf(u):'';}catch(e){return '';}}
+function waStop(){WEBA.offs.forEach(function(f){try{f();}catch(e){}});WEBA.offs=[];WEBA.on=false;WEBA.uid='';WEBA.doc={};waApply();}
+function waStart(){
+  var u=EM.user;if(!u)return;
+  WEBA.on=true;WEBA.uid=u.uid;WEBA.name=waName(u);
+  emFire().then(function(fb){
+    if(WEBA.uid!==u.uid)return;
+    var F=fb.F;
+    WEBA.offs.push(F.onSnapshot(F.doc(fb.db,'adm','main'),function(sn){WEBA.doc=(sn.exists()&&sn.data())||{};waApply();},function(){}));
+    WEBA.offs.push(F.onSnapshot(F.doc(fb.db,'gifts',u.uid),function(sn){waGifts((sn.exists()&&sn.data())||{});},function(){}));
+    if(WEBA.name)F.setDoc(F.doc(fb.db,'names',WEBA.name.toLowerCase()),{uid:u.uid,n:WEBA.name}).catch(function(){});
+  },function(){});
+}
+/* follow the signed-in account (checked every 2 seconds) */
+setInterval(function(){if(!SOLO||WALL)return;var id=EM&&EM.user?EM.user.uid:'';if(id!==WEBA.uid){waStop();if(id)waStart();}},2000);
+function waGifts(d){
+  var l=d&&d.list,add=0;if(!l||typeof l!=='object')return;
+  Object.keys(l).forEach(function(id){var g=l[id],n=g?Math.floor(+g.n):0,key='w'+id;if(W.gifts[key]||!(n>0&&n<=100000))return;W.gifts[key]=1;W.coins+=n;add+=n;});
+  if(add){GIFTMSG=add;touch();flushW();brkChip();try{if(!shopEl.hidden)shopRender();}catch(e){}beep(780,0.2,'square',0.05,1.6);gpToast('You got '+add+' bricks from the owner!');}
+}
+function waMine(){var a=WEBA.doc&&WEBA.doc.admins;return (WEBA.uid&&a&&a[WEBA.uid])||null;}
+function waApply(){
+  try{syncAdmin();}catch(e){}
+  try{showBanner();}catch(e){}
+  try{if(!cmdEl.hidden)cmdRender();}catch(e){}
+}
+function waOk(){return SOLO&&!WALL&&WEBA.on;}
+function waFind(raw){
+  var n=String(raw||'').trim().replace(/^@/,'');
+  if(!NAME_RE.test(n))return Promise.reject({msg:'Type a player name (3 to 16 letters, numbers or _).'});
+  return emFire().then(function(fb){return fb.F.getDoc(fb.F.doc(fb.db,'names',n.toLowerCase()));}).then(function(sn){
+    var d=sn.exists()?sn.data():null;
+    if(!d||typeof d.uid!=='string')throw {msg:'No player called '+n+' has signed in to the website or app yet.'};
+    return {uid:d.uid,name:typeof d.n==='string'?d.n:n};
+  });
+}
+function waSet(data){return emFire().then(function(fb){return fb.F.setDoc(fb.F.doc(fb.db,'adm','main'),data,{merge:true});});}
+function waDel(){return emFire().then(function(fb){return fb.F.deleteField();});}
+function waRun(p,good){
+  WEBA.busy=true;WEBA.msg=null;cmdRender();
+  p.then(function(){WEBA.msg={t:'good',s:good};},function(e){
+    var c=String((e&&e.code)||'');
+    WEBA.msg={t:'err',s:e&&e.msg?e.msg:(c==='permission-denied'?'Firebase said no. If you are the owner, paste the rules from the Setup tab into Firebase first.':emWhy(e))};
+  }).then(function(){WEBA.busy=false;cmdRender();});
+}
+function waRules(){
+  var o=WEBA.uid||'YOUR_ACCOUNT_ID';
+  return "rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n"+
+    "    function signedIn() { return request.auth != null; }\n"+
+    "    function owner() { return signedIn() && request.auth.uid in ['"+o+"']; }\n"+
+    "    function admin(p) { return signedIn() && get(/databases/$(database)/documents/adm/main).data.admins[request.auth.uid].perms[p] == true; }\n"+
+    "    function only(k) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(k); }\n"+
+    "    match /saves/{uid} {\n      allow read, write: if signedIn() && request.auth.uid == uid;\n    }\n"+
+    "    match /adm/main {\n      allow read: if true;\n      allow create: if owner();\n      allow update: if owner() || (admin('banner') && only(['ann'])) || (admin('verify') && only(['checks']));\n    }\n"+
+    "    match /gifts/{uid} {\n      allow read: if signedIn() && (request.auth.uid == uid || owner() || admin('gift'));\n      allow write: if owner() || admin('gift');\n    }\n"+
+    "    match /names/{name} {\n      allow read: if true;\n      allow write: if signedIn() && request.resource.data.uid == request.auth.uid && (resource == null || resource.data.uid == request.auth.uid);\n    }\n"+
+    "  }\n}\n";
+}
+function waNeedAcct(){return '<p class="note err">Sign in to your account (Settings, Account) to use this. These tools save to your Firebase, so they need your account.</p>';}
+function waAnnHtml(dis){
+  if(!can('banner'))return '';
+  var a=WEBA.doc.ann,h='<p class="lbl">Announcement banner</p>';
+  if(!WEBA.on)return h+waNeedAcct();
+  h+='<p class="note">Shown at the top of the hub for every player on the website, the app and itch.io.'+(a&&a.t?' Now: <b>'+esc(a.t)+'</b>':'')+'</p>';
+  h+='<input class="field" id="wa-ann" maxlength="120" autocomplete="off" placeholder="Type an announcement" value="'+esc(WEBA.ann)+'">';
+  return h+'<div class="sendrow"><button class="mini ok" type="button" data-wa="post"'+dis+'>Post</button><button class="mini" type="button" data-wa="unpost"'+dis+'>Remove banner</button></div>';
+}
+function waChecksHtml(dis){
+  if(!can('verify'))return '';
+  var h='<p class="lbl">Blue checks</p>';if(!WEBA.on)return h+waNeedAcct();
+  h+='<div class="sendrow"><input class="field" id="wa-vu" maxlength="17" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Player name" value="'+esc(WEBA.vu)+'"><button class="mini ok" type="button" data-wa="vgive"'+dis+'>Give check</button></div>';
+  var c=WEBA.doc.checks||{},ids=Object.keys(c);
+  if(!ids.length)h+='<p class="note">No one has a blue check yet.</p>';
+  ids.sort(function(a,b){return String(c[a].n).localeCompare(String(c[b].n));}).forEach(function(id){
+    h+='<div class="row"><span class="who">@'+esc(c[id].n||'player')+VSVG+'<small>given '+esc(agoText(c[id].at||0))+'</small></span><button class="mini" type="button" data-wa="vrm" data-u="'+esc(id)+'"'+dis+'>Remove</button></div>';
+  });
+  return h;
+}
+function waGiveHtml(dis){
+  if(!can('gift'))return '';
+  var h='<p class="lbl">Give bricks</p>';if(!WEBA.on)return h+waNeedAcct();
+  h+='<input class="field" id="wa-gu" maxlength="17" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Player name" value="'+esc(WEBA.gu)+'">';
+  return h+'<div class="sendrow"><input class="field" id="wa-ga" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="Bricks" value="'+esc(WEBA.ga)+'"><button class="mini ok" type="button" data-wa="gift"'+dis+'>Give</button></div><p class="note">They get the bricks the next time they open Blockyard signed in.</p>';
+}
+function waRolesHtml(dis){
+  if(!CMD.owner)return '';
+  var h='<p class="lbl">Roles</p>';if(!WEBA.on)return h+waNeedAcct();
+  var R=WEBA.doc.roles||{},A=WEBA.doc.admins||{},ids=Object.keys(R).sort(function(a,b){return (R[a].at||0)-(R[b].at||0);});
+  h+='<p class="note">Make a role, pick what it can do, then give it to players. Admins see the Admin button with only their tools.</p>';
+  h+='<div class="sendrow"><input class="field" id="wa-rn" maxlength="24" autocomplete="off" placeholder="New role name (like Helper)" value="'+esc(WEBA.rn)+'"><button class="mini ok" type="button" data-wa="rnew"'+dis+'>Add role</button></div>';
+  ids.forEach(function(id){
+    var r=R[id]||{},pm=r.perms||{};
+    h+='<div class="sheet"><h3>'+esc(r.name||'Role')+'</h3>';
+    WAPERMS.forEach(function(x){var on=!!pm[x[0]];h+='<div class="row"><span class="who">'+esc(x[1])+'</span><button class="mini'+(on?' ok':'')+'" type="button" data-wa="rperm" data-r="'+esc(id)+'" data-k="'+x[0]+'" aria-pressed="'+on+'"'+dis+'>'+(on?'On':'Off')+'</button></div>';});
+    h+='<button class="choice alt" type="button" data-wa="rdel" data-r="'+esc(id)+'"'+dis+'>'+(WEBA.sure===id?'Tap again to delete this role':'Delete role')+'</button></div>';
+  });
+  h+='<p class="lbl">Give a role</p>';
+  if(!ids.length)h+='<p class="note">Add a role first.</p>';
+  else{
+    h+='<div class="sendrow"><input class="field" id="wa-au" maxlength="17" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Player name" value="'+esc(WEBA.au)+'"><select class="field" id="wa-ar">'+ids.map(function(id){return '<option value="'+esc(id)+'"'+(WEBA.ar===id?' selected':'')+'>'+esc(R[id].name||'Role')+'</option>';}).join('')+'</select></div>';
+    h+='<div class="sendrow"><button class="mini ok" type="button" data-wa="agive"'+dis+'>Give role</button></div>';
+  }
+  var al=Object.keys(A);
+  h+='<p class="lbl">Admins</p>';
+  if(!al.length)h+='<p class="note">No admins yet.</p>';
+  al.forEach(function(uid){var a=A[uid]||{},r=R[a.role];h+='<div class="row"><span class="who">@'+esc(a.n||'player')+'<small>'+esc(r?r.name:'(deleted role)')+'</small></span><button class="mini" type="button" data-wa="arm" data-u="'+esc(uid)+'"'+dis+'>Remove</button></div>';});
+  return h;
+}
+function waSetupHtml(){
+  if(!CMD.owner)return '';
+  var h='<p class="lbl">Setup (one time)</p>';
+  if(!WEBA.on)return h+waNeedAcct();
+  h+='<p class="note">These rules let only your account (and admins you give roles) post announcements, give checks and give bricks. Players\' saves stay private like before.</p>';
+  h+='<ol class="note"><li>Open console.firebase.google.com, pick <b>blockyard-arcade</b>, then <b>Firestore Database</b>, then the <b>Rules</b> tab.</li><li>Delete what is there, paste these rules, and click <b>Publish</b>.</li></ol>';
+  h+='<textarea class="field" id="wa-rules" readonly rows="10" style="font:600 12px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre">'+esc(waRules())+'</textarea>';
+  return h+'<div class="sendrow"><button class="mini ok" type="button" data-wa="copy">Copy rules</button></div><p class="note">Your account ID is '+esc(WEBA.uid)+'.</p>';
+}
+function waSoloHtml(dis){
+  return ADMT('announce')+waAnnHtml(dis)+ADMT('players')+waChecksHtml(dis)+ADMT('give')+waGiveHtml(dis)+ADMT('admins')+waRolesHtml(dis)+ADMT('setup')+waSetupHtml();
+}
+cmdBody.addEventListener('input',function(e){
+  var id=e.target&&e.target.id;
+  if(id==='wa-ann')WEBA.ann=e.target.value;else if(id==='wa-vu')WEBA.vu=e.target.value;else if(id==='wa-gu')WEBA.gu=e.target.value;
+  else if(id==='wa-ga')WEBA.ga=e.target.value;else if(id==='wa-rn')WEBA.rn=e.target.value;else if(id==='wa-au')WEBA.au=e.target.value;
+});
+cmdBody.addEventListener('change',function(e){if(e.target&&e.target.id==='wa-ar')WEBA.ar=e.target.value;});
+cmdBody.addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('[data-wa]'):null;if(!b||b.disabled||WEBA.busy)return;
+  var a=b.getAttribute('data-wa'),now=Date.now(),me=WEBA.name||'owner';
+  if(a==='copy'){var t=$('wa-rules');try{navigator.clipboard.writeText(waRules()).then(function(){WEBA.msg={t:'good',s:'Copied. Paste them in Firebase and click Publish.'};cmdRender();},function(){if(t){t.focus();t.select();}});}catch(_){if(t){t.focus();t.select();}}return;}
+  if(a==='post'){var tx=String(WEBA.ann||'').replace(CTRL,' ').trim().slice(0,120);if(!tx){WEBA.msg={t:'err',s:'Type the announcement first.'};cmdRender();return;}waRun(waSet({ann:{t:tx,at:now,by:me}}).then(function(){WEBA.ann='';}),'Posted for every player.');return;}
+  if(a==='unpost'){waRun(waDel().then(function(d){return waSet({ann:d});}),'Banner removed.');return;}
+  if(a==='vgive'){waRun(waFind(WEBA.vu).then(function(p){var o={};o[p.uid]={n:p.name,by:me,at:now};WEBA.vu='';return waSet({checks:o});}),'Blue check given.');return;}
+  if(a==='vrm'){var vu=b.getAttribute('data-u');waRun(waDel().then(function(d){var o={};o[vu]=d;return waSet({checks:o});}),'Blue check removed.');return;}
+  if(a==='gift'){
+    var n=Math.floor(+WEBA.ga);if(!(n>0&&n<=100000)){WEBA.msg={t:'err',s:'Give between 1 and 100000 bricks.'};cmdRender();return;}
+    waRun(waFind(WEBA.gu).then(function(p){return emFire().then(function(fb){var l={};l[now.toString(36)+Math.random().toString(36).slice(2,6)]={n:n,by:me,at:now};return fb.F.setDoc(fb.F.doc(fb.db,'gifts',p.uid),{list:l},{merge:true});}).then(function(){WEBA.gu='';WEBA.msg0=p.name;});}),'Bricks sent.');return;
+  }
+  if(a==='rnew'){var rn=String(WEBA.rn||'').replace(CTRL,' ').trim().slice(0,24);if(!rn){WEBA.msg={t:'err',s:'Type a role name first.'};cmdRender();return;}var ro={};ro['r'+now.toString(36)]={name:rn,perms:{},at:now};waRun(waSet({roles:ro}).then(function(){WEBA.rn='';}),'Role added. Now pick what it can do.');return;}
+  if(a==='rperm'){
+    var rid=b.getAttribute('data-r'),k=b.getAttribute('data-k'),R=WEBA.doc.roles||{},r=R[rid];if(!r)return;
+    var pm={};Object.keys(r.perms||{}).forEach(function(q){pm[q]=!!r.perms[q];});pm[k]=!pm[k];
+    var up={roles:{}};up.roles[rid]={perms:pm};
+    var A=WEBA.doc.admins||{};Object.keys(A).forEach(function(uid){if(A[uid]&&A[uid].role===rid){up.admins=up.admins||{};up.admins[uid]={perms:pm};}});
+    waRun(emFire().then(function(fb){return fb.F.setDoc(fb.F.doc(fb.db,'adm','main'),up,{merge:true});}),'Role updated.');return;
+  }
+  if(a==='rdel'){
+    var rd=b.getAttribute('data-r');if(WEBA.sure!==rd){WEBA.sure=rd;cmdRender();setTimeout(function(){if(WEBA.sure===rd){WEBA.sure='';cmdRender();}},5000);return;}
+    WEBA.sure='';
+    waRun(waDel().then(function(d){var up={roles:{}};up.roles[rd]=d;var A=WEBA.doc.admins||{};Object.keys(A).forEach(function(uid){if(A[uid]&&A[uid].role===rd){up.admins=up.admins||{};up.admins[uid]=d;}});return waSet(up);}),'Role deleted.');return;
+  }
+  if(a==='agive'){
+    var R2=WEBA.doc.roles||{},ar=WEBA.ar&&R2[WEBA.ar]?WEBA.ar:Object.keys(R2)[0];if(!ar){WEBA.msg={t:'err',s:'Add a role first.'};cmdRender();return;}
+    waRun(waFind(WEBA.au).then(function(p){var up={admins:{}};up.admins[p.uid]={n:p.name,role:ar,perms:R2[ar].perms||{}};WEBA.au='';return waSet(up);}),'Role given.');return;
+  }
+  if(a==='arm'){var au=b.getAttribute('data-u');waRun(waDel().then(function(d){var up={admins:{}};up.admins[au]=d;return waSet(up);}),'Admin removed.');return;}
 });
 function cmdDone(){CMD.busy=false;cmdRender();}
 function cmdPost(){
