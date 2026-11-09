@@ -10,7 +10,7 @@ A "boss" session (Claude) merges and tests all work, so follow these rules exact
    `git fetch origin ccr-b5653cf1-deba6y && git checkout -B grok origin/ccr-b5653cf1-deba6y`.
    The boss merges your branch, tests it, and puts it live.
 2. **Do not change the in-game game menu**: the square `#gmenu` button at the top left of every game and its panel
-   (Resume, Leave, FPS/ping, cheats, Report), or the `/* ===== in-game menu` section (`PM`, `pm*` functions, `PERF`).
+   (Resume, Leave, FPS/ping, Admin panel, Report), or the `/* ===== in-game menu` section (`PM`, `pm*` functions, `PERF`).
    The owner likes it exactly as it is.
 3. **Do not edit the `UPDATES` list, `index.html` or `manifest.webmanifest`.** The boss adds an update entry and rebuilds
    the website for you. Put a suggested update entry in your message instead (a title and 2-4 short lines a kid could read).
