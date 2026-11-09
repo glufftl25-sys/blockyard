@@ -698,6 +698,10 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#7cc6f0" width="88" height="88"/><rect y="66" width="88" height="22" fill="#5bbf55"/><rect x="62" y="16" width="12" height="50" fill="#f4f7ff" stroke="#14213d" stroke-width="2"/><rect x="62" y="24" width="12" height="34" fill="#14213d"/><rect x="62" y="30" width="12" height="22" fill="#3c7cf0"/><rect x="62" y="35" width="12" height="12" fill="#ff5a4d"/><rect x="62" y="38" width="12" height="6" fill="#ffd23f"/><path d="M80 6v60" stroke="#6b4428" stroke-width="3"/><path d="M80 7l-12 5 12 5z" fill="#ff5a4d"/><path d="M14 30a22 22 0 0 1 0 36" fill="none" stroke="#7a4a24" stroke-width="4"/><path d="M8 52l54-11" stroke="#14213d" stroke-width="4"/><path d="M8 52l54-11" stroke="#d9b27a" stroke-width="2"/><path d="M8 47l4 5-5 4" fill="#ff5a4d"/><path d="M6 14h16M10 20h14" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg></span>
           <span class="tt">Wind Archer</span><span class="ts"><span id="best-archer">Best 0</span> · Beat the wind</span>
         </button>
+        <button class="tile" type="button" data-game="puck" data-name="puck rush hockey air table paddle 2 players local bot sport 2d" style="--c:#3c7cf0">
+          <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#16233f" width="88" height="88"/><rect x="6" y="12" width="76" height="64" fill="#e9f6ff" stroke="#14213d" stroke-width="3"/><rect x="42" y="12" width="4" height="64" fill="#ff5a4d"/><circle cx="44" cy="44" r="12" fill="none" stroke="#3c7cf0" stroke-width="2"/><rect x="2" y="32" width="6" height="24" fill="#3c7cf0" stroke="#14213d" stroke-width="2"/><rect x="80" y="32" width="6" height="24" fill="#ff5a4d" stroke="#14213d" stroke-width="2"/><rect x="14" y="36" width="16" height="16" fill="#3c7cf0" stroke="#14213d" stroke-width="2"/><rect x="60" y="22" width="16" height="16" fill="#ff5a4d" stroke="#14213d" stroke-width="2"/><circle cx="50" cy="56" r="6" fill="#14213d"/><path d="M36 60h-8M38 66h-12" stroke="#9aa4bb" stroke-width="2"/></svg></span>
+          <span class="tt">Puck Rush</span><span class="ts"><span id="best-puck">Wins 0</span> · 2 players · First to 5</span>
+        </button>
         <button class="tile" type="button" data-game="spill" data-name="paint spill flood colour color fill puzzle brain 2d" style="--c:#3cc8f0">
           <span class="thumb"><svg class="art" viewBox="0 0 88 88" aria-hidden="true"><rect fill="#101a33" width="88" height="88"/><g stroke="#14213d" stroke-width="2"><rect x="8" y="8" width="18" height="18" fill="#3cc8f0"/><rect x="26" y="8" width="18" height="18" fill="#3cc8f0"/><rect x="44" y="8" width="18" height="18" fill="#ffd23f"/><rect x="62" y="8" width="18" height="18" fill="#ff6b5b"/><rect x="8" y="26" width="18" height="18" fill="#3cc8f0"/><rect x="26" y="26" width="18" height="18" fill="#3cc8f0"/><rect x="44" y="26" width="18" height="18" fill="#5ed88a"/><rect x="62" y="26" width="18" height="18" fill="#ffd23f"/><rect x="8" y="44" width="18" height="18" fill="#3cc8f0"/><rect x="26" y="44" width="18" height="18" fill="#ff6b5b"/><rect x="44" y="44" width="18" height="18" fill="#5f6a88"/><rect x="62" y="44" width="18" height="18" fill="#5ed88a"/><rect x="8" y="62" width="18" height="18" fill="#ffd23f"/><rect x="26" y="62" width="18" height="18" fill="#5ed88a"/><rect x="44" y="62" width="18" height="18" fill="#ff6b5b"/><rect x="62" y="62" width="18" height="18" fill="#3cc8f0"/></g><path d="M14 4c4 6 8 6 12 2" stroke="#fff" stroke-width="3" fill="none"/></svg></span>
           <span class="tt">Paint Spill</span><span class="ts"><span id="best-spill">Best 0</span> · Fill the board in a few moves</span>
@@ -12356,6 +12360,191 @@ GAMES.archer=(function(){
   return g;
 })();
 HUBBEST['best-archer']='by.archer';
+
+/* ===== Puck Rush (2D, original): table hockey with paddles, against a bot or a friend on the same screen. First to 5 ===== */
+GAMES.puck=(function(){
+  var g={kind:'canvas',title:'Puck Rush',lw:400};
+  var PR=14,MR=26,WIN=5,SUB=4,MAXV=1150;
+  var st,t,bot,pk,pa,pb,s1,s2,keys,touch,parts,shake,flash,msg,msgT,serveT,wins,newWin,goalsAll,lastHit,shots;
+  g.pre=function(w,h){g.lw=tallLw(w,h);};
+  function R(){return {x0:30,x1:V.w-30,y0:64,y1:V.h-20};}
+  function goalH(){var r=R();return (r.y1-r.y0)*0.46;}
+  function mallet(x){var r=R();return {x:x,y:(r.y0+r.y1)/2,vx:0,vy:0,tx:x,ty:(r.y0+r.y1)/2,aim:false,sq:0};}
+  function faceoff(dir){var r=R();pk={x:V.w/2,y:(r.y0+r.y1)/2,vx:0,vy:0,tr:[]};serveT=1.1;pk.dir=dir;}
+  function reset(){
+    var r=R();s1=0;s2=0;st='play';t=0;parts=[];shake=0;flash=null;msg='';msgT=0;newWin=false;keys={};touch={};
+    pa=mallet(r.x0+70);pb=mallet(r.x1-70);faceoff(Math.random()<0.5?-1:1);
+  }
+  g.start=function(){bot=lsGet('puck.bot',true);wins=lsGet('by.puck',0);goalsAll=0;shots=0;reset();st='ready';};
+  g.stop=function(){keys={};touch={};};
+  function toggleBtn(x,y){return y<54&&x>V.w-150;}
+  g.down=function(x,y,id){
+    if(toggleBtn(x,y)){bot=!bot;lsSet('puck.bot',bot);msg=bot?'You vs the bot':'2 players: left vs right';msgT=1.5;reset();st='ready';return;}
+    if(st==='ready'){st='play';}
+    if(st==='over'){if(t>0.8)reset();return;}
+    var side=x<V.w/2?'a':'b';if(side==='b'&&bot)side='a';
+    touch[id]=side;g.move(x,y,id);
+  };
+  g.move=function(x,y,id){var s=touch[id];if(!s)return;var m=s==='a'?pa:pb;m.tx=x;m.ty=y;m.aim=true;};
+  g.up=function(x,y,id){var s=touch[id];delete touch[id];if(s){var m=s==='a'?pa:pb;m.aim=false;}};
+  g.key=function(c,d){
+    keys[c]=d;
+    if(!d)return;
+    if(st==='ready'){st='play';return;}
+    if(st==='over'&&t>0.8)reset();
+  };
+  function keyDir(m,u,dn,l,r){
+    var dx=(keys[r]?1:0)-(keys[l]?1:0),dy=(keys[dn]?1:0)-(keys[u]?1:0);
+    if(dx||dy){var n=Math.sqrt(dx*dx+dy*dy);m.tx=m.x+dx/n*60;m.ty=m.y+dy/n*60;m.aim=true;m.key=true;return true;}
+    if(m.key){m.key=false;m.aim=false;}
+    return false;
+  }
+  function burst(x,y,c,n,sp){for(var i=0;i<n;i++){var a=Math.random()*6.28,s=sp*(0.3+Math.random());parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0.4+Math.random()*0.5,c:c,s:3+Math.random()*4});}}
+  /* the bot (and the test pilot, mirrored) aims for a spot behind the puck so it hits it toward the other goal */
+  function brain(m,left,speed){
+    var r=R(),cy=(r.y0+r.y1)/2,home=left?r.x0+60:r.x1-60,mine=left?pk.x<V.w/2+20:pk.x>V.w/2-20,coming=left?pk.vx<60:pk.vx>-60;
+    if(mine&&serveT<=0){
+      var gx=left?r.x1+20:r.x0-20,ux=pk.x-gx,uy=pk.y-cy,l=Math.sqrt(ux*ux+uy*uy)||1;ux/=l;uy/=l;
+      var px=pk.x+pk.vx*0.06,py=pk.y+pk.vy*0.06,beh=(m.x-px)*ux+(m.y-py)*uy;
+      if(beh>(MR+PR)*0.6){m.tx=px-ux*30;m.ty=py-uy*30;}
+      else{var side=(m.y<py?-1:1);m.tx=px+ux*(MR+PR+28);m.ty=py+uy*(MR+PR+28)+side*(MR+PR)*0.8;}
+    }else if(coming){m.tx=home+(left?40:-40);m.ty=clampN(pk.y,cy-goalH()*0.6,cy+goalH()*0.6);}
+    else{m.tx=home;m.ty=cy+(pk.y-cy)*0.4;}
+    m.aim=true;m.sp=speed;
+  }
+  function moveMallet(m,left,dt){
+    var r=R(),lo=left?r.x0+MR:V.w/2+MR,hi=left?V.w/2-MR:r.x1-MR,ox=m.x,oy=m.y;
+    if(m.aim){
+      var dx=m.tx-m.x,dy=m.ty-m.y,l=Math.sqrt(dx*dx+dy*dy),sp=(m.sp||1500)*dt;
+      if(l>sp){dx*=sp/l;dy*=sp/l;}
+      m.x+=dx;m.y+=dy;
+    }
+    m.x=clampN(m.x,lo,hi);m.y=clampN(m.y,r.y0+MR,r.y1-MR);
+    m.vx=(m.x-ox)/dt;m.vy=(m.y-oy)/dt;
+  }
+  function hit(m,who){
+    var dx=pk.x-m.x,dy=pk.y-m.y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d>=PR+MR||d===0)return;
+    var nx=dx/d,ny=dy/d;pk.x=m.x+nx*(PR+MR);pk.y=m.y+ny*(PR+MR);
+    var rvx=pk.vx-m.vx,rvy=pk.vy-m.vy,vn=rvx*nx+rvy*ny;
+    if(vn<0){
+      pk.vx-=1.9*vn*nx;pk.vy-=1.9*vn*ny;
+      var sp=Math.sqrt(pk.vx*pk.vx+pk.vy*pk.vy);if(sp>MAXV){pk.vx*=MAXV/sp;pk.vy*=MAXV/sp;}
+      var f=-vn;if(t-lastHit>0.06){lastHit=t;beep(300+Math.min(500,f*0.5),0.05,'square',0.05,1.4);}
+      if(who==='a'&&pk.vx>300)shots++;
+      m.sq=0.15;if(f>500){burst(pk.x,pk.y,'#fff',8,f*0.25);shake=Math.max(shake,0.1);buzz(25,0.4);}
+    }
+  }
+  function goal(left){
+    /* left=true: the puck went in the left goal, so the right side scores */
+    if(left)s2++;else s1++;
+    var r=R(),c=left?'#ff5a4d':'#3c7cf0',gx=left?r.x0:r.x1;
+    for(var i=0;i<4;i++)burst(gx,pk.y,i%2?c:P.sun,12,380);
+    shake=0.45;flash={c:c,t:0.4};buzz(80,0.8);
+    beep(520,0.12,'square',0.06,1.6);beep(780,0.2,'square',0.05,1.4);
+    if(!left)goalsAll++;
+    msg=(left?(bot?'BOT':'RED'):(bot?'YOU':'BLUE'))+' SCORE'+(left?'S':'')+'!';if(!left&&bot)msg='GOAL!';msgT=1.1;
+    if(s1>=WIN||s2>=WIN){
+      st='over';t=0;
+      if(bot&&s1>=WIN){wins++;newWin=true;lsSet('by.puck',wins);}
+      beep(s1>=WIN||!bot?660:200,0.4,s1>=WIN||!bot?'square':'sawtooth',0.06,s1>=WIN||!bot?1.5:0.6);
+    }else faceoff(left?-1:1);
+  }
+  g.update=function(dt){
+    t+=dt;if(shake>0)shake-=dt;if(msgT>0)msgT-=dt;if(flash){flash.t-=dt;if(flash.t<=0)flash=null;}
+    parts=parts.filter(function(p){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=0.96;p.vy*=0.96;p.t-=dt;return p.t>0;});
+    if(st!=='play')return;
+    if(bot){keyDir(pa,'KeyW','KeyS','KeyA','KeyD')||keyDir(pa,'ArrowUp','ArrowDown','ArrowLeft','ArrowRight');}
+    else{keyDir(pa,'KeyW','KeyS','KeyA','KeyD');keyDir(pb,'ArrowUp','ArrowDown','ArrowLeft','ArrowRight');}
+    pa.sp=pa.key?560:1500;pb.sp=pb.key?560:1500;
+    if(bot)brain(pb,false,430+Math.min(220,(s1-s2+2)*40));
+    if(pa.sq>0)pa.sq-=dt;if(pb.sq>0)pb.sq-=dt;
+    if(serveT>0){serveT-=dt;if(serveT<=0){pk.vx=pk.dir*140;pk.vy=(Math.random()-0.5)*120;beep(880,0.06,'square',0.04);}}
+    var h=dt/SUB,r=R(),cy=(r.y0+r.y1)/2,gh=goalH()/2,i;
+    for(i=0;i<SUB;i++){
+      moveMallet(pa,true,h);moveMallet(pb,false,h);
+      pk.x+=pk.vx*h;pk.y+=pk.vy*h;
+      hit(pa,'a');hit(pb,'b');
+      if(pk.y<r.y0+PR){pk.y=r.y0+PR;pk.vy=Math.abs(pk.vy)*0.92;wall();}
+      if(pk.y>r.y1-PR){pk.y=r.y1-PR;pk.vy=-Math.abs(pk.vy)*0.92;wall();}
+      var inG=Math.abs(pk.y-cy)<gh-PR*0.4;
+      if(pk.x<r.x0+PR){if(inG){if(pk.x<r.x0-PR){goal(true);return;}}else{pk.x=r.x0+PR;pk.vx=Math.abs(pk.vx)*0.92;wall();}}
+      if(pk.x>r.x1-PR){if(inG){if(pk.x>r.x1+PR){goal(false);return;}}else{pk.x=r.x1-PR;pk.vx=-Math.abs(pk.vx)*0.92;wall();}}
+    }
+    var fr=Math.pow(0.7,dt);pk.vx*=fr;pk.vy*=fr;
+    /* a puck stuck still on the centre line drifts to one side so nobody waits forever */
+    if(Math.abs(pk.vx)+Math.abs(pk.vy)<8&&serveT<=0)pk.vx+=(pk.x<V.w/2?-1:1)*30*dt;
+    pk.tr.push([pk.x,pk.y]);if(pk.tr.length>10)pk.tr.shift();
+  };
+  function wall(){var sp=Math.abs(pk.vx)+Math.abs(pk.vy);if(sp>200&&t-lastHit>0.05){lastHit=t;beep(200+sp*0.15,0.04,'triangle',0.04);}if(sp>700)burst(pk.x,pk.y,'#bfe8ff',5,150);}
+  function drawMallet(m,c,dark){
+    var s=1+(m.sq>0?m.sq*1.2:0);
+    ctx.save();ctx.translate(m.x,m.y);ctx.scale(s,2-s);
+    ctx.fillStyle='rgba(20,33,61,.25)';ctx.fillRect(-MR+4,-MR+6,MR*2,MR*2);
+    box(-MR,-MR,MR*2,MR*2,c);box(-MR*0.5,-MR*0.5,MR,MR,dark);
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillRect(-MR+5,-MR+5,MR*0.8,5);
+    ctx.restore();
+  }
+  g.draw=function(){
+    var r=R(),cy=(r.y0+r.y1)/2,gh=goalH()/2;
+    ctx.fillStyle='#16233f';ctx.fillRect(0,0,V.w,V.h);
+    ctx.save();
+    if(shake>0)ctx.translate((Math.random()-0.5)*shake*28,(Math.random()-0.5)*shake*28);
+    /* rink */
+    ctx.fillStyle='#e9f6ff';ctx.fillRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0);
+    ctx.fillStyle='rgba(60,124,240,.10)';ctx.fillRect(r.x0,r.y0,(r.x1-r.x0)/2,r.y1-r.y0);
+    ctx.fillStyle='rgba(255,90,77,.10)';ctx.fillRect(V.w/2,r.y0,(r.x1-r.x0)/2,r.y1-r.y0);
+    ctx.fillStyle='#ff5a4d';ctx.fillRect(V.w/2-3,r.y0,6,r.y1-r.y0);
+    ctx.strokeStyle='#3c7cf0';ctx.lineWidth=4;ctx.beginPath();ctx.arc(V.w/2,cy,Math.min(70,(r.y1-r.y0)*0.2),0,6.29);ctx.stroke();
+    ctx.strokeStyle='rgba(60,124,240,.5)';ctx.beginPath();ctx.arc(r.x0,cy,gh+30,-1.57,1.57);ctx.stroke();ctx.beginPath();ctx.arc(r.x1,cy,gh+30,1.57,4.71);ctx.stroke();
+    ctx.lineWidth=6;ctx.strokeStyle=P.ink;ctx.strokeRect(r.x0-3,r.y0-3,r.x1-r.x0+6,r.y1-r.y0+6);
+    box(r.x0-24,cy-gh,24,gh*2,'#3c7cf0');box(r.x1,cy-gh,24,gh*2,'#ff5a4d');
+    ctx.fillStyle='rgba(255,255,255,.35)';for(var j=0;j<gh*2;j+=10){ctx.fillRect(r.x0-20,cy-gh+j,16,2);ctx.fillRect(r.x1+4,cy-gh+j,16,2);}
+    if(flash){ctx.globalAlpha=flash.t*1.2;ctx.fillStyle=flash.c;ctx.fillRect(r.x0,r.y0,r.x1-r.x0,r.y1-r.y0);ctx.globalAlpha=1;}
+    /* puck */
+    pk.tr.forEach(function(p,i){ctx.fillStyle='rgba(20,33,61,'+(i*0.03)+')';ctx.fillRect(p[0]-PR*0.6,p[1]-PR*0.6,PR*1.2,PR*1.2);});
+    if(serveT>0){ctx.strokeStyle=P.sun;ctx.lineWidth=3;ctx.beginPath();ctx.arc(pk.x,pk.y,PR+6+serveT*14,0,6.29);ctx.stroke();}
+    ctx.fillStyle=P.ink;ctx.beginPath();ctx.arc(pk.x,pk.y,PR,0,6.29);ctx.fill();
+    ctx.fillStyle='#3a4766';ctx.beginPath();ctx.arc(pk.x-2,pk.y-3,PR-5,0,6.29);ctx.fill();
+    drawMallet(pa,'#3c7cf0','#2a4d9a');drawMallet(pb,'#ff5a4d','#b8404a');
+    parts.forEach(function(p){ctx.fillStyle=p.c;ctx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s);});
+    ctx.restore();
+    /* HUD */
+    txt(String(s1),V.w/2-46,32,30,'#6fa8ff');txt('-',V.w/2,32,26,'#fff');txt(String(s2),V.w/2+46,32,30,'#ff8a7f');
+    txt(bot?'You':'Blue',r.x0+4,32,16,'#6fa8ff','left');txt(bot?'Bot':'Red',V.w-200,32,16,'#ff8a7f','right');
+    box(V.w-150,12,130,36,'#2e4270');txt(bot?'vs Bot':'2 Players',V.w-85,30,15,'#fff');
+    if(bot)txt('Wins '+wins,V.w/2+150,32,14,P.sun,'left');
+    if(msgT>0)txt(msg,V.w/2,V.h*0.45,34,P.sun);
+    if(st==='ready'){
+      ctx.fillStyle='rgba(16,26,51,.74)';ctx.fillRect(0,0,V.w,V.h);
+      txt('PUCK RUSH',V.w/2,V.h*0.28,40,P.sun);
+      txt('Drag your paddle and smack the puck into the other goal',V.w/2,V.h*0.28+48,16,'#fff');
+      txt(bot?'Keys: WASD or arrows. First to 5 wins!':'Blue: left side or WASD.  Red: right side or arrows.',V.w/2,V.h*0.28+76,14,'#c7cede');
+      txt('Top right button: play the bot or a friend',V.w/2,V.h*0.28+100,14,'#c7cede');
+      txt('Tap to start',V.w/2,V.h*0.28+140,20,'#fff');
+    }
+    if(st==='over'){
+      ctx.fillStyle='rgba(16,26,51,.78)';ctx.fillRect(0,0,V.w,V.h);
+      var won=s1>=WIN;
+      txt(bot?(won?'YOU WIN!':'THE BOT WINS'):(won?'BLUE WINS!':'RED WINS!'),V.w/2,V.h*0.34,36,won?'#6fa8ff':'#ff8a7f');
+      txt(s1+' - '+s2,V.w/2,V.h*0.34+46,26,'#fff');
+      if(bot)txt(newWin?'Wins: '+wins+' (+1)':'Wins: '+wins,V.w/2,V.h*0.34+80,18,P.sun);
+      if(t>0.8)txt('Tap for a rematch',V.w/2,V.h*0.34+114,16,'#fff');
+    }
+  };
+  /* test bots (10 a goal, 1 a strong shot): drag the blue paddle with the same brain the bot uses, mirrored and a bit quicker */
+  g.tbp=function(tb,dt){
+    var m=tb.m;
+    if(!bot){bot=true;}
+    if(st==='ready'||st==='over'){if(tb.pressing())tb.up();if((st==='ready'||t>0.9)&&!m.o){m.o=1;tb.tap(V.w/4,V.h/2);}return [goalsAll*10+shots,'points'];}
+    m.o=0;
+    var save={tx:pa.tx,ty:pa.ty};brain(pa,true,1500);var x=clampN(pa.tx,5,V.w/2-5),y=clampN(pa.ty,5,V.h-5);pa.tx=save.tx;pa.ty=save.ty;
+    if(!tb.pressing())tb.down(x,y);else tb.mv(x,y);
+    return [goalsAll*10+shots,'points'];
+  };
+  return g;
+})();
+HUBBEST['best-puck']=function(){return 'Wins '+lsGet('by.puck',0);};
 
 /* ===== Paint Spill: spill paint from the top-left corner until the whole board is one colour.
    Picking a colour repaints your puddle and soaks up every touching square of that colour. Each level has a move limit
