@@ -102,8 +102,27 @@ h1{font-size:clamp(40px,13vw,56px);line-height:1;color:#fff;-webkit-text-stroke:
 #gptoast.on{opacity:1;transform:translate(-50%,0)}
 #cmd .bar{display:none}
 #cmd .scr-body{padding:12px;display:flex;justify-content:center}
+#cmd.admwin{position:fixed;z-index:2147480000;gap:0;flex:none;min-width:0;min-height:0}
+#cmd.admwin .scr-body{padding:0;overflow:hidden;height:100%;display:block}
+#cmd.admwin .admp{max-width:none;height:100%;min-height:0;margin:0}
+#cmd.admwin.full .admp{border-radius:0;box-shadow:none}
+#cmd.admwin .admh{cursor:move;touch-action:none;user-select:none;-webkit-user-select:none}
+#cmd.admwin.full .admh{cursor:default}
+#cmd.admwin .admb{min-height:0;overflow:hidden}
+#cmd.admwin .admc{max-height:none;height:100%}
+#cmd.drag{opacity:.92}
+#cmd.drag iframe,#cmd.drag .admc{pointer-events:none}
+.admwb{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;gap:6px}
+.admwb .admx{position:static;transform:none}
+.admbtn{width:46px;height:46px;border-radius:10px;border:3px solid #14213d;background:#3f8cff;color:#fff;font:900 20px/1 system-ui,sans-serif;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25),0 3px 0 #14213d;cursor:pointer}
+.admbtn:hover{filter:brightness(1.1)}
+.admrs{position:absolute;right:2px;bottom:2px;width:22px;height:22px;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 0 45%,#ffd23f 45% 55%,transparent 55% 65%,#ffd23f 65% 75%,transparent 75%)}
+#cmd.full .admrs{display:none}
+.admp{position:relative}
+#admtask{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:2147480001;padding:10px 14px;border-radius:12px;border:3px solid #14213d;background:#ff8a1a;color:#fff;font:400 17px/1 'Lilita One',system-ui,sans-serif;-webkit-text-stroke:2px #14213d;paint-order:stroke fill;box-shadow:0 4px 0 #14213d;cursor:pointer}
+#admtask[hidden]{display:none}
 .admp{width:100%;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;background:#1b1b2e;border:4px solid #14213d;border-radius:20px;box-shadow:0 8px 0 #14213d,0 18px 40px rgba(0,0,0,.45);overflow:hidden;min-height:min(640px,calc(100vh - 40px))}
-.admh{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 64px;min-height:64px;border-bottom:4px solid #14213d;
+.admh{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 180px;min-height:64px;border-bottom:4px solid #14213d;
   background-color:#ff8a1a;background-image:radial-gradient(circle,rgba(255,255,255,.22) 0 3px,transparent 3.6px),linear-gradient(90deg,#ffd23f,#ff8a1a 55%,#ff5a2d);background-size:16px 16px,100% 100%}
 .admham{position:absolute;left:12px;top:50%;width:44px;height:44px;transform:translateY(-50%)}
 .admt{margin:0;font:400 clamp(24px,4vw,38px)/1 'Lilita One',system-ui,sans-serif;letter-spacing:1px;color:#fff;-webkit-text-stroke:5px #14213d;paint-order:stroke fill;text-shadow:0 3px 0 #14213d}
@@ -128,7 +147,7 @@ h1{font-size:clamp(40px,13vw,56px);line-height:1;color:#fff;-webkit-text-stroke:
   .admb{grid-template-columns:1fr}
   .admtabs{flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:8px}
   .admtab{font-size:16px;padding:10px 12px;white-space:nowrap}
-  .admh{padding:8px 56px;min-height:54px}.admham{width:34px;height:34px}.admx{width:40px;height:40px}
+  .admh{padding:8px 150px 8px 50px;min-height:54px;justify-content:flex-start}.admham{width:34px;height:34px}.admx,.admbtn{width:38px;height:38px}
   .admc{max-height:none}
 }
 #coop{position:fixed;inset:0;z-index:2147482000;display:flex;flex-direction:row;gap:4px;background:#ffd23f}
@@ -648,7 +667,6 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
       <header class="topbar">
         <div class="logo" role="heading" aria-level="1"><span class="lg">BLOCKYARD</span><span class="arc">ARCADE</span></div>
         <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15 15 4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><input id="hub-search" type="search" autocomplete="off" placeholder="Search games" aria-label="Search games"></label>
-        <button class="pill coop" id="coop-btn" type="button" hidden aria-pressed="false">2 players: Off</button>
         <button class="pill cmd" id="cmd-btn" type="button" hidden>Admin<span class="badge" id="cmd-badge" hidden>0</span></button>
         <button class="pill create" id="create-btn" type="button">Create</button>
         <button class="brkbtn" id="shop-btn" type="button" aria-label="Bricks and shop"><span class="brk"></span><span id="brk-n">0</span></button>
@@ -1359,6 +1377,7 @@ var GAMES={};
 var HUBBEST={};
 /* SOLO: this copy is not running inside Claude, so accounts live in the browser and
    an account code is what carries progress between devices. */
+try{if(!(window.claude&&window.claude.use)&&window.parent!==window&&/[?&]coop=[01]\b/.test(location.search)&&window.parent.claude&&window.parent.claude.use)window.claude=window.parent.claude;}catch(e){}
 var SOLO=!(window.claude&&window.claude.use);
 /* "Watch the bots play" runs more copies of this game in frames: BY_WALL is 1 in a little frame on the wall, 2 in the big one.
    Those copies have no sound, save nothing and never sign in. */
@@ -20916,7 +20935,7 @@ lobBody.addEventListener('keydown',function(e){
 
 /* ===== Bricks: wallet, daily tasks and shop ===== */
 var shopEl=$('shop'),shopBody=$('shop-body'),chatEl=$('chat'),chatBody=$('chat-body'),cmdEl=$('cmd'),cmdBody=$('cmd-body');
-var SCR=[$('social'),$('lobby'),shopEl,chatEl,cmdEl,$('menu3d'),$('rq')];
+var SCR=[$('social'),$('lobby'),shopEl,chatEl,$('menu3d'),$('rq')];
 function openScreen(el){hub.hidden=true;play.hidden=true;SCR.forEach(function(x){x.hidden=true;});el.hidden=false;}
 function toHub(){SCR.forEach(function(x){x.hidden=true;});hub.hidden=false;refreshHub();}
 function dayKey(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
@@ -21163,7 +21182,8 @@ function syncAdmin(){
   $('cmd-btn').hidden=!CMD.admin;
   rqSync();if(typeof repEnforce==='function'&&REP.subbed)repEnforce();
   if(typeof botSync==='function'){botSync();renderFrow();}
-  if(!cmdEl.hidden){if(CMD.admin)cmdRender();else toHub();}
+  if(!cmdEl.hidden){if(CMD.admin)cmdRender();else admClose();}
+  admTask();
   vRefresh(true);
 }
 /* redraw the places that show names so checkmarks appear or vanish right away */
@@ -22407,17 +22427,68 @@ function admWrap(h){
   var tabs=ADMTABS.filter(function(t){return got[t[0]];});
   if(CMD.tab&&!got[CMD.tab])CMD.tab='';
   var o='<div class="admp"><div class="admh"><svg class="admham" viewBox="0 0 40 40" aria-hidden="true"><g transform="rotate(-40 20 20)" stroke="#14213d" stroke-width="2.5"><rect x="17.5" y="15" width="5" height="22" rx="2" fill="#b0702f"/><rect x="7" y="5" width="26" height="12" rx="3" fill="#ffd23f"/><rect x="7" y="5" width="5" height="12" rx="2" fill="#c98a1a"/><rect x="28" y="5" width="5" height="12" rx="2" fill="#c98a1a"/></g></svg>'+
-    '<h2 class="admt">ADMIN PANEL</h2><button class="admx" id="adm-x" type="button" aria-label="Close the admin panel">✕</button></div>';
+    '<h2 class="admt">ADMIN PANEL</h2><span class="admwb"><button class="admbtn" type="button" data-admw="min" aria-label="Minimize" title="Minimize">&#8212;</button><button class="admbtn" type="button" data-admw="max" aria-label="'+(ADMW.max?'Restore':'Maximize')+'" title="'+(ADMW.max?'Restore':'Maximize')+'">'+(ADMW.max?'&#10064;':'&#9633;')+'</button><button class="admx" id="adm-x" type="button" aria-label="Close the admin panel" title="Close">✕</button></span></div>';
   o+='<div class="admb"><nav class="admtabs" aria-label="Admin tabs">';
   tabs.forEach(function(t){var on=CMD.tab===t[0];o+='<button type="button" class="admtab'+(on?' on':'')+'" data-admtab="'+t[0]+'" aria-pressed="'+on+'" style="--tc:'+t[2]+'">'+t[1]+'</button>';});
   o+='</nav><div class="admc">';
   if(head.replace(/\s+/g,''))o+='<div class="admhead">'+head+'</div>';
   o+=CMD.tab?'<div class="admpane">'+got[CMD.tab]+'</div>':'<p class="admsel">'+(tabs.length?'Select a tab':'Your role has no tools turned on yet.')+'</p>';
-  return o+'</div></div></div>';
+  return o+'</div></div><span class="admrs" aria-hidden="true"></span></div>';
 }
+/* the window: drag the title bar, resize from the corner, minimize to the bottom bar, maximize, close.
+   Where it is and how big are saved. On a narrow screen it fills the screen. */
+var ADMW=(function(){var o=lsGet('admwin',null)||{};return {x:isFinite(+o.x)?+o.x:NaN,y:isFinite(+o.y)?+o.y:NaN,w:+o.w||0,h:+o.h||0,max:!!o.max,min:false};})();
+function admSave(){lsSet('admwin',{x:ADMW.x,y:ADMW.y,w:ADMW.w,h:ADMW.h,max:ADMW.max});}
+function admSmall(){return innerWidth<720||innerHeight<420;}
+function admFit(){
+  var el=cmdEl,vw=innerWidth,vh=innerHeight,full=ADMW.max||admSmall();
+  el.classList.add('admwin');el.classList.toggle('full',full);
+  if(full){el.style.left='0px';el.style.top='0px';el.style.width=vw+'px';el.style.height=vh+'px';return;}
+  var w=clampN(ADMW.w||Math.min(980,vw-60),380,vw),h=clampN(ADMW.h||Math.min(660,vh-60),320,vh);
+  var x=isNaN(ADMW.x)?(vw-w)/2:ADMW.x,y=isNaN(ADMW.y)?(vh-h)/2:ADMW.y;
+  x=clampN(x,80-w,vw-80);y=clampN(y,0,vh-56);
+  ADMW.x=x;ADMW.y=y;ADMW.w=w;ADMW.h=h;
+  el.style.left=Math.round(x)+'px';el.style.top=Math.round(y)+'px';el.style.width=Math.round(w)+'px';el.style.height=Math.round(h)+'px';
+}
+function admTask(){
+  if(typeof ADMW==='undefined'||!ADMW||typeof cmdEl==='undefined')return;
+  var t=$('admtask');
+  if(!t){t=document.createElement('button');t.id='admtask';t.type='button';t.innerHTML='<span aria-hidden="true">&#128296;</span> Admin Panel';document.body.appendChild(t);t.addEventListener('click',admOpen);}
+  t.hidden=!(ADMW.min&&CMD.admin&&cmdEl.hidden);
+}
+function admOpen(){if(!CMD.admin)return;ADMW.min=false;cmdEl.hidden=false;admFit();admTask();}
+function admClose(){ADMW.min=false;cmdEl.hidden=true;admTask();}
+function admMin(){ADMW.min=true;cmdEl.hidden=true;admTask();}
+function admMax(){ADMW.max=!ADMW.max;admSave();admFit();cmdRender();}
+window.addEventListener('resize',function(){if(!cmdEl.hidden)admFit();});
+(function(){
+  var drag=null;
+  cmdEl.addEventListener('pointerdown',function(e){
+    if(cmdEl.hidden||e.button>0)return;
+    var rs=e.target.closest&&e.target.closest('.admrs'),hd=e.target.closest&&e.target.closest('.admh');
+    if(!rs&&(!hd||e.target.closest('button')))return;
+    if(ADMW.max||admSmall())return;
+    e.preventDefault();
+    drag={rs:!!rs,sx:e.clientX,sy:e.clientY,x:ADMW.x,y:ADMW.y,w:ADMW.w,h:ADMW.h,id:e.pointerId};
+    try{cmdEl.setPointerCapture(e.pointerId);}catch(_){}
+    cmdEl.classList.add('drag');
+  });
+  cmdEl.addEventListener('pointermove',function(e){
+    if(!drag||e.pointerId!==drag.id)return;
+    var dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;
+    if(drag.rs){ADMW.w=clampN(drag.w+dx,380,innerWidth-ADMW.x);ADMW.h=clampN(drag.h+dy,320,innerHeight-ADMW.y);}
+    else{ADMW.x=drag.x+dx;ADMW.y=drag.y+dy;}
+    admFit();
+  });
+  function end(e){if(!drag||(e&&e.pointerId!==drag.id))return;drag=null;cmdEl.classList.remove('drag');admSave();}
+  cmdEl.addEventListener('pointerup',end);cmdEl.addEventListener('pointercancel',end);
+  cmdEl.addEventListener('dblclick',function(e){var hd=e.target.closest&&e.target.closest('.admh');if(hd&&!e.target.closest('button')&&!admSmall())admMax();});
+})();
 cmdBody.addEventListener('click',function(e){
+  var w=e.target.closest?e.target.closest('[data-admw]'):null;
+  if(w){var a=w.getAttribute('data-admw');if(a==='min')admMin();else if(a==='max')admMax();return;}
   var b=e.target.closest?e.target.closest('[data-admtab],#adm-x'):null;if(!b)return;
-  if(b.id==='adm-x'){$('cmd-back').click();return;}
+  if(b.id==='adm-x'){admClose();return;}
   CMD.tab=b.getAttribute('data-admtab');beep(660,0.05,'square',0.03,1.3);cmdRender();
   var c=cmdBody.querySelector('.admc');if(c)c.scrollTop=0;
 });
@@ -23074,14 +23145,7 @@ function pmRender(){
     }
     h+='<div class="sendrow"><input class="field" id="pm-rname" maxlength="17" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Their username" aria-label="Username to report" value="'+esc(PM.rname)+'"><button class="mini bad" type="button" data-pm="repname">Report</button></div>';
     if(RUNCHEAT)h+='<p class="note err">Cheats were used in this game, so your scores won\'t save. Leave and reopen the game to play for the boards again.</p>';
-    var cid=curId(),cl=CHEATS.filter(function(c){return can('c_'+c[0]);});
-    if(cl.length){
-      h+='<p class="lbl">Cheats</p>';
-      cl.forEach(function(c){
-        var on=!!CHEAT[c[0]],works=c[3].indexOf(cid)>=0;
-        h+='<div class="row"><span class="who">'+esc(c[1])+'<small>'+(works?esc(c[2]):'Does nothing in this game')+'</small></span><button class="mini'+(on?' ok':'')+'" type="button" data-pm="cheat" data-k="'+c[0]+'" aria-pressed="'+on+'">'+(on?'On':'Off')+'</button></div>';
-      });
-    }
+    if(CMD.admin)h+='<button class="choice" type="button" data-pm="admin">Admin panel</button>';
     if(pmPaused())h+='<p class="note">The game is paused while this menu is open.</p>';
   }
   if(PM.msg)h+='<p class="note '+PM.msg.t+'" role="status">'+esc(PM.msg.s)+'</p>';
@@ -23118,6 +23182,7 @@ $('pmenu').addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;if(!b||b.disabled)return;
   var a=b.getAttribute('data-pm');
   if(a==='resume')pmClose();
+  else if(a==='admin'){pmClose();openCmd();}
   else if(a==='leave'){PM.view='leave';PM.msg=null;pmRender();}
   else if(a==='no'){PM.view='menu';pmRender();}
   else if(a==='yes'){pmClose(true);closeGame();}
@@ -24458,10 +24523,10 @@ function cmdChats(){
 function openCmd(){
   if(!CMD.admin)return;
   CMD.msg=null;CMD.sure=false;
-  openScreen(cmdEl);cmdRender();
+  admOpen();cmdRender();
 }
 $('cmd-btn').addEventListener('click',function(){initAudio();openCmd();});
-$('cmd-back').addEventListener('click',toHub);
+$('cmd-back').addEventListener('click',admClose);
 cmdBody.addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;
   if(!b||b.disabled||!CMD.admin)return;
@@ -24878,12 +24943,12 @@ window.addEventListener('keyup',function(e){
    and hands each frame its own. ===== */
 var COOPC=(function(){var m=/[?&]coop=([01])\b/.exec(location.search||'');var inFrame=false;try{inFrame=window.parent!==window&&!!window.parent.coopPads;}catch(e){}return {on:!!(m&&inFrame),slot:m?+m[1]:0};})();
 var COOP={on:false,want:false,el:null,slots:[-1,-1],split:lsGet('coopsplit','h')==='v'?'v':'h'};
-function coopReady(){return !COOPC.on&&gpPads().length>=1;}
+function coopReady(){return !COOPC.on&&gpPads().length>=2;}
 function coopBtnSync(){
-  var b=$('coop-btn');if(!b)return;
-  var ok=coopReady();if(!ok)COOP.want=false;
-  b.hidden=!ok;b.setAttribute('aria-pressed',COOP.want?'true':'false');
-  b.textContent='2 players: '+(COOP.want?'On':'Off');
+  /* no button: two controllers turn split screen on by themselves */
+    var two=coopReady();
+  if(two&&!COOP.want&&!COOP.on)gpToast('2 controllers: games open in split screen, one half for each player');
+  COOP.want=two;
 }
 /* which controller each half gets (-1 = this device's keyboard and touch) */
 function coopPlan(){
@@ -25032,7 +25097,7 @@ function gpToast(m){
   if(!el){el=document.createElement('div');el.id='gptoast';el.setAttribute('role','status');document.body.appendChild(el);}
   el.textContent=m;el.classList.add('on');clearTimeout(GP.hintT);GP.hintT=setTimeout(function(){el.classList.remove('on');},3200);
 }
-window.addEventListener('gamepadconnected',function(){gpStart();coopBtnSync();if(COOPC.on)return;if(!PSET.kind){if(typeof TB!=='undefined'&&TB.on){PSET.kind='xbox';}else{padAsk();return;}}gpToast(PADKN[PSET.kind]+' controller connected: '+padHelp());});
+window.addEventListener('gamepadconnected',function(){gpStart();setTimeout(coopBtnSync,80);if(COOPC.on)return;if(!PSET.kind){if(typeof TB!=='undefined'&&TB.on){PSET.kind='xbox';}else{padAsk();return;}}gpToast(PADKN[PSET.kind]+' controller connected: '+padHelp());});
 window.addEventListener('gamepaddisconnected',function(){coopBtnSync();if(COOPC.on)return;if(!gpPads().length){gpStop();gpToast('Controller disconnected');}});
 document.addEventListener('pointerdown',function(e){if(e.pointerId!==97)gpClearFocus();},true);
 function gpRelease(){
@@ -25151,7 +25216,6 @@ function gpUI(s,P,J,dt){
 if(COOPC.on)gpStart();
 else if(gpPads().length){gpStart();if(!PSET.kind&&!(typeof TB!=='undefined'&&TB.on))setTimeout(padAsk,400);}
 setTimeout(coopBtnSync,0);
-$('coop-btn').addEventListener('click',function(){COOP.want=!COOP.want;coopBtnSync();beep(COOP.want?780:500,0.06,'square',0.04,1.4);gpToast(COOP.want?'2 players is on: pick a game and it opens twice, one half for each player':'2 players is off');});
 /* ===== Game chat: the speech bubble left of the game's name opens a chat with only the people in the same game.
    Online games chat inside their own room (the lobby or match you are in). Single-player games join a small chat room
    for that game. Messages ride along in your room presence for 45 seconds, so people who join late still see the
