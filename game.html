@@ -23322,25 +23322,27 @@ function okMake(){
 function okTick(){
   clearInterval(OK.tick);
   OK.tick=setInterval(function(){
-    if(!OK.shown||cmdEl.hidden){clearInterval(OK.tick);OK.tick=0;return;}
-    if(okWin()!==OK.w)okMake().then(function(){var f=$('cmd-okey');if(f)f.value=OK.code;},function(){});
-    var t=$('cmd-okt');if(t)t.textContent=okLeft();
+    if(!OK.shown||(cmdEl.hidden&&$('settings').hidden)){clearInterval(OK.tick);OK.tick=0;return;}
+    if(okWin()!==OK.w)okMake().then(function(){['cmd-okey','set-okey'].forEach(function(i){var f=$(i);if(f)f.value=OK.code;});},function(){});
+    ['cmd-okt','set-okt'].forEach(function(i){var t=$(i);if(t)t.textContent=okLeft();});
   },1000);
 }
 function okShow(){
   if(!CMD.owner||!SOC.db||!SOC.uid||OK.busy)return;
   if(!OK.give.owner&&!okGrantStr()){OK.msg={t:'err',s:'Turn on at least one thing this key gives.'};cmdRender();return;}
   var go=function(){return okMake().then(function(){OK.shown=true;okTick();});};
-  OK.busy=true;OK.msg=null;cmdRender();
+  OK.busy=true;OK.msg=null;okRedraw();
   (OK.jwk?go():SOC.db.doc('data/users/'+SOC.uid+'/ownerkey').get().then(function(sn){
     var d=sn.exists?sn.data():null;
     if(!d||!d.jwk||typeof d.jwk!=='object'){OK.msg={t:'err',s:'Your owner key is not set up yet. Ask Claude to make one.'};return;}
     OK.jwk=d.jwk;return go();
-  })).then(null,function(e){OK.msg={t:'err',s:(e&&e.code)?failText(e):'Your owner key could not be made in this browser.'};}).then(function(){OK.busy=false;cmdRender();});
+  })).then(null,function(e){OK.msg={t:'err',s:(e&&e.code)?failText(e):'Your owner key could not be made in this browser.'};}).then(function(){OK.busy=false;okRedraw();});
+}
+function okRedraw(){try{if(!cmdEl.hidden)cmdRender();}catch(e){}try{if(!$('settings').hidden)setRender();}catch(e){}
 }
 function okCopy(){
   var k=OK.code;if(!k)return;
-  var done=function(ok){OK.msg={t:'good',s:ok?'Copied. Paste it on the website or app in Settings → Owner within 5 minutes.':'Tap the key, then copy it.'};cmdRender();if(!ok){var f=$('cmd-okey');if(f){f.focus();f.select();}}};
+  var done=function(ok){OK.msg={t:'good',s:ok?'Copied. Paste it in the account code box in Settings on the website or app within 5 minutes.':'Tap the key, then copy it.'};okRedraw();if(!ok){var f=$('set-okey')||$('cmd-okey');if(f){f.focus();f.select();}}};
   try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(k).then(function(){done(true);},function(){done(false);});return;}}catch(e){}
   done(false);
 }
@@ -23350,7 +23352,8 @@ function ownerSetHtml(){
   var h='<p class="lbl" id="own-sec">Owner</p>';
   if(OK.msg)h+='<p class="note '+OK.msg.t+'" role="status">'+esc(OK.msg.s)+'</p>';
   if(!CMD.owner&&KEYPERMS)return h+'<div class="sheet"><p>This device has an admin key from the owner. It gives: '+esc(okGrantText(okGrantsOf(lsGet('ownerpass',''))))+'. Admin is at the top of the hub.</p></div><button class="choice alt" type="button" data-own="off">Remove the admin key from this player</button>';
-  if(CMD.owner)return h+'<div class="sheet"><p>You are the owner on this device. Commands is at the top of the hub, and it stays even when the owner key changes.</p></div><button class="choice alt" type="button" data-own="off">Remove owner from this player</button>';
+  if(CMD.owner)return h+'<div class="sheet"><p>You are the owner on this device. Admin is at the top of the hub, and it stays even when the owner key changes.</p></div><button class="choice alt" type="button" data-own="off">Remove owner from this player</button>';
+  return OK.msg?'<p class="note '+OK.msg.t+'" role="status">'+esc(OK.msg.s)+'</p>':'';
   h+='<p class="note">Own Blockyard? Paste your owner key to get your Commands here. Find it in the Claude version: Commands → Owner on the website and app. It changes every 5 minutes, so copy a fresh one.</p>';
   h+='<div class="sendrow"><input class="field" id="own-key" maxlength="160" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Owner key (starts with BYO-)" value="'+esc(OK.draft)+'"><button class="mini ok" type="button" data-own="go"'+(OK.busy?' disabled':'')+'>'+(OK.busy?'Checking...':'Unlock')+'</button></div>';
   return h;
@@ -26216,6 +26219,12 @@ function setRender(){
   h+=fbHtml();
   h+=supHtml();
   h+=ownerSetHtml();
+  if(!SOLO&&CMD.owner){
+    h+='<p class="lbl">Owner key</p><p class="note">Paste it in the account code box in Settings on the website, the app or itch.io within 5 minutes to be the owner there. Pick what it gives in Admin, Admins.</p>';
+    if(OK.msg)h+='<p class="note '+OK.msg.t+'" role="status">'+esc(OK.msg.s)+'</p>';
+    if(OK.shown&&OK.code)h+='<div class="sendrow"><input class="field" id="set-okey" readonly value="'+esc(OK.code)+'" onclick="this.select()" aria-label="Your owner key"><button class="mini ok" type="button" data-sv="okcopy">Copy</button></div><p class="note" id="set-okt">'+esc(okLeft())+'</p>';
+    else h+='<button class="choice" type="button" data-sv="okshow"'+(OK.busy?' disabled':'')+'>'+(OK.busy?'Loading...':'Show my owner key')+'</button>';
+  }
   if(!SOLO){
     h+='<p class="lbl">Play on the website, app and itch.io</p><p class="note">Take your bricks, avatar, worlds and best scores with you. The website opens with your progress, ready to make your player.'+(SOC.account?' Use the same name, <b>@'+esc(SOC.account.username)+'</b>, and add a password there so it saves online and works on itch.io too.':'')+'</p>';
     h+='<button class="choice" type="button" data-sv="move">Open my account on the website</button>';
@@ -26231,7 +26240,7 @@ function setRender(){
   h+='<p class="lbl">'+(SOLO?'Sign in with an account code':'Load a save code')+'</p>';
   if(SOC.account)h+='<p class="note">You are signed in with your Claude account, so your progress is already saved online. Sign out above first if you want to load a code.</p>';
   else{
-    h+='<textarea class="field svcode" id="sv-in" rows="4" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste your '+(SOLO?'account':'save')+' code here">'+esc(SV.draft)+'</textarea>';
+    h+='<textarea class="field svcode" id="sv-in" rows="4" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste your '+(SOLO?'account code (or owner key)':'save code')+' here">'+esc(SV.draft)+'</textarea>';
     if(SV.mk)h+='<label class="lbl" for="sv-nm">Name for your player</label><input class="field" id="sv-nm" maxlength="16" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="3 to 16 letters, numbers or _" value="'+esc(SV.nm)+'">';
     if(SV.need)h+='<input class="field" id="sv-pw" type="password" maxlength="40" autocomplete="current-password" placeholder="Password for @'+esc(SV.need)+'" value="'+esc(SV.pw)+'">';
     h+='<button class="choice alt" type="button" data-sv="load">'+(SV.mk?'Make my player and load':SV.need?'Sign in with this code':(SV.sure?'Tap again to replace this device\'s progress':(SOLO?'Sign in with this code':'Load save code')))+'</button>';
@@ -26325,6 +26334,8 @@ $('set-body').addEventListener('click',function(e){
   if(st==='pw')stChangePw();
   else if(st==='out')stSignOut();
   else if(st==='go'){openSocial();return;}
+  else if(sv==='okshow'){okShow();return;}
+  else if(sv==='okcopy'){okCopy();return;}
   else if(sv==='move'){
     SV.moveUrl='https://glufftl25-sys.github.io/blockyard/game.html#move='+svMake();
     var wo=null;try{wo=window.open(SV.moveUrl,'_blank','noopener');}catch(e){}
@@ -26335,6 +26346,19 @@ $('set-body').addEventListener('click',function(e){
     var ok=false;
     try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(code).then(function(){SV.msg={t:'good',s:'Save code copied. Keep it somewhere safe, like a note.'};setRender();},function(){SV.msg={t:'good',s:'Select the code below and copy it.'};setRender();var o=$('sv-out');if(o){o.focus();o.select();}});ok=true;}}catch(e){}
     if(!ok)SV.msg={t:'good',s:'Select the code below and copy it.'};
+  }else if(sv==='load'&&SOLO&&/^BYO-/i.test(String(SV.draft||'').replace(/\s+/g,''))){
+    /* an owner key pasted in the account code box unlocks owner (or an admin key's tools) on this device */
+    var ok0=String(SV.draft||'').replace(/\s+/g,'');
+    OK.busy=true;SV.msg={t:'good',s:'Checking your owner key...'};setRender();
+    okCheck(ok0,true).then(function(r){
+      OK.busy=false;OK.msg=null;
+      if(r==='ok'){lsSet('ownerpass',ok0);SV.draft='';var gk=okGrantsOf(ok0);SV.msg={t:'good',s:gk?'Key unlocked! You can now use: '+okGrantText(gk)+'. Open Admin at the top of the hub.':'You are the owner on this device! Admin is at the top of the hub, and it stays here.'};ownerSync();}
+      else if(r==='old')SV.msg={t:'err',s:'That owner key is too old. It changes every 5 minutes, so copy the newest one.'};
+      else if(r==='nocrypto')SV.msg={t:'err',s:'This browser can\u2019t check owner keys here. Open Blockyard from its https:// address.'};
+      else SV.msg={t:'err',s:'That owner key is not right.'};
+      setRender();
+    });
+    return;
   }else if(sv==='load'){
     if(SOC.account)return;
     if(!SV.draft.trim()){SV.msg={t:'err',s:'Paste a save code first.'};}
