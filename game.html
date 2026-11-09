@@ -13989,7 +13989,7 @@ GAMES.shape=(function(){
    Blockyard (about 1,500 everyday words). Ten rounds, from 5 letters and 4 words to 7 letters and 12 words. Tap letters,
    or type them; Enter checks, Backspace takes one back, Space shuffles. Hint shows how a missing word starts.
    Controller: left/right picks a letter or button, A presses it, B takes one back, X checks, Y shuffles. ===== */
-HUBBEST['best-words']='by.words';
+HUBBEST['best-words']='by.words';GAMES.words.rawKeys=true;
 GAMES.words=(function(){
   var g={kind:'canvas',title:'Word Builder',lw:400};
   var WORDS_LIST=(
@@ -24386,7 +24386,8 @@ window.addEventListener('keydown',function(e){
   if(e.code==='Escape'&&cur){e.preventDefault();pmToggle();return;}
   if(PM.open)return;
   if(!cur||!cur.key)return;
-  var c=bindMap(e.code);
+  /* typing games (g.rawKeys) get the letter you pressed, not your remapped controls */
+  var c=cur.rawKeys?e.code:bindMap(e.code);
   if(c===null)return;
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.code)>=0)e.preventDefault();
   initAudio(); cur.key(c,true);
@@ -24394,7 +24395,7 @@ window.addEventListener('keydown',function(e){
 window.addEventListener('keyup',function(e){
   if(BIND_WAIT||!cur||!cur.key)return;
   var tg1=e.target;if(tg1&&(tg1.tagName==='INPUT'||tg1.tagName==='TEXTAREA'))return;
-  var c=bindMap(e.code);
+  var c=cur.rawKeys?e.code:bindMap(e.code);
   if(c!==null)cur.key(c,false);
 });
 /* ===== Game controllers: the whole arcade works with a gamepad.
