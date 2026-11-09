@@ -1,7 +1,7 @@
 {
   "name": "Blockyard Arcade",
   "short_name": "Blockyard",
-  "description": "82 block games in one arcade.",
+  "description": "83 block games in one arcade.",
   "id": "./game.html",
   "start_url": "./game.html",
   "scope": "./",
