@@ -6,7 +6,9 @@
    Claude's database (window.claude): A sends B a message and a party message to B and C; they must read them, an
    outsider who copies a locked message must not, and the database must hold only locked copies. Then the website check:
    index.html at phone width loads with no errors, every picture loads, nothing scrolls sideways, every game card opens a
-   game that exists, and game.html#play=snake starts Block Snake. Last, a quick look through the game code for a name
+   game that exists, and game.html#play=snake starts Block Snake. Also: Obby Race with two players, couch co-op with two
+   fake controllers (the controller chooser, the 2 players button, two halves, keyboard to Player 1, a controller per
+   half, leaving), and every Admin panel tab as the page owner. Last, a quick look through the game code for a name
    declared twice at the top level (tools/dupnames.js), since one would quietly overwrite the other, and the local part
    of the release check (tools/checkrelease.js).
    Writes <out>/report.json, a small picture of every game's last frame, and a contact sheet per size
@@ -148,7 +150,7 @@ function fakeClaude(me) {
     };
   }
   const db = { doc: docRef, collection: p => query(p, { w: [], o: [], l: null }) };
-  const user = { id: () => Promise.resolve(me.uid), me: () => Promise.resolve({ email: me.uid + '@bots.test', name: me.name }), can: () => Promise.resolve(true), isOwner: () => Promise.resolve(false) };
+  const user = { id: () => Promise.resolve(me.uid), me: () => Promise.resolve({ email: me.uid + '@bots.test', name: me.name }), can: () => Promise.resolve(true), isOwner: () => Promise.resolve(!!me.owner) };
   const ready = window.__dbAll().then(all => { Object.assign(store, all); });
   window.claude = { use: n => ready.then(() => n === 'db' ? db : n === 'user' ? user : null) };
 }
@@ -383,6 +385,134 @@ async function obbyRace(browser) {
   r.ok = !r.fail && !Object.keys(r.err).length;
   return r;
 }
+/* fake controllers for every frame: window.__pads (set by the test) answer navigator.getGamepads */
+function fakePads() {
+  const mk = i => ({ index: i, id: 'Bot controller ' + i + ' (STANDARD GAMEPAD)', connected: true, mapping: 'standard', timestamp: 0,
+    buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })), axes: [0, 0, 0, 0] });
+  let top = null; try { top = window.top; } catch (e) {}
+  if (window === top) window.__pads = [];
+  window.__mkPad = mk;
+  navigator.getGamepads = () => { try { return (window.top.__pads || []).slice(); } catch (e) { return []; } };
+}
+/* couch co-op and the controller chooser: plug in a controller (the chooser asks which kind), then a second one; the
+   "2 players" button shows; with it on, a game opens twice side by side, the keyboard goes to Player 1 only, each half
+   gets its own controller, and leaving one half closes co-op */
+async function coopCheck(browser) {
+  const r = { id: 'm.coop', t: 'Couch co-op and controller chooser', check: true, err: {}, ok: true, steps: 0, fail: '' };
+  const srv = await serve(path.dirname(game));
+  const url = 'http://127.0.0.1:' + srv.address().port + '/' + path.basename(game);
+  const say = m => { r.err[m] = (r.err[m] || 0) + 1; };
+  const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (await f()) return true; } catch (e) {} await sleep(250); } return false; };
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx.addInitScript(() => { try { sessionStorage.setItem('by.gate', 'skip'); } catch (e) {} });
+  await ctx.addInitScript(fakePads);
+  await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, rt => rt.abort());
+  const pg = await ctx.newPage();
+  pg.on('pageerror', e => say(String(e.message).slice(0, 110)));
+  const plug = i => pg.evaluate(i => { window.__pads.push(window.__mkPad(i)); const e = new Event('gamepadconnected'); e.gamepad = window.__pads[i]; window.dispatchEvent(e); }, i);
+  const frames = () => pg.frames().filter(f => /[?&]coop=[01]/.test(f.url())).sort((a, b) => a.url().localeCompare(b.url()));
+  try {
+    await pg.goto(url, { waitUntil: 'load' });
+    await pg.waitForTimeout(800);
+    const steps = [
+      ['the controller chooser did not open when a controller was plugged in', async () => { await plug(0); return until(() => pg.evaluate(() => { const q = document.getElementById('padq'); return !!q && !q.hidden; }), 4000); }],
+      ['picking a controller did not close the chooser', async () => {
+        await pg.click('#padq [data-pk="xbox"]');
+        return until(() => pg.evaluate(() => { const q = document.getElementById('padq'); return !q || q.hidden; }), 3000);
+      }],
+      ['the "2 players" button did not show with controllers plugged in', async () => { await plug(1); return until(() => pg.evaluate(() => !document.getElementById('coop-btn').hidden), 4000); }],
+      ['the "2 players" button did not turn on', async () => { await pg.evaluate(() => document.getElementById('coop-btn').click()); return until(() => pg.evaluate(() => document.getElementById('coop-btn').getAttribute('aria-pressed') === 'true'), 3000); }],
+      ['the game did not open in two halves', async () => {
+        await pg.evaluate(() => document.querySelector('#games .tile[data-game="snake"]').click());
+        return until(async () => {
+          const fs2 = frames(); if (fs2.length !== 2) return false;
+          for (const f of fs2) if (!await f.evaluate(() => document.getElementById('hub').hidden && !document.getElementById('play').hidden)) return false;
+          return true;
+        }, 12000);
+      }],
+      ['the keyboard did not go to Player 1 only', async () => {
+        const [f0, f1] = frames();
+        for (const f of [f0, f1]) await f.evaluate(() => { window.__k = 0; window.addEventListener('keydown', () => { window.__k++; }); });
+        await pg.keyboard.press('ArrowUp');
+        await sleep(200);
+        const k0 = await f0.evaluate(() => window.__k), k1 = await f1.evaluate(() => window.__k);
+        return k0 >= 1 && k1 === 0;
+      }],
+      ['each half did not get its own controller', async () => {
+        const [f0, f1] = frames();
+        const p0 = await f0.evaluate(() => (window.parent.coopPads(0) || []).map(p => p.index).join(','));
+        const p1 = await f1.evaluate(() => (window.parent.coopPads(1) || []).map(p => p.index).join(','));
+        return p0 === '0' && p1 === '1';
+      }],
+      ['leaving one half did not close co-op', async () => {
+        const [f0] = frames();
+        /* through the in-game menu, as a player would: Game menu, Leave game, Yes */
+        await f0.evaluate(() => document.getElementById('gmenu').click());
+        await sleep(300);
+        await f0.evaluate(() => { const b = document.querySelector('[data-pm="leave"]'); if (b) b.click(); });
+        await sleep(300);
+        await f0.evaluate(() => { const b = document.querySelector('[data-pm="yes"]'); if (b) b.click(); });
+        return until(() => pg.evaluate(() => !document.getElementById('coop')), 6000);
+      }]
+    ];
+    for (const s of steps) {
+      r.steps++;
+      let ok = false;
+      try { ok = await s[1](); } catch (e) { r.fail = s[0] + ' (' + String(e.message).slice(0, 80) + ')'; break; }
+      if (!ok) { r.fail = s[0]; break; }
+    }
+  } catch (e) { r.fail = 'it could not start: ' + String(e.message).slice(0, 80); }
+  await ctx.close().catch(() => {});
+  srv.close();
+  r.ok = !r.fail && !Object.keys(r.err).length;
+  return r;
+}
+/* the Admin panel, as the page owner: it opens, and every tab opens with something in it and no errors */
+async function adminCheck(browser) {
+  const r = { id: 'm.admin', t: 'Admin panel tabs', check: true, err: {}, ok: true, steps: 0, fail: '', tabs: [] };
+  const srv = await serve(path.dirname(game));
+  const url = 'http://127.0.0.1:' + srv.address().port + '/' + path.basename(game);
+  const say = m => { r.err[m] = (r.err[m] || 0) + 1; };
+  const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (await f()) return true; } catch (e) {} await sleep(250); } return false; };
+  const now = Date.now(), store = { 'data/users/botO1/profile': { username: 'botowner', at: now }, 'usernames/botowner': { uid: 'botO1', at: now } };
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  await ctx.addInitScript(() => { try { sessionStorage.setItem('by.gate', 'skip'); } catch (e) {} });
+  await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, rt => rt.abort());
+  const pg = await ctx.newPage();
+  pg.on('pageerror', e => say(String(e.message).slice(0, 110)));
+  await pg.exposeFunction('__dbAll', () => store);
+  await pg.exposeFunction('__dbw', ws => { ws.forEach(w => { if (w.data == null) delete store[w.path]; else store[w.path] = w.data; }); });
+  await ctx.addInitScript(fakeClaude, { uid: 'botO1', name: 'botowner', owner: true });
+  try {
+    await pg.goto(url, { waitUntil: 'load' });
+    r.steps++;
+    if (!await until(() => pg.evaluate(() => !document.getElementById('cmd-btn').hidden), 15000)) r.fail = 'the Admin button did not show for the page owner';
+    if (!r.fail) {
+      r.steps++;
+      await pg.evaluate(() => document.getElementById('cmd-btn').click());
+      if (!await until(() => pg.evaluate(() => document.querySelectorAll('[data-admtab]').length > 0), 6000)) r.fail = 'the Admin panel did not open with tabs';
+    }
+    if (!r.fail) {
+      const tabs = await pg.evaluate(() => [...document.querySelectorAll('[data-admtab]')].map(b => [b.getAttribute('data-admtab'), b.textContent.trim()]));
+      const empty = [];
+      for (const [id, name] of tabs) {
+        r.steps++;
+        const n0 = Object.keys(r.err).length;
+        await pg.evaluate(id => document.querySelector('[data-admtab="' + id + '"]').click(), id);
+        const ok = await until(() => pg.evaluate(id => { const b = document.querySelector('[data-admtab="' + id + '"]'), p = document.querySelector('#cmd .admpane'); return !!b && b.getAttribute('aria-pressed') === 'true' && !!p && p.textContent.trim().length > 0; }, id), 4000);
+        await sleep(300);
+        r.tabs.push(name);
+        if (!ok) empty.push(name);
+        else if (Object.keys(r.err).length > n0) empty.push(name + ' (error)');
+      }
+      if (empty.length) r.fail = 'these Admin tabs did not open properly: ' + empty.join(', ');
+    }
+  } catch (e) { r.fail = 'it could not start: ' + String(e.message).slice(0, 80); }
+  await ctx.close().catch(() => {});
+  srv.close();
+  r.ok = !r.fail && !Object.keys(r.err).length;
+  return r;
+}
 function problemOf(r) {
   const b = [], em = Object.keys(r.err || {});
   if (r.fail) b.push(r.fail);
@@ -446,6 +576,11 @@ function problemOf(r) {
     const ob = await obbyRace(browser);
     lap.results.push(ob);
     if (!ob.ok) lap.problems.push(problemOf(ob));
+    for (const chk of [coopCheck, adminCheck]) {
+      const x = await chk(browser);
+      lap.results.push(x);
+      if (!x.ok) lap.problems.push(problemOf(x));
+    }
     const fc = await friendChat(browser);
     lap.results.push(fc);
     if (!fc.ok) lap.problems.push(problemOf(fc));
