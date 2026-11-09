@@ -13989,7 +13989,7 @@ GAMES.shape=(function(){
    Blockyard (about 1,500 everyday words). Ten rounds, from 5 letters and 4 words to 7 letters and 12 words. Tap letters,
    or type them; Enter checks, Backspace takes one back, Space shuffles. Hint shows how a missing word starts.
    Controller: left/right picks a letter or button, A presses it, B takes one back, X checks, Y shuffles. ===== */
-HUBBEST['best-words']='by.words';GAMES.words.rawKeys=true;
+HUBBEST['best-words']='by.words';
 GAMES.words=(function(){
   var g={kind:'canvas',title:'Word Builder',lw:400};
   var WORDS_LIST=(
@@ -14147,6 +14147,7 @@ GAMES.words=(function(){
     for(var i=0;i<tiles.length;i++){var q=tiles[i];if(Math.hypot(x-q.x,y-q.y)<=q.r+6){tap(i);return;}}
     for(var b=0;b<btns.length;b++){var B=btns[b];if(x>=B.x&&x<=B.x+B.w&&y>=B.y&&y<=B.y+B.h){press(B.k);return;}}
   };
+  g.rawKeys=true;   /* typed letters arrive as typed */
   g.key=function(c,d){
     if(!d)return;
     if(st==='over'){if(t>0.7&&(c==='Space'||c==='Enter'))reset(true);return;}
