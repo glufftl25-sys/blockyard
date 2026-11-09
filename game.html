@@ -6942,6 +6942,7 @@ GAMES.duel=(function(){
   function nameOf(k){if(!k)return '';var e=entBy(k);return e?e.name:(String(k).indexOf('bot')===0?botName(k):'Someone');}
 
   /* ---------- the match: start, rounds, end ---------- */
+  var CCD={t:0,n:0};
   function resetMatchVars(){
     rs='wait';rn=0;sc=[0,0];ro=null;lastWin=-1;roundSeen=-1;stT=now();endT=0;endDone=false;spect=false;
     dead=false;dm={};shots=[];pj=[];pjOut=[];fx=[];tracers=[];nums=[];feed=[];smokes=[];bots=[];bdm={};lastBd={};botMirror=[];
@@ -7437,6 +7438,13 @@ GAMES.duel=(function(){
     beep(660,0.1,'square',0.04,1.6);
   }
   function lobbyTick(dt){
+    /* couch co-op: both halves of the screen go straight into a private 1v1 against each other
+       (Player 1 on one team, Player 2 on the other). Each match back in the lobby starts the next one. */
+    if(COOPC.on&&COOPC.code&&!going&&!ov&&!PK.fall){
+      if(!CCD.t)CCD.t=now();
+      if(msgT<=0)say('Couch co-op: starting a duel with Player '+(COOPC.slot?1:2)+'...',1.2);
+      if(now()-CCD.t>1600){CCD.t=0;CCD.n++;enterMatch({gid:'cc'+COOPC.code+'-'+CCD.n,n:1,team:COOPC.slot});return;}
+    }
     if(PK.fall){lvy-=GRV*dt;ly+=lvy*dt;if(ly<-4)secretEnter();return;}
     var ax=0,ay=0;
     if(!ov&&!going){
@@ -25437,9 +25445,10 @@ window.addEventListener('keyup',function(e){
    (or top and bottom, Settings > Controller), and each half listens only to its own player's controller.
    The halves are this same page in two frames (game.html?coop=0 / ?coop=1); the outer page reads the controllers
    and hands each frame its own. ===== */
-var COOPC=(function(){var m=/[?&]coop=([01])\b/.exec(location.search||'');var inFrame=false;try{inFrame=window.parent!==window&&!!window.parent.coopPads;}catch(e){}return {on:!!(m&&inFrame),slot:m?+m[1]:0};})();
+var COOPC=(function(){var m=/[?&]coop=([01])\b/.exec(location.search||''),cm=/[?&]cc=([a-z0-9]{4,12})\b/.exec(location.search||'');var inFrame=false;try{inFrame=window.parent!==window&&!!window.parent.coopPads;}catch(e){}return {on:!!(m&&inFrame),slot:m?+m[1]:0,code:cm?cm[1]:''};})();
 var COOP={on:false,want:false,el:null,slots:[-1,-1],split:lsGet('coopsplit','h')==='v'?'v':'h'};
-function coopReady(){return !COOPC.on&&gpPads().length>=2;}
+/* split screen needs the page to load itself twice in frames: the website, app and Windows app can; the Claude version can't */
+function coopReady(){return SOLO&&!WALL&&!COOPC.on&&gpPads().length>=2;}
 function coopBtnSync(){
   /* no button: two controllers turn split screen on by themselves */
     var two=coopReady();
@@ -25466,11 +25475,11 @@ function coopLabel(slot){var s=COOP.slots[slot];return 'Player '+(slot+1)+' · '
 function coopStart(id){
   if(COOP.on)return;
   if(PADQ.open)padPick(padGuess()||'xbox');
-  COOP.slots=coopPlan();COOP.on=true;
+  COOP.slots=coopPlan();COOP.on=true;COOP.code=Math.random().toString(36).slice(2,10).replace(/[^a-z0-9]/g,'')||'cc'+Date.now().toString(36);
   var el=document.createElement('div');el.id='coop';if(COOP.split==='v')el.className='v';
   var base=location.pathname.split('/').pop()||'game.html';
-  el.innerHTML='<iframe title="Player 1" allow="gamepad; autoplay; fullscreen" src="'+base+'?coop=0#play='+id+'"></iframe>'+
-    '<iframe title="Player 2" allow="gamepad; autoplay; fullscreen" src="'+base+'?coop=1#play='+id+'"></iframe>'+
+  el.innerHTML='<iframe title="Player 1" allow="gamepad; autoplay; fullscreen" src="'+base+'?coop=0&cc='+COOP.code+'#play='+id+'"></iframe>'+
+    '<iframe title="Player 2" allow="gamepad; autoplay; fullscreen" src="'+base+'?coop=1&cc='+COOP.code+'#play='+id+'"></iframe>'+
     '<span class="cpl" style="left:8px;top:8px">'+esc(coopLabel(0))+'</span>'+
     '<span class="cpl" style="'+(COOP.split==='v'?'left:8px;top:calc(50% + 8px)':'left:calc(50% + 8px);top:8px')+'">'+esc(coopLabel(1))+'</span>';
   document.body.appendChild(el);COOP.el=el;
