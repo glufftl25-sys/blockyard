@@ -231,6 +231,8 @@ button{touch-action:manipulation}
 .tb.wide{flex-direction:row;gap:6px;padding:6px 4px}
 .tb:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
 .tb:focus-visible{outline:3px solid #fff;outline-offset:2px}
+/* touch screens: every shop and send button is at least 44px tall, so fingers hit them */
+@media (pointer:coarse){#tdpanel .tb{min-height:44px}}
 /* phones held sideways: the buttons go in a column beside the board, so the board gets the full height */
 @media (orientation:landscape) and (max-height:520px){
   #play:has(#tdpanel:not([hidden])){display:grid;grid-template-columns:minmax(0,1fr) clamp(220px,32vw,300px);grid-template-rows:auto minmax(0,1fr);gap:8px 10px}
@@ -239,7 +241,7 @@ button{touch-action:manipulation}
   #tdpanel{grid-column:2;grid-row:2;min-height:0;overflow-y:auto;justify-content:safe center}
   #tdpanel .tdlbl{white-space:normal;height:auto;font-size:12px;line-height:14px}
   #tdpanel .tdrow{flex-wrap:wrap}
-  #tdpanel .tdrow .tb{flex:1 0 28%;min-height:34px}
+  #tdpanel .tdrow .tb{flex:1 0 28%;min-height:44px}
 }
 #lob-body{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:10px;-webkit-overflow-scrolling:touch}
 #lob-body>*{flex:none}
@@ -19851,7 +19853,16 @@ GAMES.td=(function(){
   g.update=function(dt){
     t+=dt;if(flash>0)flash-=dt;if(tipT>0)tipT-=dt;if(banner>0)banner-=dt;
     if(st==='over'){overT+=dt;return;}
-    if(st==='count'){cnt-=dt;if(cnt<=0){st='run';refreshPanel();}return;}
+    if(st==='count'){
+      cnt-=dt;
+      if(cnt<=0){
+        st='run';refreshPanel();
+        /* against the bot, the bot opens with a small wave of reds right away (and you get the same), so the first
+           seconds already have balloons to pop */
+        if(mode==='bot'){for(var ow=0;ow<4;ow++){me.queue.push(1);foe.queue.push(1);}me.qt=0;foe.qt=0;sentN=4;sentT=1.6;}
+      }
+      return;
+    }
     laneStep(me,dt);
     if(mode==='bot'){botThink(foe,me,dt);laneStep(foe,dt);}
     if(sentT>0)sentT-=dt;
