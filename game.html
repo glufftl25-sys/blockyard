@@ -100,6 +100,36 @@ h1{font-size:clamp(40px,13vw,56px);line-height:1;color:#fff;-webkit-text-stroke:
 .gpf{outline:4px solid #ffd23f!important;outline-offset:3px;box-shadow:0 0 0 8px rgba(255,210,63,.35)!important}
 #gptoast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);max-width:min(92vw,560px);background:#14213d;color:#fff;border:3px solid #ffd23f;border-radius:12px;padding:10px 14px;font:700 14px/1.35 system-ui,sans-serif;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:99}
 #gptoast.on{opacity:1;transform:translate(-50%,0)}
+#cmd .bar{display:none}
+#cmd .scr-body{padding:12px;display:flex;justify-content:center}
+.admp{width:100%;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;background:#1b1b2e;border:4px solid #14213d;border-radius:20px;box-shadow:0 8px 0 #14213d,0 18px 40px rgba(0,0,0,.45);overflow:hidden;min-height:min(640px,calc(100vh - 40px))}
+.admh{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 64px;min-height:64px;border-bottom:4px solid #14213d;
+  background-color:#ff8a1a;background-image:radial-gradient(circle,rgba(255,255,255,.22) 0 3px,transparent 3.6px),linear-gradient(90deg,#ffd23f,#ff8a1a 55%,#ff5a2d);background-size:16px 16px,100% 100%}
+.admham{position:absolute;left:12px;top:50%;width:44px;height:44px;transform:translateY(-50%)}
+.admt{margin:0;font:400 clamp(24px,4vw,38px)/1 'Lilita One',system-ui,sans-serif;letter-spacing:1px;color:#fff;-webkit-text-stroke:5px #14213d;paint-order:stroke fill;text-shadow:0 3px 0 #14213d}
+.admx{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:10px;border:3px solid #14213d;background:#e8302a;color:#fff;font:900 24px/1 system-ui,sans-serif;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25),0 3px 0 #14213d;cursor:pointer}
+.admx:hover{background:#ff4238}
+.admb{flex:1;display:grid;grid-template-columns:230px 1fr;gap:10px;padding:10px;min-height:0}
+.admtabs{display:flex;flex-direction:column;gap:12px;padding:10px;background:#262640;border:3px solid #14213d;border-radius:12px;overflow-y:auto}
+.admtab{--tc:#2f8cff;flex:none;padding:14px 10px;border-radius:10px;border:3px solid #14213d;color:#fff;cursor:pointer;
+  font:400 20px/1.1 'Lilita One',system-ui,sans-serif;-webkit-text-stroke:3px #14213d;paint-order:stroke fill;
+  background-color:var(--tc);background-image:radial-gradient(circle,rgba(255,255,255,.2) 0 2.5px,transparent 3px);background-size:14px 14px;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.35),inset 0 -5px 0 rgba(0,0,0,.25),0 4px 0 #14213d;transition:transform .08s}
+.admtab:hover{filter:brightness(1.08)}
+.admtab:active{transform:translateY(3px);box-shadow:inset 0 3px 0 rgba(255,255,255,.35),inset 0 -3px 0 rgba(0,0,0,.25),0 1px 0 #14213d}
+.admtab.on{outline:3px solid #fff;outline-offset:2px}
+.admc{background:#05050a;border:3px solid #14213d;box-shadow:inset 0 0 0 2px #7a5a1a;border-radius:12px;padding:16px;overflow-y:auto;min-width:0;max-height:calc(100vh - 140px)}
+.admsel{margin:0;text-align:center;font:400 28px/1.2 'Lilita One',system-ui,sans-serif;color:#fff}
+.admhead{margin-bottom:12px}
+.admhead .sheet{margin-top:0}
+.admhead>.note{font-size:13px;color:#9ea3c9}
+@media (max-width:720px){
+  .admb{grid-template-columns:1fr}
+  .admtabs{flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:8px}
+  .admtab{font-size:16px;padding:10px 12px;white-space:nowrap}
+  .admh{padding:8px 56px;min-height:54px}.admham{width:34px;height:34px}.admx{width:40px;height:40px}
+  .admc{max-height:none}
+}
 #coop{position:fixed;inset:0;z-index:2147482000;display:flex;flex-direction:row;gap:4px;background:#ffd23f}
 #coop.v{flex-direction:column}
 #coop iframe{flex:1 1 0;min-width:0;min-height:0;border:0;background:#15152b;display:block}
@@ -616,7 +646,7 @@ svg .t{fill:var(--stone)}svg .w{fill:#fff}svg .k{fill:var(--ink)}svg .o{stroke:v
         <div class="logo" role="heading" aria-level="1"><span class="lg">BLOCKYARD</span><span class="arc">ARCADE</span></div>
         <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m15 15 4.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><input id="hub-search" type="search" autocomplete="off" placeholder="Search games" aria-label="Search games"></label>
         <button class="pill coop" id="coop-btn" type="button" hidden aria-pressed="false">2 players: Off</button>
-        <button class="pill cmd" id="cmd-btn" type="button" hidden>Commands<span class="badge" id="cmd-badge" hidden>0</span></button>
+        <button class="pill cmd" id="cmd-btn" type="button" hidden>Admin<span class="badge" id="cmd-badge" hidden>0</span></button>
         <button class="pill create" id="create-btn" type="button">Create</button>
         <button class="brkbtn" id="shop-btn" type="button" aria-label="Bricks and shop"><span class="brk"></span><span id="brk-n">0</span></button>
         <button class="whobtn" id="acct-btn" type="button"><span class="av" id="acct-av">+</span><span class="nm" id="acct-name">Make account</span></button>
@@ -20603,6 +20633,30 @@ var P_ALL={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:true
 var P_DEF={panel:true,banner:true,gift:true,players:true,chats:true,c_speed:false,c_oneshot:false,c_god:false,c_jump:false,c_fly:false,c_ammo:false,c_reload:false,c_bullet:false,c_multi:false,c_wave:true,c_cash:true,c_bricks:true,requests:false,verify:false,events:false,assign:false,votes:false,reports:false,updates:false};
 var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evPick:'',evNote:'',vu:'',ann:'',gu:'',ga:'50',adm:'',rn:'',pick:'',sureRole:'',players:null,sure:false,startWave:1,tdCash:false};
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
+/* ===== Admin panel look: a blocky window with coloured tabs on the left and the chosen tab on the right.
+   cmdRender marks where each tab's tools start with ADMT(id); admWrap sorts them into tabs. ===== */
+var ADMTABS=[['announce','Announcements','#2f8cff'],['admins','Admins','#8b3dff'],['players','Players','#22b35a'],['give','Give','#ffc21a'],['mod','Moderation','#ff4d3d'],['cheats','Cheats','#ff7a1a'],['bots','Test bots','#16b8cf']];
+function ADMT(id){return '\u0001'+id+'\u0001';}
+function admWrap(h){
+  var parts=h.split('\u0001'),head=parts[0],got={},i;
+  for(i=1;i+1<parts.length;i+=2){var id=parts[i],body=parts[i+1];if(id==='_'){head+=body;continue;}if(body.replace(/\s+/g,''))got[id]=(got[id]||'')+body;}
+  var tabs=ADMTABS.filter(function(t){return got[t[0]];});
+  if(CMD.tab&&!got[CMD.tab])CMD.tab='';
+  var o='<div class="admp"><div class="admh"><svg class="admham" viewBox="0 0 40 40" aria-hidden="true"><g transform="rotate(-40 20 20)" stroke="#14213d" stroke-width="2.5"><rect x="17.5" y="15" width="5" height="22" rx="2" fill="#b0702f"/><rect x="7" y="5" width="26" height="12" rx="3" fill="#ffd23f"/><rect x="7" y="5" width="5" height="12" rx="2" fill="#c98a1a"/><rect x="28" y="5" width="5" height="12" rx="2" fill="#c98a1a"/></g></svg>'+
+    '<h2 class="admt">ADMIN PANEL</h2><button class="admx" id="adm-x" type="button" aria-label="Close the admin panel">✕</button></div>';
+  o+='<div class="admb"><nav class="admtabs" aria-label="Admin tabs">';
+  tabs.forEach(function(t){var on=CMD.tab===t[0];o+='<button type="button" class="admtab'+(on?' on':'')+'" data-admtab="'+t[0]+'" aria-pressed="'+on+'" style="--tc:'+t[2]+'">'+t[1]+'</button>';});
+  o+='</nav><div class="admc">';
+  if(head.replace(/\s+/g,''))o+='<div class="admhead">'+head+'</div>';
+  o+=CMD.tab?'<div class="admpane">'+got[CMD.tab]+'</div>':'<p class="admsel">'+(tabs.length?'Select a tab':'Your role has no tools turned on yet.')+'</p>';
+  return o+'</div></div></div>';
+}
+cmdBody.addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('[data-admtab],#adm-x'):null;if(!b)return;
+  if(b.id==='adm-x'){$('cmd-back').click();return;}
+  CMD.tab=b.getAttribute('data-admtab');beep(660,0.05,'square',0.03,1.3);cmdRender();
+  var c=cmdBody.querySelector('.admc');if(c)c.scrollTop=0;
+});
 function cleanPerms(p){var o={};PERMS.forEach(function(x){o[x[0]]=!!(p&&typeof p==='object'&&p[x[0]]===true);});
   /* roles saved before cheats existed had one "tools" switch: it becomes the three old test cheats */
   if(p&&typeof p==='object'&&p.tools===true){o.c_wave=true;o.c_cash=true;o.c_bricks=true;}
@@ -20727,12 +20781,13 @@ function cmdRender(){
     var hs='<div class="sheet"><h3>Owner commands</h3><p>You unlocked your owner tools on this device with your owner key.</p></div>';
     if(CMD.msg)hs+='<p class="note '+CMD.msg.t+'" role="status">'+esc(CMD.msg.s)+'</p>';
     hs+='<p class="note">This copy is not inside Claude, so here you get the tools that work on this device: Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements are in the Claude version, because they need everyone\u2019s shared data.</p>';
-    hs+=tbSection(dis)+bvSection(dis)+cmdCheatsHtml();
-    cmdBody.innerHTML=hs;return;
+    hs+=ADMT('bots')+tbSection(dis)+bvSection(dis)+ADMT('cheats')+cmdCheatsHtml();
+    cmdBody.innerHTML=admWrap(hs);return;
   }
   var h='<div class="sheet"><h3>'+(own?'Owner commands':'Commands')+'</h3><p>'+(own?'Only you decide who sees this and what each role can use.':'Your role: '+esc(myRoleName())+'.')+' Announcements and gifts reach everyone who opens the page.</p></div>';
   if(!SOC.ok)h+='<p class="note err">The online tools need this page opened inside claude.ai. The test tools below still work.</p>';
   if(CMD.msg)h+='<p class="note '+CMD.msg.t+'" role="status">'+esc(CMD.msg.s)+'</p>';
+  h+=ADMT('admins');
   if(can('requests'))h+=rqHtml(dis);
   if(own){
     h+=rolesHtml(dis)+giveHtml(dis,true)+peopleHtml(dis)+givenHtml(dis);
@@ -20740,7 +20795,9 @@ function cmdRender(){
     h+=okHtml(dis);
   }else if(asg)h+=giveHtml(dis,false)+givenHtml(dis);
   var any=can('requests');
+  h+=ADMT('announce');
   if(can('events')){any=true;h+=cmdEventHtml(dis);}
+  h+=ADMT('players');
   if(can('verify')){
     any=true;
     h+='<p class="lbl">Blue checks</p>';
@@ -20751,6 +20808,7 @@ function cmdRender(){
       h+='<div class="row"><span class="who">@'+esc(x.name)+VSVG+'<small>given by @'+esc(x.byName)+'</small></span>'+((own||x.by===SOC.uid)?'<button class="mini" type="button" data-cmd="vrm" data-u="'+esc(x.uid)+'" data-g="'+esc(x.by)+'"'+dis+'>Remove</button>':'')+'</div>';
     });
   }
+  h+=ADMT('mod');
   if(own||can('reports')){
     any=true;repSync();
     var rw=REP.list.filter(function(r){return repStatus(r)==='wait';}),rb=REP.list.filter(function(r){return repStatus(r)==='ok';});
@@ -20773,6 +20831,7 @@ function cmdRender(){
       });
     }
   }
+  h+=ADMT('players');
   if(own||can('votes')){
     any=true;
     h+='<p class="lbl">Vote weights</p><p class="note">How much a player\'s vote counts when their group makes a story choice. 1 is normal, 2 counts double, 0 means the vote does not count.</p>';
@@ -20784,18 +20843,21 @@ function cmdRender(){
       h+='<div class="row"><span class="who">@'+esc(x.name)+'<small>counts '+x.w+'x</small></span><button class="mini" type="button" data-cmd="vwrm" data-u="'+esc(x.uid)+'"'+dis+'>Remove</button></div>';
     });
   }
+  h+=ADMT('announce');
   if(can('banner')){
     any=true;
     h+='<p class="lbl">Announcement banner</p>';
     h+='<input class="field" id="cmd-ann" maxlength="120" autocomplete="off" placeholder="Shown at the top of the hub" value="'+esc(CMD.ann)+'">';
     h+='<div class="sendrow"><button class="mini ok" type="button" data-cmd="post"'+dis+'>Post</button><button class="mini" type="button" data-cmd="clearann"'+dis+'>Remove banner</button></div>';
   }
+  h+=ADMT('give');
   if(can('gift')){
     any=true;
     h+='<p class="lbl">Gift bricks</p>';
     h+='<input class="field" id="cmd-gu" maxlength="17" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Player username" value="'+esc(CMD.gu)+'">';
     h+='<div class="sendrow"><input class="field" id="cmd-ga" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="Bricks" value="'+esc(CMD.ga)+'"><button class="mini ok" type="button" data-cmd="gift"'+dis+'>Gift</button></div>';
   }
+  h+=ADMT('players');
   if(can('players')){
     any=true;
     h+='<p class="lbl">Players</p>';
@@ -20805,17 +20867,19 @@ function cmdRender(){
       h+='<div class="row"><span class="who">@'+esc(p.name)+vmark(p.uid)+'</span>'+(can('gift')?'<button class="mini" type="button" data-cmd="pick" data-name="'+esc(p.name)+'">Gift</button>':'')+'</div>';
     });
   }
+  h+=ADMT('bots');
   if(can('plays')){any=true;h+=plSection(dis);}
   if(can('testbots')){any=true;h+=tbSection(dis);}
   if(can('botview')){any=true;h+=bvSection(dis);}
+  h+=ADMT('mod');
   if(can('chats')){
     any=true;
     h+='<p class="lbl">Chat cleanup</p>';
     h+='<button class="choice" type="button" data-cmd="chats"'+dis+'>'+(CMD.sure?'Tap again to delete ALL chat messages':'Delete all chat messages')+'</button>';
   }
-  var ch=cmdCheatsHtml();if(ch)any=true;h+=ch;
+  var ch=cmdCheatsHtml();if(ch)any=true;h+=ADMT('cheats');h+=ch;h+=ADMT('_');
   if(!any&&!own&&!asg)h+='<p class="note">Your role has no tools turned on yet.</p>';
-  cmdBody.innerHTML=h;
+  cmdBody.innerHTML=admWrap(h);
   if(fid){var el=$(fid);if(el&&el.focus){el.focus();if(el.setSelectionRange&&el.value){try{el.setSelectionRange(el.value.length,el.value.length);}catch(_){}}}}
 }
 function cmdCheatsHtml(){
@@ -23269,7 +23333,7 @@ function gpMove(dir){
   if(best){gpSet(best);return;}
   if(dir==='up'||dir==='down'){var sc2=gpScroller(f);if(sc2)sc2.scrollBy({top:(dir==='down'?1:-1)*sc2.clientHeight*0.6,behavior:'smooth'});}
 }
-var GPBACK=['bot-back','bw-back','ch-back','chat-back','cmd-back','create-back','duel-back','lob-back','m3-back','prof-back','res-back','rq-back','set-back','shop-back','soc-back','upd-back'];
+var GPBACK=['bot-back','bw-back','ch-back','chat-back','cmd-back','adm-x','create-back','duel-back','lob-back','m3-back','prof-back','res-back','rq-back','set-back','shop-back','soc-back','upd-back'];
 function gpBack(){
   if(cur&&typeof PM!=='undefined'&&PM.open){pmClose();return;}
   for(var i=0;i<GPBACK.length;i++){var el=$(GPBACK[i]);if(el&&gpVisible(el)){el.click();return;}}
