@@ -325,6 +325,64 @@ async function websiteCheck(browser) {
   r.ok = !r.fail && !Object.keys(r.err).length;
   return r;
 }
+/* two players in one Obby Race (Sky Obby online) through the stand-in database: they must see each other, and when one
+   walks, the other must see it move */
+async function obbyRace(browser) {
+  const r = { id: 'm.obbymp', t: 'Obby Race (online Sky Obby)', check: true, err: {}, ok: true, steps: 0, fail: '' };
+  const srv = await serve(path.dirname(game));
+  const url = 'http://127.0.0.1:' + srv.address().port + '/' + path.basename(game);
+  const mock = path.join(__dirname, 'fbmock');
+  const pages = [];
+  const say = m => { r.err[m] = (r.err[m] || 0) + 1; };
+  const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (await f()) return true; } catch (e) {} await sleep(300); } return false; };
+  try {
+    await Promise.all([0, 1].map(async i => {
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+      await ctx.addInitScript(() => { try { sessionStorage.setItem('by.gate', 'skip'); } catch (e) {} });
+      await ctx.route(/^https?:\/\/(?!127\.0\.0\.1)/, rt => {
+        const m = rt.request().url().match(/gstatic\.com\/firebasejs\/[0-9.]+\/(firebase-[a-z]+\.js)$/);
+        if (m && fs.existsSync(path.join(mock, m[1]))) return rt.fulfill({ status: 200, headers: { 'content-type': 'application/javascript', 'access-control-allow-origin': '*' }, body: fs.readFileSync(path.join(mock, m[1]), 'utf8') });
+        return rt.abort();
+      });
+      const pg = await ctx.newPage();
+      pg.on('pageerror', e => say(String(e.message).slice(0, 110)));
+      await pg.exposeFunction('__relay', m => { pages.filter(p => p && p !== pg && !p.isClosed()).forEach(p => p.evaluate(m => window.__chIn && window.__chIn(m), m).catch(() => {})); });
+      pages[i] = pg;
+      await pg.goto(url, { waitUntil: 'load' });
+      await pg.waitForFunction(() => !!(window.BY_TESTBOTS && window.BY_TESTBOTS.net), null, { timeout: 15000 });
+    }));
+    const [A, B] = pages;
+    const net = p => p.evaluate(() => window.BY_TESTBOTS.net());
+    let seen = null;
+    const steps = [
+      ['the two players did not see each other in the race', async () => {
+        await A.evaluate(() => window.BY_TESTBOTS.net('obbymp')); await B.evaluate(() => window.BY_TESTBOTS.net('obbymp'));
+        return until(async () => { const a = await net(A), b = await net(B); seen = b.others[0]; return a.joined && b.joined && a.room === b.room && a.others.length >= 1 && b.others.length >= 1; }, 20000);
+      }],
+      ['when one player walked, the other did not see them move', async () => {
+        const x0 = seen.x, z0 = seen.z;
+        await A.bringToFront();
+        for (const k of ['ArrowUp', 'KeyW']) await A.keyboard.down(k);
+        const moved = await until(async () => { const o = (await net(B)).others[0]; return o && Math.hypot(o.x - x0, o.z - z0) > 1; }, 6000);
+        for (const k of ['ArrowUp', 'KeyW']) await A.keyboard.up(k);
+        return moved;
+      }]
+    ];
+    for (const s of steps) {
+      r.steps++;
+      let ok = false;
+      try { ok = await s[1](); } catch (e) { r.fail = s[0] + ' (' + String(e.message).slice(0, 80) + ')'; break; }
+      if (!ok) { r.fail = s[0]; break; }
+    }
+    for (const p of pages) await p.evaluate(() => window.BY_TESTBOTS.net('close')).catch(() => {});
+  } catch (e) {
+    r.fail = 'it could not start: ' + String(e.message).slice(0, 80);
+  }
+  for (const p of pages) if (p) await p.context().close().catch(() => {});
+  srv.close();
+  r.ok = !r.fail && !Object.keys(r.err).length;
+  return r;
+}
 function problemOf(r) {
   const b = [], em = Object.keys(r.err || {});
   if (r.fail) b.push(r.fail);
@@ -385,6 +443,9 @@ function problemOf(r) {
     const lap = report.runs[0];
     lap.results.push(mp);
     if (!mp.ok) lap.problems.push(problemOf(mp));
+    const ob = await obbyRace(browser);
+    lap.results.push(ob);
+    if (!ob.ok) lap.problems.push(problemOf(ob));
     const fc = await friendChat(browser);
     lap.results.push(fc);
     if (!fc.ok) lap.problems.push(problemOf(fc));
@@ -400,6 +461,22 @@ function problemOf(r) {
     if (!report.runs.length) report.runs.push({ size: 'laptop', w: 1280, h: 720, problems: [], results: [], lag: [], pageErrors: [] });
     report.runs[0].results.push(nm);
     if (!nm.ok) report.runs[0].problems.push(problemOf(nm));
+  }
+  {
+    /* static: the default control keys must be the keys the games read (Settings > Controls translates the player's keys
+       to BIND_CANON; a default that differs from it swaps keys in every game, as left:'KeyD',right:'KeyA' once did) */
+    const kc = { id: 'm.keys', t: 'Default keys (A left, D right)', check: true, err: {}, ok: true, steps: 1, fail: '' };
+    const src = fs.readFileSync(game, 'utf8');
+    const obj = name => { const m = src.match(new RegExp('var ' + name + '=(\\{[^}]*\\})')); if (!m) return null; const o = {}; m[1].replace(/(\w+):'(\w+)'/g, (_, k, v) => { o[k] = v; }); return o; };
+    const def = obj('BIND_DEF'), can = obj('BIND_CANON');
+    if (def && can) {
+      const bad = ['forward', 'back', 'left', 'right', 'jump'].filter(k => def[k] !== can[k]);
+      if (bad.length) kc.fail = 'the default keys do not match what the games read: ' + bad.map(k => k + ' is ' + def[k] + ' but games expect ' + can[k]).join(', ');
+    }
+    kc.ok = !kc.fail;
+    if (!report.runs.length) report.runs.push({ size: 'laptop', w: 1280, h: 720, problems: [], results: [], lag: [], pageErrors: [] });
+    report.runs[0].results.push(kc);
+    if (!kc.ok) report.runs[0].problems.push(problemOf(kc));
   }
   if (fs.existsSync(path.join(__dirname, 'checkrelease.js'))) {
     /* tools/checkrelease.js, local part only (no network): the home page, updates list, manifest, sw.js and itch loader agree */
