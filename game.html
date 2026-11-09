@@ -26216,6 +26216,11 @@ function setRender(){
   h+=fbHtml();
   h+=supHtml();
   h+=ownerSetHtml();
+  if(!SOLO){
+    h+='<p class="lbl">Play on the website, app and itch.io</p><p class="note">Take your bricks, avatar, worlds and best scores with you. The website opens with your progress, ready to make your player.'+(SOC.account?' Use the same name, <b>@'+esc(SOC.account.username)+'</b>, and add a password there so it saves online and works on itch.io too.':'')+'</p>';
+    h+='<button class="choice" type="button" data-sv="move">Open my account on the website</button>';
+    if(SV.moveUrl)h+='<p class="note">If it did not open: <a href="'+esc(SV.moveUrl)+'" target="_blank" rel="noopener">tap here to open the website</a>. On itch.io, copy your save code below and paste it in Settings there.</p>';
+  }
   h+='<p class="lbl">'+(SOLO?'Account code':'Save code')+'</p><p class="note">'+(SOC.account?'Your account saves your progress online. You can still keep a backup code.':(SOLO?'Your account code IS your account. Copy it somewhere safe \u2014 paste it on any other device and sign in with your password to pick up exactly where you left off.':'A save code keeps your progress safe and moves it to another device.'))+'</p>';
   if(SV.msg)h+='<p class="note '+SV.msg.t+'" role="status">'+esc(SV.msg.s)+'</p>';
   h+='<button class="choice" type="button" data-sv="copy">Copy my '+(SOLO?'account':'save')+' code</button>';
@@ -26320,6 +26325,11 @@ $('set-body').addEventListener('click',function(e){
   if(st==='pw')stChangePw();
   else if(st==='out')stSignOut();
   else if(st==='go'){openSocial();return;}
+  else if(sv==='move'){
+    SV.moveUrl='https://glufftl25-sys.github.io/blockyard/game.html#move='+svMake();
+    var wo=null;try{wo=window.open(SV.moveUrl,'_blank','noopener');}catch(e){}
+    SV.msg={t:'good',s:wo===null?'Tap the link below to open the website.':'The website opened in a new tab with your progress.'};
+  }
   else if(sv==='copy'){
     var code=svMake();SV.show=code;SV.sure=false;
     var ok=false;
@@ -26808,6 +26818,18 @@ function unMake(){
     });
   }).then(function(){EM.busy=false;EM.un=false;emDone();emShow();},function(e){emErr(emWhy(e));EM.un=false;});
 }
+/* moving from the Claude version: game.html#move=<save code> opens Settings with the code ready and the Claude name filled in */
+(function(){
+  if(!SOLO||WALL)return;
+  var m=/^#move=(BY1\.[A-Za-z0-9._-]+)$/.exec(location.hash||'');if(!m)return;
+  try{sessionStorage.setItem('by.gate','skip');}catch(e){}
+  try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
+  var bd=svBody(m[1]);if(!bd)return;
+  SV.draft=m[1];SV.sure=false;SV.need='';
+  if(!GST){SV.mk=true;SV.nm=(typeof bd.n==='string'&&NAME_RE.test(bd.n))?bd.n:'';}
+  SV.msg={t:'good',s:'Welcome from Claude! '+(GST?'Tap the button below to load your progress into @'+GST.name+'.':'Tap "Make my player and load" to bring your progress here.')+' Then make an online account with a password (Account, above) so it works on itch.io and your other devices too.'};
+  setTimeout(function(){try{setRender();openScreen($('settings'));var el=$('sv-in');if(el)el.scrollIntoView({block:'center'});}catch(e){}},300);
+})();
 /* links from the website: game.html#play=<id> opens that game straight away (the Sign in screen can wait) */
 (function(){
   var m=/^#play=([a-z0-9]{2,16})$/.exec(location.hash||'');if(!m)return;
