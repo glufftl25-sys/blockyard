@@ -122,6 +122,7 @@ h1{font-size:clamp(40px,13vw,56px);line-height:1;color:#fff;-webkit-text-stroke:
 .admsel{margin:0;text-align:center;font:400 28px/1.2 'Lilita One',system-ui,sans-serif;color:#fff}
 .admhead{margin-bottom:12px}
 .admhead .sheet{margin-top:0}
+.slog .chip.on{background:#3fd58a;color:#14213d}
 .admhead>.note{font-size:13px;color:#9ea3c9}
 @media (max-width:720px){
   .admb{grid-template-columns:1fr}
@@ -3382,6 +3383,7 @@ function netJoin(name){
   if(typeof bioSoon==='function'&&cur)setTimeout(bioSoon,0);
   if(typeof amBlocked==='function'&&amBlocked()){NET.blocked=true;var bt=$('bantag');if(bt&&cur)bt.hidden=false;return;}
   NET.name=name;NET.on=true;NET.fail=false;
+  slogStart(name);
   getRoom().then(function(rm){
     if(!rm)throw 0;
     if(!NET.on||NET.name!==name)return null;
@@ -3393,6 +3395,7 @@ function netJoin(name){
     NET.offs.push(room.onPeers(function(c){
       NET.peers=c.peers||[];
       for(var i=0;i<NET.peers.length;i++)if(NET.peers[i].sameTab)NET.me=NET.peers[i].peer;
+      slogSync();
       if(typeof modWatch==='function')modWatch();
       if(typeof gchScan==='function')gchScan();
     }));
@@ -3401,6 +3404,7 @@ function netJoin(name){
 function netLeave(){
   NET.offs.forEach(function(f){try{f();}catch(e){}});NET.offs=[];
   if(typeof MODW!=='undefined')MODW.p={};
+  slogEnd();
   var r=NET.room;NET.room=null;NET.on=false;NET.peers=[];NET.sm={};NET.pend=null;NET.me='';NET.gcOn=false;
   if(r){try{r.leave().catch(function(){});}catch(e){}}
 }
@@ -3428,6 +3432,52 @@ function netName(p){
   var gn=p.presence&&p.presence.nm;
   if(typeof gn==='string'&&NAME_RE.test(gn)&&!isBadName(gn))return SOLO?gn:gn+' (guest)';
   return 'Player';
+}
+/* ===== Server log (Admin panel): who joined and left the online game room you are in, and when.
+   It keeps the last room you were in until you join another one. ===== */
+var SLOG={room:'',game:'',at:0,end:0,list:[],by:{}};
+function slogTime(t){try{return new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}catch(e){var d=new Date(t),h=d.getHours(),m=d.getMinutes();return ((h%12)||12)+':'+(m<10?'0':'')+m+(h<12?' AM':' PM');}}
+function slogStart(name){
+  if(SLOG.room===name&&!SLOG.end)return;
+  SLOG={room:name,game:(cur&&cur.title)||'',at:Date.now(),end:0,list:[],by:{}};slogRedraw();
+}
+function slogEnd(){
+  if(!SLOG.room||SLOG.end)return;
+  var now=Date.now();SLOG.end=now;
+  SLOG.list.forEach(function(e){if(!e.left)e.left=now;e.cut=true;});slogRedraw();
+}
+function slogName(p){var n=netName(p);if(n==='Player')return '';return (p.by&&AVN[p.by])?'@'+n:n;}
+function slogSync(){
+  if(!SLOG.room)return;
+  var now=Date.now(),here={},ch=false;
+  NET.peers.forEach(function(p){
+    if(p.sameTab||p.kind!=='viewer'||!p.peer)return;
+    here[p.peer]=1;
+    var e=SLOG.by[p.peer],nm=slogName(p);
+    if(!e){e={peer:p.peer,name:nm,join:now,left:0,pre:now-SLOG.at<2500};SLOG.by[p.peer]=e;SLOG.list.push(e);ch=true;}
+    else if(e.left&&!e.cut){e.left=0;ch=true;}
+    if(nm&&nm!==e.name){e.name=nm;ch=true;}
+  });
+  SLOG.list.forEach(function(e){if(!e.left&&!here[e.peer]){e.left=now;ch=true;}});
+  if(SLOG.list.length>300){SLOG.list=SLOG.list.slice(-300);}
+  if(ch)slogRedraw();
+}
+function slogRedraw(){
+  if(typeof CMD==='undefined'||CMD.tab!=='log')return;
+  var el=$('cmd');if(el&&!el.hidden&&typeof cmdRender==='function')cmdRender();
+}
+function slogHtml(){
+  var h='<p class="lbl">Server log</p>';
+  if(!SLOG.room)return h+'<p class="note">Join an online game and everyone who comes and goes shows up here, with the time they joined and left.</p>';
+  var live=!SLOG.end&&NET.on&&NET.name===SLOG.room;
+  h+='<p class="note">'+(live?'Your server now':'Your last server')+': <b>'+esc(SLOG.game||'online game')+'</b> · you joined at '+esc(slogTime(SLOG.at))+(SLOG.end?' · you left at '+esc(slogTime(SLOG.end)):'')+'</p>';
+  if(!SLOG.list.length)return h+'<p class="note">Nobody else has been in this server yet.</p>';
+  SLOG.list.slice().reverse().forEach(function(e){
+    var who=e.name||'A player',jt=e.pre?'was here when you joined ('+slogTime(e.join)+')':'joined at '+slogTime(e.join);
+    var lt=e.left?(e.cut?'still here when you left':'left at '+slogTime(e.left)):'still here';
+    h+='<div class="row slog"><span class="who">'+esc(who)+'<small>'+esc(jt)+' · '+esc(lt)+'</small></span><span class="chip'+(e.left?'':' on')+'">'+(e.left?'Gone':'Here')+'</span></div>';
+  });
+  return h;
 }
 function netColor(p){
   var a=p.by&&AVS[p.by];
@@ -20635,7 +20685,7 @@ var CMD={vwn:'',vww:'2',owner:false,admin:false,perms:{},busy:false,msg:null,evP
 function cmdMsg(t,s){CMD.msg={t:t,s:s};}
 /* ===== Admin panel look: a blocky window with coloured tabs on the left and the chosen tab on the right.
    cmdRender marks where each tab's tools start with ADMT(id); admWrap sorts them into tabs. ===== */
-var ADMTABS=[['announce','Announcements','#2f8cff'],['admins','Admins','#8b3dff'],['players','Players','#22b35a'],['give','Give','#ffc21a'],['mod','Moderation','#ff4d3d'],['cheats','Cheats','#ff7a1a'],['bots','Test bots','#16b8cf']];
+var ADMTABS=[['log','Server log','#1fae8e'],['announce','Announcements','#2f8cff'],['admins','Admins','#8b3dff'],['players','Players','#22b35a'],['give','Give','#ffc21a'],['mod','Moderation','#ff4d3d'],['cheats','Cheats','#ff7a1a'],['bots','Test bots','#16b8cf']];
 function ADMT(id){return '\u0001'+id+'\u0001';}
 function admWrap(h){
   var parts=h.split('\u0001'),head=parts[0],got={},i;
@@ -20781,12 +20831,13 @@ function cmdRender(){
     var hs='<div class="sheet"><h3>Owner commands</h3><p>You unlocked your owner tools on this device with your owner key.</p></div>';
     if(CMD.msg)hs+='<p class="note '+CMD.msg.t+'" role="status">'+esc(CMD.msg.s)+'</p>';
     hs+='<p class="note">This copy is not inside Claude, so here you get the tools that work on this device: Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements are in the Claude version, because they need everyone\u2019s shared data.</p>';
-    hs+=ADMT('bots')+tbSection(dis)+bvSection(dis)+ADMT('cheats')+cmdCheatsHtml();
+    hs+=ADMT('log')+slogHtml()+ADMT('bots')+tbSection(dis)+bvSection(dis)+ADMT('cheats')+cmdCheatsHtml();
     cmdBody.innerHTML=admWrap(hs);return;
   }
   var h='<div class="sheet"><h3>'+(own?'Owner commands':'Commands')+'</h3><p>'+(own?'Only you decide who sees this and what each role can use.':'Your role: '+esc(myRoleName())+'.')+' Announcements and gifts reach everyone who opens the page.</p></div>';
   if(!SOC.ok)h+='<p class="note err">The online tools need this page opened inside claude.ai. The test tools below still work.</p>';
   if(CMD.msg)h+='<p class="note '+CMD.msg.t+'" role="status">'+esc(CMD.msg.s)+'</p>';
+  h+=ADMT('log')+slogHtml();
   h+=ADMT('admins');
   if(can('requests'))h+=rqHtml(dis);
   if(own){
