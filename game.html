@@ -20720,6 +20720,7 @@ function giftSubs(){
 function syncAdmin(){
   if(typeof showEvent==='function')showEvent();
   CMD.perms=CMD.owner?P_ALL:(permsOf(SOC.uid)||{});
+  if(!CMD.owner&&KEYPERMS){var kpm={},kq;for(kq in CMD.perms)kpm[kq]=CMD.perms[kq];for(kq in KEYPERMS)kpm[kq]=true;CMD.perms=kpm;}
   CMD.admin=!!CMD.perms.panel;
   $('cmd-btn').hidden=!CMD.admin;
   rqSync();if(typeof repEnforce==='function'&&REP.subbed)repEnforce();
@@ -22103,10 +22104,10 @@ function cmdRender(){
   var dis=CMD.busy?' disabled':'',own=CMD.owner,asg=!own&&can('assign');
   if(SOLO){
     /* outside Claude: only the tools that work on this device */
-    var hs='<div class="sheet"><h3>Owner commands</h3><p>You unlocked your owner tools on this device with your owner key.</p></div>';
+    var hs=own?'<div class="sheet"><h3>Owner commands</h3><p>You unlocked your owner tools on this device with your owner key.</p></div>':'<div class="sheet"><h3>Admin key</h3><p>The owner gave this device a key for: '+esc(okGrantText(okGrantsOf(lsGet('ownerpass',''))))+'.</p></div>';
     if(CMD.msg)hs+='<p class="note '+CMD.msg.t+'" role="status">'+esc(CMD.msg.s)+'</p>';
     hs+='<p class="note">This copy is not inside Claude, so here you get the tools that work on this device: Test bots, Watch the bots play and Cheats. Players, chats, requests, roles, gifts, events and announcements are in the Claude version, because they need everyone\u2019s shared data.</p>';
-    hs+=ADMT('log')+slogHtml()+ADMT('bots')+tbSection(dis)+bvSection(dis)+ADMT('cheats')+cmdCheatsHtml();
+    hs+=ADMT('log')+slogHtml()+ADMT('bots')+(can('testbots')?tbSection(dis):'')+(can('botview')?bvSection(dis):'')+ADMT('cheats')+cmdCheatsHtml();
     cmdBody.innerHTML=admWrap(hs);return;
   }
   var h='<div class="sheet"><h3>'+(own?'Owner commands':'Commands')+'</h3><p>'+(own?'Only you decide who sees this and what each role can use.':'Your role: '+esc(myRoleName())+'.')+' Announcements and gifts reach everyone who opens the page.</p></div>';
@@ -22231,47 +22232,73 @@ function cmdCheatsHtml(){
 var OWNER_FP='93eb87674caf8b5a09e7694cd9cdcc298a7433576651005d147e082ffd7f9a5d';   /* the first, fixed owner key: devices it unlocked stay unlocked */
 var OWNER_PUB={"kty":"EC","crv":"P-256","x":"N7Ze6ZIePlnbefLS76LEHGsZ5FkhtbKhRi7doKDJZCI","y":"a0elsAp0smBCQ6nhl3bBEPLGosaynvln87qDpuJa2SQ"};
 var OK={jwk:null,code:'',w:0,busy:false,shown:false,draft:'',msg:null,tick:0,gen:0};
+/* what an owner key gives: empty = full owner; otherwise these tools only (one letter each, signed into the key) */
+var OKG=[['testbots','t'],['botview','v'],['c_speed','s'],['c_oneshot','o'],['c_god','g'],['c_jump','j'],['c_fly','f'],['c_ammo','a'],['c_reload','r'],['c_bullet','b'],['c_multi','m'],['c_wave','w'],['c_cash','c'],['c_bricks','k']];
+var KEYPERMS=null;
+function okGiveLoad(){var o=lsGet('okgive',null);if(!o||typeof o!=='object')return {owner:true,p:{}};var r={owner:o.owner!==false,p:{}};OKG.forEach(function(x){r.p[x[0]]=!!(o.p&&o.p[x[0]]);});return r;}
+OK.give=okGiveLoad();
+function okGrantStr(){if(OK.give.owner)return '';var g='';OKG.forEach(function(x){if(OK.give.p[x[0]])g+=x[1];});return g;}
+function okGrantsOf(code){var m=/^BYO-[0-9A-Z]{1,12}-([a-z]{1,30})\./.exec(String(code||'').replace(/\s+/g,''));return m?m[1]:'';}
+function okPermsOf(g){var o={panel:true};OKG.forEach(function(x){if(g.indexOf(x[1])>=0)o[x[0]]=true;});return o;}
+function okPermLabel(k){for(var i=0;i<PERMS.length;i++)if(PERMS[i][0]===k)return PERMS[i][1].replace(/^Cheat: /,'');return k;}
+function okGrantText(g){var l=[];OKG.forEach(function(x){if(g.indexOf(x[1])>=0)l.push(okPermLabel(x[0]));});return l.join(', ');}
 function ownerFp(k){return sha256('blockyard-owner|'+String(k||'').trim());}
 function okWin(){return Math.floor(Date.now()/300000);}
 function okB64(buf){var b=new Uint8Array(buf),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function okUnB64(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var r=atob(s),b=new Uint8Array(r.length);for(var i=0;i<r.length;i++)b[i]=r.charCodeAt(i);return b;}
-function okMsg(w){return new TextEncoder().encode('blockyard-owner|'+w);}
+function okMsg(w,g){return new TextEncoder().encode('blockyard-owner|'+w+(g?'|'+g:''));}
 function okSubtle(){try{return (window.crypto&&window.crypto.subtle)||null;}catch(e){return null;}}
 /* check a 5-minute owner key. fresh: it must be from these 5 minutes (or the ones just before or after) */
 function okCheck(code,fresh){
-  var m=/^BYO-([0-9A-Z]{1,12})-([A-Za-z0-9_-]{60,120})$/.exec(String(code||'').replace(/\s+/g,'')),cs=okSubtle();
+  var m=/^BYO-([0-9A-Z]{1,12})-(?:([a-z]{1,30})\.)?([A-Za-z0-9_-]{60,120})$/.exec(String(code||'').replace(/\s+/g,'')),cs=okSubtle();
   if(!m)return Promise.resolve('bad');
   if(!cs)return Promise.resolve('nocrypto');
   var w=parseInt(m[1],36);
   if(fresh&&Math.abs(w-okWin())>1)return Promise.resolve('old');
   return cs.importKey('jwk',OWNER_PUB,{name:'ECDSA',namedCurve:'P-256'},false,['verify']).then(function(k){
-    return cs.verify({name:'ECDSA',hash:'SHA-256'},k,okUnB64(m[2]),okMsg(w));
+    return cs.verify({name:'ECDSA',hash:'SHA-256'},k,okUnB64(m[3]),okMsg(w,m[2]||''));
   }).then(function(ok){return ok?'ok':'bad';},function(){return 'bad';});
 }
 function ownerKeyOK(){var k=lsGet('ownerkey','');return typeof k==='string'&&!!k&&ownerFp(k)===OWNER_FP;}
 function ownerSync(){
   if(!SOLO||WALL)return;
-  var g=++OK.gen,set=function(o){if(g!==OK.gen)return;if(o!==CMD.owner){CMD.owner=o;syncAdmin();try{if(!$('settings').hidden)setRender();}catch(e){}}};
+  var g=++OK.gen,set=function(o,kp){if(g!==OK.gen)return;var was=JSON.stringify(KEYPERMS);KEYPERMS=kp||null;if(o!==CMD.owner||was!==JSON.stringify(KEYPERMS)){CMD.owner=o;syncAdmin();try{if(!$('settings').hidden)setRender();}catch(e){}}};
   if(ownerKeyOK()){set(true);return;}
   var p=lsGet('ownerpass','');
   if(!p){set(false);return;}
-  okCheck(p,false).then(function(r){set(r==='ok');});
+  okCheck(p,false).then(function(r){var gr=okGrantsOf(p);if(r!=='ok')set(false);else if(gr)set(false,okPermsOf(gr));else set(true);});
 }
 /* the owner's Commands in Claude: the key for these 5 minutes, with a countdown */
 function okLeft(){var s=Math.max(0,Math.ceil(((OK.w+1)*300000-Date.now())/1000));return 'This key changes in '+Math.floor(s/60)+':'+('0'+(s%60)).slice(-2)+'.';}
 function okHtml(dis){
   var h='<p class="lbl">Owner on the website and app</p><p class="note">The website, the app and itch.io can’t see that you own this page. Your owner key changes every 5 minutes: copy it and paste it on the website or app in Settings → Owner before it changes. A device you unlock keeps Commands (Test bots, Watch the bots play and Cheats), even after the key changes.</p>';
   if(OK.msg)h+='<p class="note '+OK.msg.t+'" role="status">'+esc(OK.msg.s)+'</p>';
+  h+=okGiveHtml();
   if(OK.shown&&OK.code)h+='<div class="sendrow"><input class="field" id="cmd-okey" readonly value="'+esc(OK.code)+'" onclick="this.select()" aria-label="Your owner key for the next few minutes"><button class="mini ok" type="button" data-cmd="okcopy">Copy</button></div><p class="note" id="cmd-okt">'+esc(okLeft())+'</p><button class="mini" type="button" data-cmd="okhide">Hide</button>';
   else h+='<button class="choice" type="button" data-cmd="okshow"'+(OK.busy?' disabled':dis)+'>'+(OK.busy?'Loading...':'Show my owner key')+'</button>';
   return h;
 }
+function okGiveHtml(){
+  var G=OK.give,h='<p class="lbl">What this key gives</p><p class="note">Give your key to someone and they only get what you pick here. Full owner gives everything that works on the website and app.</p>';
+  h+='<div class="row"><span class="who">Full owner<small>Everything: test bots, bot viewer and all cheats</small></span><button class="mini'+(G.owner?' ok':'')+'" type="button" data-okg="owner" aria-pressed="'+G.owner+'">'+(G.owner?'On':'Off')+'</button></div>';
+  if(!G.owner){
+    OKG.forEach(function(x){var on=!!G.p[x[0]];h+='<div class="row"><span class="who">'+esc(okPermLabel(x[0]))+'</span><button class="mini'+(on?' ok':'')+'" type="button" data-okg="'+x[0]+'" aria-pressed="'+on+'">'+(on?'On':'Off')+'</button></div>';});
+    if(!okGrantStr())h+='<p class="note err">Turn on at least one thing for this key.</p>';
+  }
+  return h;
+}
+function okGiveSet(k){
+  if(k==='owner')OK.give.owner=!OK.give.owner;else OK.give.p[k]=!OK.give.p[k];
+  lsSet('okgive',OK.give);
+  if(OK.shown)okMake().then(function(){cmdRender();},function(){cmdRender();});else cmdRender();
+}
+cmdBody.addEventListener('click',function(e){var b=e.target.closest?e.target.closest('[data-okg]'):null;if(!b)return;okGiveSet(b.getAttribute('data-okg'));});
 function okMake(){
   var cs=okSubtle();if(!cs||!OK.jwk)return Promise.reject(new Error('no crypto'));
-  var w=okWin();
+  var w=okWin(),g=okGrantStr();
   return cs.importKey('jwk',OK.jwk,{name:'ECDSA',namedCurve:'P-256'},false,['sign']).then(function(k){
-    return cs.sign({name:'ECDSA',hash:'SHA-256'},k,okMsg(w));
-  }).then(function(sig){OK.w=w;OK.code='BYO-'+w.toString(36).toUpperCase()+'-'+okB64(sig);});
+    return cs.sign({name:'ECDSA',hash:'SHA-256'},k,okMsg(w,g));
+  }).then(function(sig){OK.w=w;OK.code='BYO-'+w.toString(36).toUpperCase()+'-'+(g?g+'.':'')+okB64(sig);});
 }
 /* while the key is shown: a new key every 5 minutes and a ticking countdown */
 function okTick(){
@@ -22284,6 +22311,7 @@ function okTick(){
 }
 function okShow(){
   if(!CMD.owner||!SOC.db||!SOC.uid||OK.busy)return;
+  if(!OK.give.owner&&!okGrantStr()){OK.msg={t:'err',s:'Turn on at least one thing this key gives.'};cmdRender();return;}
   var go=function(){return okMake().then(function(){OK.shown=true;okTick();});};
   OK.busy=true;OK.msg=null;cmdRender();
   (OK.jwk?go():SOC.db.doc('data/users/'+SOC.uid+'/ownerkey').get().then(function(sn){
@@ -22303,6 +22331,7 @@ function ownerSetHtml(){
   if(!SOLO||WALL)return '';
   var h='<p class="lbl" id="own-sec">Owner</p>';
   if(OK.msg)h+='<p class="note '+OK.msg.t+'" role="status">'+esc(OK.msg.s)+'</p>';
+  if(!CMD.owner&&KEYPERMS)return h+'<div class="sheet"><p>This device has an admin key from the owner. It gives: '+esc(okGrantText(okGrantsOf(lsGet('ownerpass',''))))+'. Admin is at the top of the hub.</p></div><button class="choice alt" type="button" data-own="off">Remove the admin key from this player</button>';
   if(CMD.owner)return h+'<div class="sheet"><p>You are the owner on this device. Commands is at the top of the hub, and it stays even when the owner key changes.</p></div><button class="choice alt" type="button" data-own="off">Remove owner from this player</button>';
   h+='<p class="note">Own Blockyard? Paste your owner key to get your Commands here. Find it in the Claude version: Commands → Owner on the website and app. It changes every 5 minutes, so copy a fresh one.</p>';
   h+='<div class="sendrow"><input class="field" id="own-key" maxlength="160" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Owner key (starts with BYO-)" value="'+esc(OK.draft)+'"><button class="mini ok" type="button" data-own="go"'+(OK.busy?' disabled':'')+'>'+(OK.busy?'Checking...':'Unlock')+'</button></div>';
@@ -22318,7 +22347,7 @@ $('set-body').addEventListener('click',function(e){
     OK.busy=true;OK.msg=null;setRender();
     okCheck(k,true).then(function(r){
       OK.busy=false;
-      if(r==='ok'){lsSet('ownerpass',k);OK.draft='';OK.msg={t:'good',s:'You are the owner on this device! Commands is at the top of the hub, and it stays here.'};ownerSync();}
+      if(r==='ok'){lsSet('ownerpass',k);OK.draft='';var gk=okGrantsOf(k);OK.msg={t:'good',s:gk?'Key unlocked! You can now use: '+okGrantText(gk)+'. Open Admin at the top of the hub.':'You are the owner on this device! Admin is at the top of the hub, and it stays here.'};ownerSync();}
       else if(r==='old')OK.msg={t:'err',s:'That owner key is too old. It changes every 5 minutes, so copy the newest one.'};
       else if(r==='nocrypto')OK.msg={t:'err',s:'This browser can’t check owner keys here. Open Blockyard from its https:// address.'};
       else OK.msg={t:'err',s:'That owner key is not right.'};
